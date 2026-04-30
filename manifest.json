@@ -1,0 +1,6 @@
+{
+  "id": "community:lora-scripts-ui-main",
+  "name": "LoRA ReScripts UI",
+  "version": "2.0.0",
+  "entry_file": "index.html"
+}
