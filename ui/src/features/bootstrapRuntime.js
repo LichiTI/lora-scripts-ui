@@ -48,7 +48,7 @@ export function createBootstrapRuntimeController({
       state.tasks = taskHistorySummary.mergeTaskHistory(backendTasks, localHistory, state.tasks);
       state._taskHistoryDirty = true;
       for (const task of state.tasks) {
-        if (task._summary && task._summary._v >= 2) state.taskSummaries[task.id] = task._summary;
+        if (task.status === 'FINISHED' && task._summary && task._summary._v >= 2) state.taskSummaries[task.id] = task._summary;
       }
     }
     if (interrogatorsResult.status === 'fulfilled') {
@@ -71,14 +71,13 @@ export function createBootstrapRuntimeController({
     async function poll() {
       try {
         const hadRunning = state.tasks.some((task) => task.status === 'RUNNING');
-        const prevRunningIds = state.tasks.filter((task) => task.status === 'RUNNING').map((task) => task.id);
+        const prevRunningIds = state.tasks.filter((task) => task.status === 'RUNNING').map((task) => task.id || task.task_id);
         const response = await api.getTasks();
         const backendTasks = response?.data?.tasks || [];
         const localHistory = await taskHistorySummary.loadLocalTaskHistory();
         state.tasks = taskHistorySummary.mergeTaskHistory(backendTasks, localHistory, state.tasks);
         state._taskHistoryDirty = true;
         const hasRunning = state.tasks.some((task) => task.status === 'RUNNING');
-        await taskHistorySummary.saveLocalTaskHistory();
 
         if (pollFailCount > 0) {
           pollFailCount = 0;
@@ -88,14 +87,32 @@ export function createBootstrapRuntimeController({
         }
 
         if (hadRunning && !hasRunning) {
-          const lastTask = state.tasks.find((task) => prevRunningIds.includes(task.id))
+          const lastTask = state.tasks.find((task) => prevRunningIds.includes(task.id || task.task_id))
             || state.tasks[state.tasks.length - 1];
-          const failed = lastTask && (lastTask.status === 'TERMINATED' || (lastTask.returncode != null && lastTask.returncode !== 0));
-          state.trainingSummary = taskHistorySummary.generateTrainingSummary();
-          if (lastTask && state.trainingSummary) {
-            taskHistorySummary.saveTaskSummary(lastTask.id, state.trainingSummary);
-            await taskHistorySummary.saveLocalTaskHistory();
+          const lastTaskId = lastTask && (lastTask.id || lastTask.task_id);
+          for (const task of state.tasks) {
+            if (prevRunningIds.includes(task.id || task.task_id) && task.status !== 'RUNNING') task._recentlyFinished = true;
           }
+          const failed = lastTask && (lastTask.status === 'TERMINATED' || (lastTask.returncode != null && lastTask.returncode !== 0));
+          await window.refreshTrainingLog?.(lastTaskId);
+          if (failed) {
+            state.trainingSummary = null;
+          } else {
+            let summary = null;
+            if (lastTaskId && taskHistorySummary.buildAndSaveSummaryFromTaskLog) {
+              try { summary = await taskHistorySummary.buildAndSaveSummaryFromTaskLog(lastTaskId); } catch (_summaryError) { summary = null; }
+            }
+            if (!summary) {
+              summary = taskHistorySummary.generateTrainingSummary();
+              if (lastTaskId && summary) {
+                taskHistorySummary.saveTaskSummary(lastTaskId, summary);
+                await taskHistorySummary.saveLocalTaskHistory();
+              }
+            }
+            state.trainingSummary = summary;
+          }
+          state.activeTrainingTaskId = '';
+          state._pendingTrainingMetadata = null;
           state.trainingFailed = !!failed;
           if (!failed) showToast('' + _ico('check-circle') + ' 训练已完成');
           else showToast('' + _ico('x-circle') + ' 训练失败');
@@ -107,6 +124,12 @@ export function createBootstrapRuntimeController({
         updateJSONPreview();
         renderTaskStatus();
         syncFooterAction();
+        await taskHistorySummary.saveLocalTaskHistory();
+
+        if (hasRunning) {
+          startTrainingLogPolling();
+          startSysMonitorPolling();
+        }
         if (state.activeModule === 'training') {
           const badge = document.getElementById('training-status-badge');
           if (badge) {
@@ -135,6 +158,7 @@ export function createBootstrapRuntimeController({
             if (task.status === 'RUNNING') task.status = 'TERMINATED';
           });
           if (hadRunning) {
+            state.trainingSummary = null;
             state.trainingFailed = true;
             syncFooterAction();
             if (state.activeModule === 'training') renderView('training');

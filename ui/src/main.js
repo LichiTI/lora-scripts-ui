@@ -132,6 +132,12 @@ const state = {
   trainingFailed: false,
   taskSummaries: {},
   trainingSummary: null,
+  trainingLogSnapshot: {
+    taskId: '',
+    html: '',
+    updatedAt: 0,
+  },
+  activeTrainingTaskId: '',
   trainingMetrics: {
     speeds: [],       // { time, itPerSec }
     losses: [],       // { time, step, loss }
@@ -302,7 +308,7 @@ async function loadBootstrapData() {
     state._taskHistoryDirty = true;
     // 从持久化的任务对象恢复摘要数据
     for (const t of state.tasks) {
-      if (t._summary && t._summary._v >= 2) state.taskSummaries[t.id] = t._summary;
+      if (t.status === 'FINISHED' && t._summary && t._summary._v >= 2) state.taskSummaries[t.id] = t._summary;
     }
   }
   if (interrogatorsResult.status === 'fulfilled') {
@@ -327,14 +333,13 @@ function startTaskPolling() {
   async function poll() {
     try {
       const hadRunning = state.tasks.some((t) => t.status === 'RUNNING');
-      const prevRunningIds = state.tasks.filter(t => t.status === 'RUNNING').map(t => t.id);
+      const prevRunningIds = state.tasks.filter(t => t.status === 'RUNNING').map(t => t.id || t.task_id);
       const response = await api.getTasks();
       const backendTasks = response?.data?.tasks || [];
       const localHistory = await loadLocalTaskHistory();
       state.tasks = mergeTaskHistory(backendTasks, localHistory, state.tasks);
       state._taskHistoryDirty = true;
       const hasRunning = state.tasks.some((t) => t.status === 'RUNNING');
-      await saveLocalTaskHistory();  // persist completed tasks
 
       // 后端恢复在线
       if (_pollFailCount > 0) {
@@ -347,14 +352,32 @@ function startTaskPolling() {
       // 检测训练结束：之前有运行中的任务，现在没了
       if (hadRunning && !hasRunning) {
         // 找到刚刚从 RUNNING 变成其他状态的那个任务
-        const lastTask = state.tasks.find(t => prevRunningIds.includes(t.id))
+        const lastTask = state.tasks.find(t => prevRunningIds.includes(t.id || t.task_id))
           || state.tasks[state.tasks.length - 1];
-        const failed = lastTask && (lastTask.status === 'TERMINATED' || (lastTask.returncode != null && lastTask.returncode !== 0));
-        state.trainingSummary = generateTrainingSummary();
-        if (lastTask && state.trainingSummary) {
-          saveTaskSummary(lastTask.id, state.trainingSummary);
-          await saveLocalTaskHistory();  // 立即持久化摘要
+        const lastTaskId = lastTask && (lastTask.id || lastTask.task_id);
+        for (const task of state.tasks) {
+          if (prevRunningIds.includes(task.id || task.task_id) && task.status !== 'RUNNING') task._recentlyFinished = true;
         }
+        const failed = lastTask && (lastTask.status === 'TERMINATED' || (lastTask.returncode != null && lastTask.returncode !== 0));
+        await refreshTrainingLog(lastTaskId);
+        if (failed) {
+          state.trainingSummary = null;
+        } else {
+          let summary = null;
+          if (lastTaskId) {
+            try { summary = await buildAndSaveSummaryFromTaskLog(lastTaskId); } catch (_summaryError) { summary = null; }
+          }
+          if (!summary) {
+            summary = generateTrainingSummary();
+            if (lastTaskId && summary) {
+              saveTaskSummary(lastTaskId, summary);
+              await saveLocalTaskHistory();  // 立即持久化摘要
+            }
+          }
+          state.trainingSummary = summary;
+        }
+        state.activeTrainingTaskId = '';
+        state._pendingTrainingMetadata = null;
         state.trainingFailed = !!failed;
         if (!failed) showToast('' + _ico('check-circle') + ' 训练已完成');
         else showToast('' + _ico('x-circle') + ' 训练失败');
@@ -366,6 +389,12 @@ function startTaskPolling() {
       updateJSONPreview();
       renderTaskStatus();
       syncFooterAction();
+      await saveLocalTaskHistory();  // persist completed tasks
+
+      if (hasRunning) {
+        startTrainingLogPolling();
+        startSysMonitorPolling();
+      }
       // 训练模块的状态卡片也需要实时刷新
       if (state.activeModule === 'training') {
         const badge = $('#training-status-badge');
@@ -375,11 +404,6 @@ function startTaskPolling() {
           else if (state.trainingFailed) badge.innerHTML = '<span style="color:#ef4444;font-weight:700;">' + _ico('x-circle') + ' 训练失败</span>';
           else if (state.tasks.some((t) => t.status === 'FINISHED')) badge.innerHTML = '<span style="color:#22c55e;font-weight:700;">' + _ico('check-circle') + ' 已完成</span>';
           else badge.innerHTML = '<span style="color:var(--text-dim);">空闲</span>';
-        }
-        // 如果有运行中的任务且在训练模块，自动启动日志轮询
-        if (hasRunning && !_trainingLogPollTimer) {
-          startTrainingLogPolling();
-          startSysMonitorPolling();
         }
       }
     } catch (error) {
@@ -398,6 +422,7 @@ function startTaskPolling() {
           if (t.status === 'RUNNING') t.status = 'TERMINATED';
         });
         if (hadRunning) {
+          state.trainingSummary = null;
           state.trainingFailed = true;
           syncFooterAction();
           if (state.activeModule === 'training') renderView('training');
@@ -1216,13 +1241,65 @@ function collectTrainingMetrics(lines) {
   }
 }
 
-function resetTrainingMetrics() {
+function buildTaskMetadataFromConfig(config, trainingTypeId) {
+  const cfg = config || {};
+  const typeId = cfg.model_train_type || trainingTypeId || state.activeTrainingType || '';
+  return {
+    output_name: cfg.output_name || '',
+    model_train_type: typeId,
+    created_at: new Date().toLocaleString('zh-CN', { hour12: false }),
+    training_type_label: (TRAINING_TYPES.find((item) => item.id === typeId) || {}).label || '',
+    resolution: cfg.resolution || '',
+    network_dim: cfg.network_dim || cfg.lokr_dim || cfg.dim || '',
+  };
+}
+
+function getPendingTrainingMetadata(taskId = '') {
+  const pending = state._pendingTrainingMetadata || null;
+  if (!pending) return null;
+  if (!taskId) return pending;
+  if (pending.taskId && pending.taskId !== taskId) return null;
+  return pending;
+}
+
+function applyTaskMetadata(task, metadata, options = {}) {
+  if (!task || !metadata) return;
+  const force = !!(options && options.force);
+  const keys = ['output_name', 'model_train_type', 'created_at', 'training_type_label', 'resolution', 'network_dim'];
+  for (const key of keys) {
+    if (metadata[key] !== undefined && metadata[key] !== '' && (force || task[key] === undefined || task[key] === '')) {
+      task[key] = metadata[key];
+    }
+  }
+}
+
+function rememberTrainingTaskMetadata(taskId, metadata = null) {
+  if (!taskId) return;
+  const pending = metadata || getPendingTrainingMetadata() || buildTaskMetadataFromConfig(state.config, state.activeTrainingType);
+  const normalized = { ...pending, taskId };
+  state._pendingTrainingMetadata = normalized;
+  state.activeTrainingTaskId = taskId;
+  for (const task of state.tasks) {
+    if (task.id === taskId || task.task_id === taskId) applyTaskMetadata(task, normalized, { force: false });
+  }
+}
+
+function resetTrainingMetrics(options = {}) {
+  const keepLogSnapshot = !!(options && options.keepLogSnapshot);
   state.trainingMetrics = {
     speeds: [], losses: [], epochs: [],
     startTime: null, lastStep: 0, totalSteps: 0,
   };
   _resetTrainingLogCursor();
   state.trainingSummary = null;
+  if (!keepLogSnapshot) {
+    state.trainingLogSnapshot = { taskId: '', html: '', updatedAt: 0 };
+    const logEl = $('#training-log-container');
+    if (logEl) {
+      logEl.innerHTML = '<span style="color:var(--text-muted);">已开始新的训练任务，等待训练输出...</span>';
+      logEl.scrollTop = 0;
+    }
+  }
 }
 
 function formatDuration(ms) {
@@ -1516,6 +1593,30 @@ function renderTrainingSummaryHTML() {
     + '</section>';
 }
 
+async function fetchTaskLogLines(taskId, preferredTail = 5000) {
+  let tail = Math.max(1, Number(preferredTail || 5000) || 5000);
+  let resp = await api.getTaskOutput(taskId, tail);
+  let data = resp?.data || {};
+  let lines = data.lines || [];
+  const total = Number(data.total || 0) || 0;
+  if (total > lines.length && total > tail) {
+    tail = Math.min(5000, Math.max(total, tail));
+    resp = await api.getTaskOutput(taskId, tail);
+    data = resp?.data || {};
+    lines = data.lines || [];
+  }
+  return lines;
+}
+
+async function buildAndSaveSummaryFromTaskLog(taskId) {
+  const lines = await fetchTaskLogLines(taskId, 5000);
+  if (lines.length === 0) return null;
+  const summary = generateSummaryFromTaskLog(lines);
+  saveTaskSummary(taskId, summary);
+  await saveLocalTaskHistory();
+  return summary;
+}
+
 /** Save task summary to session cache */
 function saveTaskSummary(taskId, summary) {
   state.taskSummaries[taskId] = summary;
@@ -1537,6 +1638,8 @@ function loadTaskSummariesFromCache() {
     var cache = JSON.parse(sessionStorage.getItem('sd-rescripts:task-summaries') || '{}');
     var validCount = 0;
     for (var id in cache) {
+      var task = state.tasks.find(function(t) { return t.id === id; });
+      if (task && task.status !== 'FINISHED') continue;
       if (cache[id] && cache[id]._v >= SUMMARY_VERSION) {
         state.taskSummaries[id] = cache[id];
         validCount++;
@@ -1574,7 +1677,7 @@ async function saveLocalTaskHistory() {
 /** Merge local history with backend live tasks. Backend tasks take priority by id. */
 function mergeTaskHistory(backendTasks, localHistory, currentTasks) {
   const deletedIds = state._deletedTaskIds || new Set();
-  const META_KEYS = ['output_name', 'model_train_type', 'created_at', 'training_type_label', 'resolution', 'network_dim', '_summary'];
+  const META_KEYS = ['output_name', 'model_train_type', 'created_at', 'training_type_label', 'resolution', 'network_dim', '_summary', '_recentlyFinished'];
   const byId = new Map();
   const localById = new Map();
   const currentById = new Map();
@@ -1584,6 +1687,8 @@ function mergeTaskHistory(backendTasks, localHistory, currentTasks) {
     localById.set(t.id, t);
     byId.set(t.id, { ...t });
   }
+  const pendingMeta = getPendingTrainingMetadata();
+  const activeTaskId = state.activeTrainingTaskId || (pendingMeta && pendingMeta.taskId) || '';
   for (const t of backendTasks) {
     if (deletedIds.has(t.id)) continue;
     const existing = byId.get(t.id);
@@ -1591,11 +1696,17 @@ function mergeTaskHistory(backendTasks, localHistory, currentTasks) {
       const saved = localById.get(t.id);
       // 后端覆盖 status/returncode，但保留本地已有的元数据
       for (const k of META_KEYS) {
-        if (saved && saved[k] !== undefined && saved[k] !== '' && !t[k]) t[k] = saved[k];
         if (!t[k]) { const cur = currentById.get(t.id); if (cur && cur[k] !== undefined && cur[k] !== '') t[k] = cur[k]; }
+        if (saved && saved[k] !== undefined && saved[k] !== '' && !t[k]) t[k] = saved[k];
       }
+      const meta = getPendingTrainingMetadata(t.id) || (!activeTaskId && t.status === 'RUNNING' ? pendingMeta : null);
+      if (meta) applyTaskMetadata(t, meta, { force: false });
+      if (meta && !state.activeTrainingTaskId) rememberTrainingTaskMetadata(t.id, meta);
       Object.assign(existing, t);
     } else {
+      const meta = getPendingTrainingMetadata(t.id) || (!activeTaskId && t.status === 'RUNNING' ? pendingMeta : null);
+      if (meta) applyTaskMetadata(t, meta, { force: false });
+      if (meta && !state.activeTrainingTaskId) rememberTrainingTaskMetadata(t.id, meta);
       byId.set(t.id, { ...t });
     }
   }
@@ -1621,6 +1732,12 @@ window.dismissTrainingSummary = function() {
 window.showTaskSummary = async function(taskId) {
   var panel = document.getElementById('task-summary-' + taskId);
   if (!panel) return;
+  var task = state.tasks.find(function(t) { return t.id === taskId; });
+  if (task && task.status !== 'FINISHED') {
+    panel.innerHTML = '<span style="color:var(--text-dim);font-size:0.82rem;">失败或终止的任务不生成训练总结，请直接查看上方控制台日志。</span>';
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    return;
+  }
 
   // Toggle: if already showing, collapse
   if (panel.dataset.loaded === 'true') {
@@ -1644,16 +1761,12 @@ window.showTaskSummary = async function(taskId) {
   panel.innerHTML = '<span style="color:var(--text-dim);font-size:0.82rem;">\u2693 \u6b63\u5728\u5206\u6790\u8bad\u7ec3\u65e5\u5fd7...</span>';
   panel.style.display = 'block';
   try {
-    var resp = await api.getTaskOutput(taskId, 5000);
-    var lines = (resp && resp.data && resp.data.lines) ? resp.data.lines : [];
-    if (lines.length === 0) {
+    var summary = await buildAndSaveSummaryFromTaskLog(taskId);
+    if (!summary) {
       panel.innerHTML = '<span style="color:var(--text-dim);font-size:0.82rem;">\u65e0\u8bad\u7ec3\u8f93\u51fa\u6570\u636e\uff0c\u65e0\u6cd5\u8bc4\u5206\u3002</span>';
       panel.dataset.loaded = 'true';
       return;
     }
-    var summary = generateSummaryFromTaskLog(lines);
-    saveTaskSummary(taskId, summary);
-    await saveLocalTaskHistory();  // 持久化摘要到磁盘
     panel.innerHTML = renderSummaryCard(summary);
     panel.dataset.loaded = 'true';
   } catch (e) {
@@ -2067,6 +2180,7 @@ function renderTraining(container) {
   var finished = state.tasks.filter(function(t) { return t.status === 'FINISHED'; });
   var terminated = state.tasks.filter(function(t) { return t.status === 'TERMINATED'; });
   var lastTask = state.tasks[state.tasks.length - 1];
+  var logSnapshot = state.trainingLogSnapshot || {};
   var hasRunning = running.length > 0;
   var m = state.trainingMetrics;
   var curTask = running[0] || lastTask;
@@ -2222,8 +2336,12 @@ function renderTraining(container) {
   +     '</div>'
   +     '<div id="training-log-container" class="train-terminal">'
   +       (hasRunning
-            ? '<span style="color:var(--text-muted);">' + _ico('loader', 14) + ' \u6b63\u5728\u52a0\u8f7d\u8bad\u7ec3\u8f93\u51fa...</span>'
-            : '<span style="color:var(--text-muted);">\u6682\u65e0\u8bad\u7ec3\u4efb\u52a1\u8fd0\u884c\u4e2d\u3002\u70b9\u51fb\u300c\u5f00\u59cb\u8bad\u7ec3\u300d\u542f\u52a8\u540e\uff0c\u8f93\u51fa\u5c06\u5728\u6b64\u5b9e\u65f6\u663e\u793a\u3002</span>')
+            ? (logSnapshot.html && logSnapshot.taskId === curTask.id
+                ? logSnapshot.html
+                : '<span style="color:var(--text-muted);">' + _ico('loader', 14) + ' \u6b63\u5728\u52a0\u8f7d\u8bad\u7ec3\u8f93\u51fa...</span>')
+            : (logSnapshot.html
+                ? logSnapshot.html
+                : '<span style="color:var(--text-muted);">\u6682\u65e0\u8bad\u7ec3\u4efb\u52a1\u8fd0\u884c\u4e2d\u3002\u70b9\u51fb\u300c\u5f00\u59cb\u8bad\u7ec3\u300d\u542f\u52a8\u540e\uff0c\u8f93\u51fa\u5c06\u5728\u6b64\u5b9e\u65f6\u663e\u793a\u3002</span>'))
   +     '</div>'
   +   '</div>'
 
@@ -2278,10 +2396,10 @@ function renderTraining(container) {
       : state.tasks.slice().reverse().map(function(task) {
     var statusMap = { RUNNING: _ico('loader') + ' 运行中', FINISHED: _ico('check-circle') + ' 已完成', TERMINATED: _ico('stop-circle') + ' 已终止', CREATED: _ico('clock') + ' 已创建' };
     var statusColor = { RUNNING: '#f59e0b', FINISHED: '#22c55e', TERMINATED: '#ef4444', CREATED: 'var(--text-dim)' };
-    var hasCached = !!(state.taskSummaries[task.id] && state.taskSummaries[task.id]._v >= 2);
-    var canScore = task.status === 'FINISHED' || task.status === 'TERMINATED';
+    var canScore = task.status === 'FINISHED';
+    var hasCached = canScore && !!(state.taskSummaries[task.id] && state.taskSummaries[task.id]._v >= 2);
     var isNotRunning = task.status !== 'RUNNING';
-    var badge = hasCached ? _ico('bar-chart', 14) : (canScore ? '点击评分' : '');
+    var badge = hasCached ? _ico('bar-chart', 14) : (canScore && !task._recentlyFinished ? '点击评分' : '');
     var taskLabel = task.output_name || task.id.substring(0, 8);
     var timeStr = task.created_at || '';
     var typeTag = task.training_type_label || task.model_train_type || '';
@@ -2373,17 +2491,27 @@ function _collectIncrementalTrainingLogLines(taskId, lines, total, liveLine) {
   return incremental;
 }
 
+function getActiveTrainingLogTask() {
+  if (state.activeTrainingTaskId) {
+    const active = state.tasks.find((t) => t.id === state.activeTrainingTaskId || t.task_id === state.activeTrainingTaskId);
+    if (active) return active;
+  }
+  const running = state.tasks.filter((t) => t.status === 'RUNNING');
+  return running[0] || null;
+}
+
 function startTrainingLogPolling() {
   if (_trainingLogPollTimer) return;
   _trainingLogPollTimer = setInterval(() => {
-    if (!state.tasks.some((t) => t.status === 'RUNNING')) {
+    const target = getActiveTrainingLogTask();
+    if (!target || target.status !== 'RUNNING') {
       clearInterval(_trainingLogPollTimer);
       _trainingLogPollTimer = null;
       // 最后刷一次
-      refreshTrainingLog();
+      refreshTrainingLog(target && target.id);
       return;
     }
-    refreshTrainingLog();
+    refreshTrainingLog(target.id);
   }, 2000);
 }
 
@@ -2560,36 +2688,51 @@ window.loadMoreThumbs = async function(idx, total) {
   }
 };
 
-window.refreshTrainingLog = async () => {
+window.refreshTrainingLog = async (taskId = '') => {
   const running = state.tasks.filter((t) => t.status === 'RUNNING');
-  const target = running[0] || state.tasks[state.tasks.length - 1];
+  const explicitTarget = taskId
+    ? state.tasks.find((t) => t.id === taskId || t.task_id === taskId) || { id: taskId, task_id: taskId, status: 'FINISHED' }
+    : null;
+  const cursorTarget = _trainingLogCursor.taskId ? state.tasks.find((t) => t.id === _trainingLogCursor.taskId || t.task_id === _trainingLogCursor.taskId) : null;
+  const activeTarget = getActiveTrainingLogTask();
+  const target = explicitTarget || activeTarget || running[0] || cursorTarget || state.tasks[state.tasks.length - 1];
   if (!target) return;
 
-  if (_trainingLogCursor.taskId && _trainingLogCursor.taskId !== target.id) {
-    resetTrainingMetrics();
+  const targetId = target.id || target.task_id;
+  if (!targetId) return;
+  if (_trainingLogCursor.taskId && _trainingLogCursor.taskId !== targetId) {
+    resetTrainingMetrics({ keepLogSnapshot: target.status !== 'RUNNING' });
   }
 
   try {
-    const resp = await api.getTaskOutput(target.id, 200);
+    const resp = await api.getTaskOutput(targetId, 1000);
     const lines = resp?.data?.lines || [];
     const total = Number(resp?.data?.total || 0) || 0;
     const liveLine = resp?.data?.live_line || '';
     const renderedLines = _mergeTrainingLogLines(lines, liveLine);
-    const incrementalLines = _collectIncrementalTrainingLogLines(target.id, lines, total, liveLine);
+    const incrementalLines = _collectIncrementalTrainingLogLines(targetId, lines, total, liveLine);
     const logEl = $('#training-log-container');
-    if (!logEl) return;
+    const isRunningTarget = target.status === 'RUNNING' || state.tasks.some((t) => t.status === 'RUNNING' && t.id === targetId);
 
     // Collect metrics from each poll
-    if (incrementalLines.length > 0 && state.tasks.some((t) => t.status === 'RUNNING')) {
+    if (incrementalLines.length > 0 && isRunningTarget) {
       collectTrainingMetrics(incrementalLines);
     }
 
+    const placeholderHtml = '<span style="color:var(--text-dim);">等待训练输出...</span>';
+    let nextLogHtml = placeholderHtml;
     if (renderedLines.length === 0) {
-      logEl.innerHTML = '<span style="color:var(--text-dim);">等待训练输出...</span>';
+      nextLogHtml = placeholderHtml;
+    } else {
+      nextLogHtml = _renderLogLines(renderedLines);
+    }
+    state.trainingLogSnapshot = { taskId: targetId, html: nextLogHtml, updatedAt: Date.now() };
+
+    if (!logEl) {
+      _updateTrainingLiveMetrics();
       return;
     }
-
-    logEl.innerHTML = _renderLogLines(renderedLines);
+    logEl.innerHTML = nextLogHtml;
 
     const autoScroll = $('#training-log-autoscroll');
     if (autoScroll?.checked) {
@@ -6278,9 +6421,11 @@ function validateConfigConflicts() {
 
 window.executeTraining = async () => {
   state.loading.run = true;
+  const runConfig = buildRunConfig(state.config, state.activeTrainingType);
+  const launchMetadata = buildTaskMetadataFromConfig(runConfig, state.activeTrainingType);
   syncFooterAction();
   resetTrainingMetrics();
-
+  let trainingLaunched = false;
   const clientCheck = validateConfigConflicts();
   if (clientCheck.errors.length > 0) {
     showToast(clientCheck.errors[0]);
@@ -6300,7 +6445,7 @@ window.executeTraining = async () => {
   }
 
   try {
-    const preflightResponse = await api.runPreflight(buildRunConfig(state.config, state.activeTrainingType));
+    const preflightResponse = await api.runPreflight(runConfig);
     if (preflightResponse.status !== 'success' || !preflightResponse.data?.can_start) {
       state.preflight = preflightResponse.data || {
         can_start: false,
@@ -6312,41 +6457,48 @@ window.executeTraining = async () => {
     }
 
     state.preflight = preflightResponse.data;
-    const response = await api.runTraining(buildRunConfig(state.config, state.activeTrainingType));
+    state._pendingTrainingMetadata = launchMetadata;
+    state.activeTrainingTaskId = '';
+    const response = await api.runTraining(runConfig);
     if (response.status !== 'success') {
+      state._pendingTrainingMetadata = null;
+      state.activeTrainingTaskId = '';
       showToast(response.message || '训练启动失败。');
       return;
     }
+    trainingLaunched = true;
 
     state.trainingFailed = false;
     state.lastMessage = response.message || '训练已启动。';
     showToast(state.lastMessage);
+    const responseTaskId = response?.data?.task_id || response?.data?.id || '';
+    if (responseTaskId) rememberTrainingTaskMetadata(responseTaskId, launchMetadata);
+
     const tasksResponse = await api.getTasks();
     const freshTasks = tasksResponse?.data?.tasks || [];
     // 为刚启动的新任务注入元数据，后端 dump 只返回 id/status/returncode
-    const cfg = state.config;
     const localHistory = await loadLocalTaskHistory();
-    const localById = new Map(localHistory.map(t => [t.id, t]));
     for (const t of freshTasks) {
       // 对 RUNNING 任务且缺少 output_name 的注入元数据（新任务 or 之前漏注入的）
-      const local = localById.get(t.id);
-      const memTask = state.tasks.find(x => x.id === t.id);
-      const hasName = (local && local.output_name) || (memTask && memTask.output_name) || t.output_name;
-      if (t.status === 'RUNNING' && !hasName) {
-        t.output_name = cfg.output_name || '';
-        t.model_train_type = cfg.model_train_type || state.activeTrainingType || '';
-        if (!t.created_at && !(local && local.created_at) && !(memTask && memTask.created_at)) t.created_at = new Date().toLocaleString('zh-CN', { hour12: false });
-        t.training_type_label = (TRAINING_TYPES.find(x => x.id === (cfg.model_train_type || state.activeTrainingType)) || {}).label || '';
-        t.resolution = cfg.resolution || '';
-        t.network_dim = cfg.network_dim || '';
+      if (t.status === 'RUNNING') {
+        const meta = getPendingTrainingMetadata(t.id) || (!state.activeTrainingTaskId ? launchMetadata : null);
+        if (meta) {
+          if (!state.activeTrainingTaskId) rememberTrainingTaskMetadata(t.id, meta);
+          applyTaskMetadata(t, meta, { force: false });
+        }
       }
     }
     state.tasks = mergeTaskHistory(freshTasks, localHistory, state.tasks);
     state._taskHistoryDirty = true;
     await saveLocalTaskHistory();
+    await refreshTrainingLog(state.activeTrainingTaskId || responseTaskId);
     startTrainingLogPolling();
     startSysMonitorPolling();
   } catch (error) {
+    if (!trainingLaunched) {
+      state._pendingTrainingMetadata = null;
+      state.activeTrainingTaskId = '';
+    }
     showToast(error.message || '训练请求失败。');
   } finally {
     state.loading.run = false;

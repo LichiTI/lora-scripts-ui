@@ -1,3 +1,27 @@
+function buildTaskMetadataFromConfig(config, trainingTypeId, trainingTypes) {
+  const cfg = config || {};
+  const typeId = cfg.model_train_type || trainingTypeId || '';
+  return {
+    output_name: cfg.output_name || '',
+    model_train_type: typeId,
+    created_at: new Date().toLocaleString('zh-CN', { hour12: false }),
+    training_type_label: (trainingTypes.find((item) => item.id === typeId) || {}).label || '',
+    resolution: cfg.resolution || '',
+    network_dim: cfg.network_dim || cfg.lokr_dim || cfg.dim || '',
+  };
+}
+
+function applyTaskMetadata(task, metadata, options = {}) {
+  if (!task || !metadata) return;
+  const force = !!(options && options.force);
+  const keys = ['output_name', 'model_train_type', 'created_at', 'training_type_label', 'resolution', 'network_dim'];
+  for (const key of keys) {
+    if (metadata[key] !== undefined && metadata[key] !== '' && (force || task[key] === undefined || task[key] === '')) {
+      task[key] = metadata[key];
+    }
+  }
+}
+
 export function createTrainingActionsController({
   api,
   state,
@@ -179,9 +203,11 @@ export function createTrainingActionsController({
 
   async function executeTraining() {
     state.loading.run = true;
+    const runConfig = buildRunConfig(state.config, state.activeTrainingType);
+    const launchMetadata = buildTaskMetadataFromConfig(runConfig, state.activeTrainingType, trainingTypes);
     syncFooterAction();
     resetTrainingMetrics();
-
+    let trainingLaunched = false;
     const clientCheck = validateConfigConflicts();
     if (clientCheck.errors.length > 0) {
       showToast(clientCheck.errors[0]);
@@ -200,7 +226,7 @@ export function createTrainingActionsController({
     }
 
     try {
-      const preflightResponse = await api.runPreflight(buildRunConfig(state.config, state.activeTrainingType));
+      const preflightResponse = await api.runPreflight(runConfig);
       if (preflightResponse.status !== 'success' || !preflightResponse.data?.can_start) {
         state.preflight = preflightResponse.data || {
           can_start: false,
@@ -212,41 +238,55 @@ export function createTrainingActionsController({
       }
 
       state.preflight = preflightResponse.data;
-      const response = await api.runTraining(buildRunConfig(state.config, state.activeTrainingType));
+      state._pendingTrainingMetadata = launchMetadata;
+      state.activeTrainingTaskId = '';
+      const response = await api.runTraining(runConfig);
       if (response.status !== 'success') {
+        state._pendingTrainingMetadata = null;
+        state.activeTrainingTaskId = '';
         showToast(response.message || '训练启动失败。');
         return;
       }
+      trainingLaunched = true;
 
       state.trainingFailed = false;
       state.lastMessage = response.message || '训练已启动。';
       showToast(state.lastMessage);
+      resetTrainingMetrics();
+      const responseTaskId = response?.data?.task_id || response?.data?.id || '';
+      if (responseTaskId) {
+        state.activeTrainingTaskId = responseTaskId;
+        state._pendingTrainingMetadata = { ...launchMetadata, taskId: responseTaskId };
+      }
       const tasksResponse = await api.getTasks();
       const freshTasks = tasksResponse?.data?.tasks || [];
-      const cfg = state.config;
       const localHistory = await loadLocalTaskHistory();
-      const localById = new Map(localHistory.map((task) => [task.id, task]));
       for (const task of freshTasks) {
-        const local = localById.get(task.id);
-        const memTask = state.tasks.find((item) => item.id === task.id);
-        const hasName = (local && local.output_name) || (memTask && memTask.output_name) || task.output_name;
-        if (task.status === 'RUNNING' && !hasName) {
-          task.output_name = cfg.output_name || '';
-          task.model_train_type = cfg.model_train_type || state.activeTrainingType || '';
-          if (!task.created_at && !(local && local.created_at) && !(memTask && memTask.created_at)) {
-            task.created_at = new Date().toLocaleString('zh-CN', { hour12: false });
+        if (task.status === 'RUNNING') {
+          let meta = null;
+          if (state._pendingTrainingMetadata && (!state._pendingTrainingMetadata.taskId || state._pendingTrainingMetadata.taskId === task.id)) {
+            meta = state._pendingTrainingMetadata;
+          } else if (!state.activeTrainingTaskId) {
+            meta = launchMetadata;
+            state.activeTrainingTaskId = task.id;
+            state._pendingTrainingMetadata = { ...launchMetadata, taskId: task.id };
           }
-          task.training_type_label = (trainingTypes.find((item) => item.id === (cfg.model_train_type || state.activeTrainingType)) || {}).label || '';
-          task.resolution = cfg.resolution || '';
-          task.network_dim = cfg.network_dim || '';
+          if (meta) applyTaskMetadata(task, meta, { force: false });
         }
       }
       state.tasks = mergeTaskHistory(freshTasks, localHistory, state.tasks);
       state._taskHistoryDirty = true;
       await saveLocalTaskHistory();
+      if (window.refreshTrainingLog) {
+        await window.refreshTrainingLog(state.activeTrainingTaskId || responseTaskId);
+      }
       startTrainingLogPolling();
       startSysMonitorPolling();
     } catch (error) {
+      if (!trainingLaunched) {
+        state._pendingTrainingMetadata = null;
+        state.activeTrainingTaskId = '';
+      }
       showToast(error.message || '训练请求失败。');
     } finally {
       state.loading.run = false;

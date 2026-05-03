@@ -1017,6 +1017,8 @@ def main_cli():
     parser.add_argument('--no-resize', action='store_true', help='禁用缩放处理，仅转换格式')
     parser.add_argument('--rename', action='store_true', help='启用自动重命名 (文件夹名_数字)')
     parser.add_argument('--delete-source', action='store_true', help='处理成功后删除原图')
+    parser.add_argument('--no-exact-size', action='store_true', help='禁用精确裁剪模式（仅等比缩放不裁剪）')
+    parser.add_argument('--resolutions', type=str, default=None, help='自定义目标分辨率列表，格式: 1024x1024,768x1344')
     parser.add_argument('--no-sync', action='store_false', dest='sync', default=True, help='不处理关联的描述文件')
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('--no-gui', action='store_true', help='强制使用命令行模式')
@@ -1037,7 +1039,10 @@ def main_cli():
         args.output.mkdir(parents=True, exist_ok=True)
     
     images = collect_images(args.directory, args.recursive)
-    resolutions = load_resolutions()
+    if args.resolutions:
+        resolutions = [tuple(int(x.strip()) for x in r.split('x')) for r in args.resolutions.split(',') if r.strip()]
+    else:
+        resolutions = load_resolutions()
     
     if not images:
         logging.warning(f"未找到图片文件")
@@ -1087,7 +1092,7 @@ def main_cli():
             resolutions, 
             args.output, 
             args.quality, 
-            exact_size=True, 
+            exact_size=not args.no_exact_size, 
             target_format=args.format,
             enable_resize=not args.no_resize,
             new_name=new_name,

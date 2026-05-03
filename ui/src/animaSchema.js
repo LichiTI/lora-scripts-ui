@@ -127,7 +127,7 @@ const ANIMA_SECTIONS = [
       { key: 'network_alpha', type: 'slider', label: '\u7f51\u7edc Alpha', defaultValue: 16, min: 1, max: 512, step: 1 },
       { key: 'dim_from_weights', type: 'boolean', label: '\u4ece\u6743\u91cd\u63a8\u65ad Dim', defaultValue: false },
       { key: 'scale_weight_norms', type: 'number', label: '\u6700\u5927\u8303\u6570\u6b63\u5219\u5316', defaultValue: '', min: 0, step: 0.01 },
-      { key: 'train_norm', type: 'boolean', label: '\u8bad\u7ec3 Norm \u5c42', defaultValue: false },
+      { key: 'train_norm', type: 'boolean', label: '\u8bad\u7ec3 Norm \u5c42', desc: '额外训练带可学习参数的归一化层（如 RMSNorm/LayerNorm 的 weight/bias），用于微调特征尺度和风格/域适配；会小幅增加显存占用和 LoRA 文件大小，并增加过拟合风险，普通训练建议先关闭。', defaultValue: false },
       { key: 'network_dropout', type: 'number', label: 'Dropout', defaultValue: 0, min: 0, step: 0.01, visibleWhen: (c) => c.lora_type === 'lora' || c.lora_type === 'tlora' },
       { key: 'tlora_min_rank', type: 'number', label: 'T-LoRA \u6700\u5c0f Rank', defaultValue: 1, min: 1, visibleWhen: when('lora_type', 'tlora') },
       { key: 'tlora_rank_schedule', type: 'select', label: 'T-LoRA Rank \u8c03\u5ea6', defaultValue: 'cosine', options: ['cosine', 'linear'], visibleWhen: when('lora_type', 'tlora') },

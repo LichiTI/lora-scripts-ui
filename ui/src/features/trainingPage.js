@@ -229,6 +229,7 @@ export function createTrainingPageController({
     var m = state.trainingMetrics;
     var curTask = running[0] || lastTask;
     var taskIdShort = curTask ? curTask.id.slice(0, 8).toUpperCase() : '--------';
+    var logSnapshot = state.trainingLogSnapshot || {};
 
     // Compute live metrics for header
     var curStep = m.lastStep || 0;
@@ -380,8 +381,12 @@ export function createTrainingPageController({
     +     '</div>'
     +     '<div id="training-log-container" class="train-terminal">'
     +       (hasRunning
-              ? '<span style="color:var(--text-muted);">' + _ico('loader', 14) + ' \u6b63\u5728\u52a0\u8f7d\u8bad\u7ec3\u8f93\u51fa...</span>'
-              : '<span style="color:var(--text-muted);">\u6682\u65e0\u8bad\u7ec3\u4efb\u52a1\u8fd0\u884c\u4e2d\u3002\u70b9\u51fb\u300c\u5f00\u59cb\u8bad\u7ec3\u300d\u542f\u52a8\u540e\uff0c\u8f93\u51fa\u5c06\u5728\u6b64\u5b9e\u65f6\u663e\u793a\u3002</span>')
+              ? (logSnapshot.html && logSnapshot.taskId === curTask.id
+                  ? logSnapshot.html
+                  : '<span style="color:var(--text-muted);">' + _ico('loader', 14) + ' \u6b63\u5728\u52a0\u8f7d\u8bad\u7ec3\u8f93\u51fa...</span>')
+              : (logSnapshot.html
+                  ? logSnapshot.html
+                  : '<span style="color:var(--text-muted);">\u6682\u65e0\u8bad\u7ec3\u4efb\u52a1\u8fd0\u884c\u4e2d\u3002\u70b9\u51fb\u300c\u5f00\u59cb\u8bad\u7ec3\u300d\u542f\u52a8\u540e\uff0c\u8f93\u51fa\u5c06\u5728\u6b64\u5b9e\u65f6\u663e\u793a\u3002</span>'))
     +     '</div>'
     +   '</div>'
 
@@ -436,10 +441,10 @@ export function createTrainingPageController({
         : state.tasks.slice().reverse().map(function(task) {
       var statusMap = { RUNNING: _ico('loader') + ' 运行中', FINISHED: _ico('check-circle') + ' 已完成', TERMINATED: _ico('stop-circle') + ' 已终止', CREATED: _ico('clock') + ' 已创建' };
       var statusColor = { RUNNING: '#f59e0b', FINISHED: '#22c55e', TERMINATED: '#ef4444', CREATED: 'var(--text-dim)' };
-      var hasCached = !!(state.taskSummaries[task.id] && state.taskSummaries[task.id]._v >= 2);
-      var canScore = task.status === 'FINISHED' || task.status === 'TERMINATED';
+      var canScore = task.status === 'FINISHED';
+      var hasCached = canScore && !!(state.taskSummaries[task.id] && state.taskSummaries[task.id]._v >= 2);
       var isNotRunning = task.status !== 'RUNNING';
-      var badge = hasCached ? _ico('bar-chart', 14) : (canScore ? '点击评分' : '');
+      var badge = hasCached ? _ico('bar-chart', 14) : (canScore && !task._recentlyFinished ? '点击评分' : '');
       var taskLabel = task.output_name || task.id.substring(0, 8);
       var timeStr = task.created_at || '';
       var typeTag = task.training_type_label || task.model_train_type || '';
@@ -491,14 +496,22 @@ export function createTrainingPageController({
   function startTrainingLogPolling() {
     if (_trainingLogPollTimer) return;
     _trainingLogPollTimer = setInterval(() => {
-      if (!state.tasks.some((t) => t.status === 'RUNNING')) {
+      let target = null;
+      if (state.activeTrainingTaskId) {
+        target = state.tasks.find((t) => t.id === state.activeTrainingTaskId || t.task_id === state.activeTrainingTaskId) || null;
+      }
+      if (!target) {
+        const running = state.tasks.filter((t) => t.status === 'RUNNING');
+        target = running[0] || null;
+      }
+      if (!target || target.status !== 'RUNNING') {
         clearInterval(_trainingLogPollTimer);
         _trainingLogPollTimer = null;
         // 最后刷一次
-        refreshTrainingLog();
+        refreshTrainingLog(target && (target.id || target.task_id));
         return;
       }
-      refreshTrainingLog();
+      refreshTrainingLog(target.id || target.task_id);
     }, 2000);
   }
 
@@ -554,38 +567,53 @@ export function createTrainingPageController({
     }
   };
 
-  async function refreshTrainingLog() {
+  async function refreshTrainingLog(taskId = '') {
     const running = state.tasks.filter((t) => t.status === 'RUNNING');
-    const target = running[0] || state.tasks[state.tasks.length - 1];
+    const explicitTarget = taskId
+      ? state.tasks.find((t) => t.id === taskId || t.task_id === taskId) || { id: taskId, task_id: taskId, status: 'FINISHED' }
+      : null;
+    const cursorTarget = _trainingLogCursor.taskId ? state.tasks.find((t) => t.id === _trainingLogCursor.taskId || t.task_id === _trainingLogCursor.taskId) : null;
+    const activeTarget = state.activeTrainingTaskId ? state.tasks.find((t) => t.id === state.activeTrainingTaskId || t.task_id === state.activeTrainingTaskId) : null;
+    const target = explicitTarget || activeTarget || running[0] || cursorTarget || state.tasks[state.tasks.length - 1];
     if (!target) return;
 
-    if (_trainingLogCursor.taskId && _trainingLogCursor.taskId !== target.id) {
-      resetTrainingMetrics();
+    const targetId = target.id || target.task_id;
+    if (!targetId) return;
+    if (_trainingLogCursor.taskId && _trainingLogCursor.taskId !== targetId) {
+      resetTrainingMetrics({ keepLogSnapshot: target.status !== 'RUNNING' });
     }
 
     try {
-      const resp = await api.getTaskOutput(target.id, 200);
+      const resp = await api.getTaskOutput(targetId, 1000);
       const lines = resp?.data?.lines || [];
       const total = Number(resp?.data?.total || 0) || 0;
       const liveLine = resp?.data?.live_line || '';
       const renderedLines = mergeTrainingLogLines(lines, liveLine);
-      const incrementalResult = collectIncrementalTrainingLogLines(_trainingLogCursor, target.id, lines, total, liveLine);
+      const incrementalResult = collectIncrementalTrainingLogLines(_trainingLogCursor, targetId, lines, total, liveLine);
       const incrementalLines = incrementalResult.incremental;
       _trainingLogCursor = incrementalResult.cursor;
       const logEl = $('#training-log-container');
-      if (!logEl) return;
+      const isRunningTarget = target.status === 'RUNNING' || state.tasks.some((t) => t.status === 'RUNNING' && t.id === targetId);
 
       // Collect metrics from each poll
-      if (incrementalLines.length > 0 && state.tasks.some((t) => t.status === 'RUNNING')) {
+      if (incrementalLines.length > 0 && isRunningTarget) {
         collectTrainingMetrics(incrementalLines);
       }
 
+      const placeholderHtml = '<span style="color:var(--text-dim);">等待训练输出...</span>';
+      let nextLogHtml = placeholderHtml;
       if (renderedLines.length === 0) {
-        logEl.innerHTML = '<span style="color:var(--text-dim);">等待训练输出...</span>';
+        nextLogHtml = placeholderHtml;
+      } else {
+        nextLogHtml = renderLogLines(renderedLines);
+      }
+      state.trainingLogSnapshot = { taskId: targetId, html: nextLogHtml, updatedAt: Date.now() };
+
+      if (!logEl) {
+        _updateTrainingLiveMetrics();
         return;
       }
-
-      logEl.innerHTML = renderLogLines(renderedLines);
+      logEl.innerHTML = nextLogHtml;
 
       const autoScroll = $('#training-log-autoscroll');
       if (autoScroll?.checked) {
@@ -683,6 +711,11 @@ export function createTrainingPageController({
       if (vramFill) vramFill.style.width = Math.min(g.utilization_pct, 100) + '%';
     } catch(e) { /* silent */ }
   }
+
+  window.refreshTrainingLog = refreshTrainingLog;
+  window.__loraRescriptsTrainingPageController = {
+    refreshTrainingLog,
+  };
 
 
   function bindGlobals(targetWindow) {

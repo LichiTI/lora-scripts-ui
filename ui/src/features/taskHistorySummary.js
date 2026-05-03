@@ -1,10 +1,19 @@
-import { buildSummaryFromMetrics, generateSummaryFromTaskLog } from '../utils/trainingMetrics.js';
+import { buildSummaryFromMetrics, generateSummaryFromTaskLog, createEmptyTrainingMetrics } from '../utils/trainingMetrics.js';
 
 export function createTaskHistorySummaryController({ api, state, renderView }) {
   function generateTrainingSummary() {
     const metrics = state.trainingMetrics;
     const elapsed = metrics.startTime ? Date.now() - metrics.startTime : 0;
     return buildSummaryFromMetrics(metrics, elapsed);
+  }
+
+  function resetTrainingMetrics(options = {}) {
+    const keepLogSnapshot = !!(options && options.keepLogSnapshot);
+    state.trainingMetrics = createEmptyTrainingMetrics();
+    state.trainingSummary = null;
+    if (!keepLogSnapshot) {
+      state.trainingLogSnapshot = { taskId: '', html: '', updatedAt: 0 };
+    }
   }
 
   function renderSummaryCard(summary) {
@@ -74,6 +83,8 @@ export function createTaskHistorySummaryController({ api, state, renderView }) {
       const cache = JSON.parse(sessionStorage.getItem('sd-rescripts:task-summaries') || '{}');
       let validCount = 0;
       for (const id in cache) {
+        const task = state.tasks.find((item) => item.id === id);
+        if (task && task.status !== 'FINISHED') continue;
         if (cache[id] && cache[id]._v >= SUMMARY_VERSION) {
           state.taskSummaries[id] = cache[id];
           validCount += 1;
@@ -83,6 +94,30 @@ export function createTaskHistorySummaryController({ api, state, renderView }) {
         sessionStorage.setItem('sd-rescripts:task-summaries', JSON.stringify(state.taskSummaries));
       }
     } catch (error) { /* ignore */ }
+  }
+
+  async function fetchTaskLogLines(taskId, preferredTail = 5000) {
+    let tail = Math.max(1, Number(preferredTail || 5000) || 5000);
+    let resp = await api.getTaskOutput(taskId, tail);
+    let data = resp?.data || {};
+    let lines = data.lines || [];
+    const total = Number(data.total || 0) || 0;
+    if (total > lines.length && total > tail) {
+      tail = Math.min(5000, Math.max(total, tail));
+      resp = await api.getTaskOutput(taskId, tail);
+      data = resp?.data || {};
+      lines = data.lines || [];
+    }
+    return lines;
+  }
+
+  async function buildAndSaveSummaryFromTaskLog(taskId) {
+    const lines = await fetchTaskLogLines(taskId, 5000);
+    if (lines.length === 0) return null;
+    const summary = generateSummaryFromTaskLog(lines);
+    saveTaskSummary(taskId, summary);
+    await saveLocalTaskHistory();
+    return summary;
   }
 
   async function loadLocalTaskHistory() {
@@ -110,7 +145,7 @@ export function createTaskHistorySummaryController({ api, state, renderView }) {
 
   function mergeTaskHistory(backendTasks, localHistory, currentTasks) {
     const deletedIds = state._deletedTaskIds || new Set();
-    const META_KEYS = ['output_name', 'model_train_type', 'created_at', 'training_type_label', 'resolution', 'network_dim', '_summary'];
+    const META_KEYS = ['output_name', 'model_train_type', 'created_at', 'training_type_label', 'resolution', 'network_dim', '_summary', '_recentlyFinished'];
     const byId = new Map();
     const localById = new Map();
     const currentById = new Map();
@@ -126,14 +161,47 @@ export function createTaskHistorySummaryController({ api, state, renderView }) {
       if (existing) {
         const saved = localById.get(task.id);
         for (const key of META_KEYS) {
-          if (saved && saved[key] !== undefined && saved[key] !== '' && !task[key]) task[key] = saved[key];
           if (!task[key]) {
             const current = currentById.get(task.id);
             if (current && current[key] !== undefined && current[key] !== '') task[key] = current[key];
           }
+          if (saved && saved[key] !== undefined && saved[key] !== '' && !task[key]) task[key] = saved[key];
+        }
+        const pending = state._pendingTrainingMetadata || null;
+        const activeTaskId = state.activeTrainingTaskId || (pending && pending.taskId) || '';
+        const shouldUsePending = pending && (
+          pending.taskId === task.id || (!activeTaskId && task.status === 'RUNNING')
+        );
+        let assignedPending = false;
+        if (shouldUsePending) {
+          const metaKeys = ['output_name', 'model_train_type', 'created_at', 'training_type_label', 'resolution', 'network_dim'];
+          for (const key of metaKeys) {
+            if (pending[key] !== undefined && pending[key] !== '' && !task[key]) task[key] = pending[key];
+          }
+          if (!state.activeTrainingTaskId && task.status === 'RUNNING') {
+            state.activeTrainingTaskId = task.id;
+            state._pendingTrainingMetadata = { ...pending, taskId: task.id };
+            assignedPending = true;
+          }
         }
         Object.assign(existing, task);
+        if (assignedPending) Object.assign(existing, state._pendingTrainingMetadata);
       } else {
+        const pending = state._pendingTrainingMetadata || null;
+        const activeTaskId = state.activeTrainingTaskId || (pending && pending.taskId) || '';
+        const shouldUsePending = pending && (
+          pending.taskId === task.id || (!activeTaskId && task.status === 'RUNNING')
+        );
+        if (shouldUsePending) {
+          const metaKeys = ['output_name', 'model_train_type', 'created_at', 'training_type_label', 'resolution', 'network_dim'];
+          for (const key of metaKeys) {
+            if (pending[key] !== undefined && pending[key] !== '' && !task[key]) task[key] = pending[key];
+          }
+          if (!state.activeTrainingTaskId && task.status === 'RUNNING') {
+            state.activeTrainingTaskId = task.id;
+            state._pendingTrainingMetadata = { ...pending, taskId: task.id };
+          }
+        }
         byId.set(task.id, { ...task });
       }
     }
@@ -156,6 +224,13 @@ export function createTaskHistorySummaryController({ api, state, renderView }) {
     const panel = document.getElementById('task-summary-' + taskId);
     if (!panel) return;
 
+    const task = state.tasks.find((item) => item.id === taskId);
+    if (task && task.status !== 'FINISHED') {
+      panel.innerHTML = '<span style="color:var(--text-dim);font-size:0.82rem;">失败或终止的任务不生成训练总结，请直接查看上方控制台日志。</span>';
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      return;
+    }
+
     if (panel.dataset.loaded === 'true') {
       panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
       return;
@@ -171,16 +246,12 @@ export function createTaskHistorySummaryController({ api, state, renderView }) {
     panel.innerHTML = '<span style="color:var(--text-dim);font-size:0.82rem;">\u2693 \u6b63\u5728\u5206\u6790\u8bad\u7ec3\u65e5\u5fd7...</span>';
     panel.style.display = 'block';
     try {
-      const resp = await api.getTaskOutput(taskId, 5000);
-      const lines = resp?.data?.lines || [];
-      if (lines.length === 0) {
+      const summary = await buildAndSaveSummaryFromTaskLog(taskId);
+      if (!summary) {
         panel.innerHTML = '<span style="color:var(--text-dim);font-size:0.82rem;">\u65e0\u8bad\u7ec3\u8f93\u51fa\u6570\u636e\uff0c\u65e0\u6cd5\u8bc4\u5206\u3002</span>';
         panel.dataset.loaded = 'true';
         return;
       }
-      const summary = generateSummaryFromTaskLog(lines);
-      saveTaskSummary(taskId, summary);
-      await saveLocalTaskHistory();
       panel.innerHTML = renderSummaryCard(summary);
       panel.dataset.loaded = 'true';
     } catch (error) {
@@ -195,6 +266,8 @@ export function createTaskHistorySummaryController({ api, state, renderView }) {
 
   return {
     generateTrainingSummary,
+    buildAndSaveSummaryFromTaskLog,
+    resetTrainingMetrics,
     renderSummaryCard,
     renderTrainingSummaryHTML,
     saveTaskSummary,
