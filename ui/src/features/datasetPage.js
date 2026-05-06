@@ -469,8 +469,16 @@ export function createDatasetPageController({ api, state, renderView, showToast 
             <label class="switch switch-compact"><input type="checkbox" id="resize-recursive" checked><span class="slider round"></span></label>
           </div>
           <div class="config-group row boolean-card">
-            <div class="label-col"><label>自动重命名 (文件夹名_序号)</label><p class="field-desc">输出文件命名为 父文件夹名_1、父文件夹名_2 ...</p></div>
+            <div class="label-col"><label>启用自动重命名</label><p class="field-desc">开启后按所选命名模式生成输出文件名。</p></div>
             <label class="switch switch-compact"><input type="checkbox" id="resize-rename" checked><span class="slider round"></span></label>
+          </div>
+          <div class="config-group">
+            <label>命名模式</label>
+            <select id="resize-rename-mode">
+              <option value="legacy_suffix">原文件名+分辨率</option>
+              <option value="folder_sequence">文件夹名_序号</option>
+            </select>
+            <p class="field-desc">“文件夹名_序号” 会按父文件夹名自动连续编号，并填补中间空缺。</p>
           </div>
           <div class="config-group row boolean-card">
             <div class="label-col"><label>处理后删除原图</label><p class="field-desc">处理成功后删除源文件，建议配合输出目录使用。</p></div>
@@ -512,6 +520,7 @@ export function createDatasetPageController({ api, state, renderView, showToast 
       exact_size: $('#resize-exact')?.checked || false,
       recursive: $('#resize-recursive')?.checked || false,
       rename: $('#resize-rename')?.checked || false,
+      rename_mode: $('#resize-rename-mode')?.value || 'legacy_suffix',
       delete_original: $('#resize-delete')?.checked || false,
       sync_metadata: $('#resize-sync')?.checked ?? true,
     };

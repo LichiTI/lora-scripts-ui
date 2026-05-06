@@ -66,6 +66,10 @@ export const api = {
     return request('/api/tasks', { method: 'DELETE' });
   },
 
+  deleteLocalTaskHistory(taskId) {
+    return request(`/api/local/task_history/${encodeURIComponent(taskId)}`, { method: 'DELETE' });
+  },
+
   pickFile(type) {
     return request(`/api/pick_file?picker_type=${encodeURIComponent(type)}`);
   },

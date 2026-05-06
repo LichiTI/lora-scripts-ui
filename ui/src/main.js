@@ -48,6 +48,7 @@ const CONDITIONAL_KEYS = new Set([
   'randomly_choice_prompt',
   'ema_enabled',
   'safeguard_enabled',
+  'wavelet_loss_enabled',
   'torch_compile',
   'enable_base_weight',
   'log_with',
@@ -83,6 +84,8 @@ const CONDITIONAL_KEYS = new Set([
   'flow_uniform_shift',
   'contrastive_flow_matching',
   'pissa_init',
+  'dora_wd',
+  'bypass_mode',
   'enable_debug_options',
   'caption_tag_dropout_target_mode',
 ]);
@@ -247,6 +250,28 @@ function saveDraft() {
   localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(state.config));
 }
 
+function isTruthyConfigFlag(value) {
+  if (value === true || value === 1) {
+    return true;
+  }
+  return String(value ?? '').trim().toLowerCase() === 'true';
+}
+
+function enforceLycorisDoraSafety(target = state.config) {
+  if (!target || typeof target !== 'object') {
+    return false;
+  }
+  const networkModule = String(target.network_module || '').trim().toLowerCase();
+  if (networkModule !== 'lycoris.kohya' || !isTruthyConfigFlag(target.dora_wd)) {
+    return false;
+  }
+  if (target.bypass_mode !== false) {
+    target.bypass_mode = false;
+    return true;
+  }
+  return false;
+}
+
 function mergeConfigPatch(patch) {
   if (!patch || typeof patch !== 'object') {
     return;
@@ -259,6 +284,7 @@ function mergeConfigPatch(patch) {
     }
     state.config[key] = normalizeDraftValue(field, value);
   }
+  enforceLycorisDoraSafety();
 }
 
 function canUseBuiltinPicker(field) {
@@ -390,7 +416,6 @@ function startTaskPolling() {
       renderTaskStatus();
       syncFooterAction();
       await saveLocalTaskHistory();  // persist completed tasks
-
       if (hasRunning) {
         startTrainingLogPolling();
         startSysMonitorPolling();
@@ -546,12 +571,13 @@ function renderConfig(container) {
 
 function renderSection(section) {
   const fields = section.fields.filter((field) => field.type !== 'hidden' && isFieldVisible(field, state.config));
+  const realFieldCount = fields.filter((field) => field.type !== 'ui_group').length;
 
   return `
     <section class="form-section" id="${escapeHtml(section.id)}">
       <header class="section-header">
         <h3>${escapeHtml(section.title)}</h3>
-        <span class="section-meta">${fields.length} 项参数</span>
+        <span class="section-meta">${realFieldCount} 项参数</span>
       </header>
       <div class="section-summary">${escapeHtml(section.description)}</div>
       <div class="section-content">
@@ -565,6 +591,14 @@ function renderField(field) {
   const value = state.config[field.key];
   const label = field.label;
   const defaultValue = field.defaultValue ?? '';
+  if (field.type === 'ui_group') {
+    return `
+      <div class="config-group group-heading" data-field-key="${field.key}">
+        <div class="group-heading-title">${escapeHtml(label || '')}</div>
+        ${field.desc ? `<p class="group-heading-desc">${escapeHtml(field.desc)}</p>` : ''}
+      </div>
+    `;
+  }
   const isPicker = field.type === 'file' || field.type === 'folder';
   const isModified = String(value ?? '') !== String(defaultValue);
   const showBuiltinPicker = canUseBuiltinPicker(field);
@@ -952,6 +986,7 @@ function resetTransientState() {
 }
 
 function syncConfigState() {
+  enforceLycorisDoraSafety();
   saveDraft();
   updateJSONPreview();
   refreshFieldHighlights();
@@ -2250,9 +2285,11 @@ function renderTraining(container) {
   // Active params
   var networkAlgo = state.config.network_module || '';
   // Anima 使用 lora_type 字段而非 network_module
-  if (!networkAlgo && state.config.lora_type) {
+  if ((!networkAlgo || networkAlgo === 'networks.lora_anima' || networkAlgo === 'networks.tlora_anima') && state.config.lora_type) {
     var lt = state.config.lora_type;
     if (lt === 'lora') networkAlgo = 'LoRA (Anima)';
+    else if (lt === 'lora_fa') networkAlgo = 'LoRA-FA (Anima)';
+    else if (lt === 'vera') networkAlgo = 'VeRA (Anima)';
     else if (lt === 'tlora') networkAlgo = 'T-LoRA (Anima)';
     else if (lt === 'lokr') networkAlgo = 'LoKr (Anima)';
   }
@@ -2688,7 +2725,7 @@ window.loadMoreThumbs = async function(idx, total) {
   }
 };
 
-window.refreshTrainingLog = async (taskId = '') => {
+async function refreshTrainingLog(taskId = '') {
   const running = state.tasks.filter((t) => t.status === 'RUNNING');
   const explicitTarget = taskId
     ? state.tasks.find((t) => t.id === taskId || t.task_id === taskId) || { id: taskId, task_id: taskId, status: 'FINISHED' }
@@ -2744,7 +2781,9 @@ window.refreshTrainingLog = async (taskId = '') => {
   } catch (e) {
     // 静默失败
   }
-};
+}
+
+window.refreshTrainingLog = refreshTrainingLog;
 
 function _updateTrainingLiveMetrics() {
   var m = state.trainingMetrics;
@@ -3795,7 +3834,7 @@ function renderAbout(container) {
       </header>
       <section class="form-section">
         <div class="section-content" style="display:block;">
-          <p style="margin-bottom:16px;">SD-reScripts v2.0.0</p>
+          <p style="margin-bottom:16px;">SD-reScripts v1.6.0</p>
           <p style="margin-bottom:16px;">由 <a href="https://github.com/Akegarasu/lora-scripts" target="_blank" rel="noopener" style="color:var(--accent);">schemastery</a> 强力驱动</p>
           <h3 style="margin:24px 0 8px;font-size:1.1rem;">下载地址</h3>
           <p>GitHub 地址：<a href="https://github.com/WhitecrowAurora/lora-rescripts" target="_blank" rel="noopener" style="color:var(--accent);">https://github.com/WhitecrowAurora/lora-rescripts</a></p>
@@ -5349,6 +5388,7 @@ window.updateConfigValue = (key, rawValue) => {
     state.fieldUndo[key] = previousValue;
   }
   state.config[key] = normalizedValue;
+  enforceLycorisDoraSafety();
   if (CONDITIONAL_KEYS.has(key) && state.activeModule === 'config') {
     saveDraft();
     renderView('config');
@@ -5549,12 +5589,30 @@ function setupImportConfig() {
         }
         if (argMap.conv_dim != null) { const n = Number(argMap.conv_dim); parsed.conv_dim = Number.isNaN(n) ? '' : n; }
         if (argMap.conv_alpha != null) { const n = Number(argMap.conv_alpha); parsed.conv_alpha = Number.isNaN(n) ? '' : n; }
+        if (argMap.preset != null) parsed.lycoris_preset = argMap.preset;
         if (argMap.dropout != null) { const n = Number(argMap.dropout); parsed.dropout = Number.isNaN(n) ? '' : n; }
+        if (argMap.rank_dropout != null) { const n = Number(argMap.rank_dropout); parsed.rank_dropout = Number.isNaN(n) ? '' : n; }
+        if (argMap.module_dropout != null) { const n = Number(argMap.module_dropout); parsed.module_dropout = Number.isNaN(n) ? '' : n; }
         if (argMap.train_norm != null) parsed.train_norm = argMap.train_norm === 'True';
+        if (argMap.use_tucker != null) parsed.use_tucker = argMap.use_tucker === 'True';
+        else if (argMap.use_cp != null) parsed.use_tucker = argMap.use_cp === 'True';
+        else if (argMap.use_conv_cp != null) parsed.use_tucker = argMap.use_conv_cp === 'True';
+        else if (argMap.disable_conv_cp != null) parsed.use_tucker = argMap.disable_conv_cp !== 'True';
+        if (argMap.use_scalar != null) parsed.use_scalar = argMap.use_scalar === 'True';
+        if (argMap.block_size != null) { const n = Number(argMap.block_size); parsed.block_size = Number.isNaN(n) ? '' : n; }
+        if (argMap.rescaled != null) parsed.rescaled = argMap.rescaled === 'True';
+        if (argMap.constraint != null) { const n = Number(argMap.constraint); parsed.constraint = Number.isNaN(n) ? '' : n; }
+        else if (argMap.constrain != null) { const n = Number(argMap.constrain); parsed.constraint = Number.isNaN(n) ? '' : n; }
+        if (argMap.rs_lora != null) parsed.rs_lora = argMap.rs_lora === 'True';
         if (argMap.factor != null) { const n = Number(argMap.factor); parsed.lokr_factor = Number.isNaN(n) ? '' : n; }
         if (argMap.dora_wd != null) parsed.dora_wd = argMap.dora_wd === 'True';
+        if (argMap.wd_on_output != null) parsed.wd_on_output = argMap.wd_on_output === 'True';
+        if (argMap.bypass_mode != null) parsed.bypass_mode = argMap.bypass_mode === 'True';
+        if (argMap.decompose_both != null) parsed.decompose_both = argMap.decompose_both === 'True';
+        if (argMap.full_matrix != null) parsed.full_matrix = argMap.full_matrix === 'True';
+        if (argMap.unbalanced_factorization != null) parsed.unbalanced_factorization = argMap.unbalanced_factorization === 'True';
         if (argMap.scale_weight_norms != null) { const n = Number(argMap.scale_weight_norms); parsed.scale_weight_norms = Number.isNaN(n) ? '' : n; }
-        const structured = new Set(['algo', 'conv_dim', 'conv_alpha', 'dropout', 'train_norm', 'factor', 'dora_wd', 'scale_weight_norms']);
+        const structured = new Set(['algo', 'conv_dim', 'conv_alpha', 'preset', 'dropout', 'rank_dropout', 'module_dropout', 'train_norm', 'use_tucker', 'use_scalar', 'block_size', 'rescaled', 'constraint', 'constrain', 'rs_lora', 'factor', 'dora_wd', 'wd_on_output', 'bypass_mode', 'decompose_both', 'full_matrix', 'unbalanced_factorization', 'scale_weight_norms', 'disable_conv_cp', 'use_cp', 'use_conv_cp']);
         const remaining = parsed.network_args.filter(a => { const k = String(a).split('=')[0].trim(); return !structured.has(k); });
         if (remaining.length > 0) parsed.network_args_custom = remaining.join('\n');
         delete parsed.network_args;
@@ -5827,6 +5885,7 @@ window.switchTrainingType = (typeId) => {
       state.config[key] = oldConfig[key];
     }
   }
+  enforceLycorisDoraSafety();
   state.hasLocalDraft = false;
   localStorage.removeItem(DRAFT_STORAGE_KEY);
   resetTransientState();
@@ -5981,13 +6040,31 @@ window.loadNamedConfig = async (name) => {
       }
       if (argMap.conv_dim != null) { const n = Number(argMap.conv_dim); data.conv_dim = Number.isNaN(n) ? '' : n; }
       if (argMap.conv_alpha != null) { const n = Number(argMap.conv_alpha); data.conv_alpha = Number.isNaN(n) ? '' : n; }
+      if (argMap.preset != null) data.lycoris_preset = argMap.preset;
       if (argMap.dropout != null) { const n = Number(argMap.dropout); data.dropout = Number.isNaN(n) ? '' : n; }
+      if (argMap.rank_dropout != null) { const n = Number(argMap.rank_dropout); data.rank_dropout = Number.isNaN(n) ? '' : n; }
+      if (argMap.module_dropout != null) { const n = Number(argMap.module_dropout); data.module_dropout = Number.isNaN(n) ? '' : n; }
       if (argMap.train_norm != null) data.train_norm = argMap.train_norm === 'True';
+      if (argMap.use_tucker != null) data.use_tucker = argMap.use_tucker === 'True';
+      else if (argMap.use_cp != null) data.use_tucker = argMap.use_cp === 'True';
+      else if (argMap.use_conv_cp != null) data.use_tucker = argMap.use_conv_cp === 'True';
+      else if (argMap.disable_conv_cp != null) data.use_tucker = argMap.disable_conv_cp !== 'True';
+      if (argMap.use_scalar != null) data.use_scalar = argMap.use_scalar === 'True';
+      if (argMap.block_size != null) { const n = Number(argMap.block_size); data.block_size = Number.isNaN(n) ? '' : n; }
+      if (argMap.rescaled != null) data.rescaled = argMap.rescaled === 'True';
+      if (argMap.constraint != null) { const n = Number(argMap.constraint); data.constraint = Number.isNaN(n) ? '' : n; }
+      else if (argMap.constrain != null) { const n = Number(argMap.constrain); data.constraint = Number.isNaN(n) ? '' : n; }
+      if (argMap.rs_lora != null) data.rs_lora = argMap.rs_lora === 'True';
       if (argMap.factor != null) { const n = Number(argMap.factor); data.lokr_factor = Number.isNaN(n) ? '' : n; }
       if (argMap.dora_wd != null) data.dora_wd = argMap.dora_wd === 'True';
+      if (argMap.wd_on_output != null) data.wd_on_output = argMap.wd_on_output === 'True';
+      if (argMap.bypass_mode != null) data.bypass_mode = argMap.bypass_mode === 'True';
+      if (argMap.decompose_both != null) data.decompose_both = argMap.decompose_both === 'True';
+      if (argMap.full_matrix != null) data.full_matrix = argMap.full_matrix === 'True';
+      if (argMap.unbalanced_factorization != null) data.unbalanced_factorization = argMap.unbalanced_factorization === 'True';
       if (argMap.scale_weight_norms != null) { const n = Number(argMap.scale_weight_norms); data.scale_weight_norms = Number.isNaN(n) ? '' : n; }
       // 剩余非结构化的 args 放入 network_args_custom
-      const structured = new Set(['algo', 'conv_dim', 'conv_alpha', 'dropout', 'train_norm', 'factor', 'dora_wd', 'scale_weight_norms']);
+      const structured = new Set(['algo', 'conv_dim', 'conv_alpha', 'preset', 'dropout', 'rank_dropout', 'module_dropout', 'train_norm', 'use_tucker', 'use_scalar', 'block_size', 'rescaled', 'constraint', 'constrain', 'rs_lora', 'factor', 'dora_wd', 'wd_on_output', 'bypass_mode', 'decompose_both', 'full_matrix', 'unbalanced_factorization', 'scale_weight_norms', 'disable_conv_cp', 'use_cp', 'use_conv_cp']);
       const remaining = data.network_args.filter(a => { const k = String(a).split('=')[0].trim(); return !structured.has(k); });
       if (remaining.length > 0) data.network_args_custom = remaining.join('\n');
       delete data.network_args;
@@ -6028,6 +6105,8 @@ window.loadNamedConfig = async (name) => {
       data.base_weights = data.base_weights.join('\n');
       if (!data.enable_base_weight) data.enable_base_weight = true;
     }
+
+    enforceLycorisDoraSafety(data);
 
     if (savedType && savedType !== state.activeTrainingType) {
       const typeExists = TRAINING_TYPES.some((t) => t.id === savedType);
@@ -6315,6 +6394,24 @@ function validateConfigConflicts() {
   const isSageEnv = (state.runtime?.runtime?.environment || '').includes('sageattention');
   const toBool = (v) => v === true || v === 'true' || v === 1;
   const toNum = (v) => { const n = Number(v); return Number.isNaN(n) ? 0 : n; };
+  const networkModule = String(c.network_module || '').trim().toLowerCase();
+  const loraType = String(c.lora_type || '').trim().toLowerCase();
+  const optimizerText = `${c.optimizer_type || ''} ${c.optimizer || ''}`.toLowerCase();
+  const isAnimaRoute = String(tt || '').startsWith('anima-') || String(c.model_train_type || '').toLowerCase().startsWith('anima-');
+  const supportedVramSwapModules = new Set([
+    'networks.lora',
+    'networks.lora_fa',
+    'networks.vera',
+    'networks.tlora',
+    'networks.lora_flux',
+    'networks.tlora_flux',
+    'networks.lora_sd3',
+    'networks.lora_lumina',
+    'networks.lora_hunyuan_image',
+    'networks.lora_anima',
+    'networks.tlora_anima',
+  ]);
+  const unsupportedVramSwapOptimizerKeywords = ['bitsandbytes', '8bit', 'paged', 'ademamix'];
 
   // 1. 缓存文本编码器输出 与 标签打乱/丢弃 冲突
   if (toBool(c.cache_text_encoder_outputs)) {
@@ -6372,6 +6469,35 @@ function validateConfigConflicts() {
   // 10. full_fp16 与 full_bf16 冲突
   if (toBool(c.full_fp16) && toBool(c.full_bf16)) {
     errors.push('不能同时启用「完全 FP16」和「完全 BF16」。请只保留其中一个。');
+  }
+
+  if (networkModule === 'lycoris.kohya' && toBool(c.dora_wd) && toBool(c.bypass_mode)) {
+    warnings.push('当前 LyCORIS 同时启用了「DoRA」和「Bypass Mode」。这条组合存在已知 bypass 缺陷风险，建议关闭 bypass_mode。');
+  }
+  if (networkModule === 'lycoris.kohya' && String(c.lycoris_algo || '').toLowerCase() === 'ia3' && toBool(c.train_norm)) {
+    warnings.push('当前 LyCORIS 算法为 IA3，一般不建议同时开启「训练 Norm 层」，请确认这是你有意为之。');
+  }
+
+  if (toBool(c.vram_swap_to_ram)) {
+    if (toBool(c.full_fp16) || toBool(c.full_bf16)) {
+      warnings.push('已启用「VRAM Swap to RAM」，但它暂不支持与 full_fp16 / full_bf16 同时使用，后端会自动忽略该项。');
+    }
+    if (toBool(c.deepspeed)) {
+      warnings.push('已启用「VRAM Swap to RAM」，但它暂不支持与 DeepSpeed 同时使用，后端会自动忽略该项。');
+    }
+    if (toBool(c.enable_distributed_training)) {
+      warnings.push('已启用「VRAM Swap to RAM」，但它当前只支持单进程训练。若本次按分布式方式启动，后端会自动忽略该项。');
+    }
+    if (unsupportedVramSwapOptimizerKeywords.some((keyword) => optimizerText.includes(keyword))) {
+      warnings.push(`已启用「VRAM Swap to RAM」，但当前优化器「${c.optimizer_type || '未知优化器'}」暂不在支持范围内，后端会自动忽略该项。`);
+    }
+    if (isAnimaRoute) {
+      if (!['lora', 'lora_fa', 'vera', 'tlora'].includes(loraType)) {
+        warnings.push(`已启用「VRAM Swap to RAM」，但当前 Anima 适配器类型「${c.lora_type || '未识别'}」暂不支持。现阶段仅支持 LoRA / LoRA-FA / VeRA / T-LoRA，后端会自动忽略该项。`);
+      }
+    } else if (!supportedVramSwapModules.has(networkModule)) {
+      warnings.push(`已启用「VRAM Swap to RAM」，但当前网络路线「${c.network_module || '未识别'}」暂不支持。现阶段仅支持原生 LoRA / LoRA-FA / VeRA / T-LoRA 路线，后端会自动忽略该项。`);
+    }
   }
 
   // 11. 学习率为 0 警告
@@ -6473,12 +6599,11 @@ window.executeTraining = async () => {
     showToast(state.lastMessage);
     const responseTaskId = response?.data?.task_id || response?.data?.id || '';
     if (responseTaskId) rememberTrainingTaskMetadata(responseTaskId, launchMetadata);
-
     const tasksResponse = await api.getTasks();
     const freshTasks = tasksResponse?.data?.tasks || [];
-    // 为刚启动的新任务注入元数据，后端 dump 只返回 id/status/returncode
     const localHistory = await loadLocalTaskHistory();
     for (const t of freshTasks) {
+      // 为刚启动的新任务注入元数据，后端 dump 只返回 id/status/returncode
       // 对 RUNNING 任务且缺少 output_name 的注入元数据（新任务 or 之前漏注入的）
       if (t.status === 'RUNNING') {
         const meta = getPendingTrainingMetadata(t.id) || (!state.activeTrainingTaskId ? launchMetadata : null);
@@ -6664,7 +6789,7 @@ function _searchConfigFields(query) {
   const results = [];
   for (const section of sections) {
     for (const field of section.fields) {
-      if (field.type === 'hidden') continue;
+      if (field.type === 'hidden' || field.type === 'ui_group') continue;
       const matchLabel = (field.label || '').toLowerCase().includes(query);
       const matchKey = (field.key || '').toLowerCase().includes(query);
       const matchDesc = (field.desc || '').toLowerCase().includes(query);

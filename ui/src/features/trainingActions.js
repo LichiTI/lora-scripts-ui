@@ -113,6 +113,24 @@ export function createTrainingActionsController({
     const isSageEnv = (state.runtime?.runtime?.environment || '').includes('sageattention');
     const toBool = (v) => v === true || v === 'true' || v === 1;
     const toNum = (v) => { const n = Number(v); return Number.isNaN(n) ? 0 : n; };
+    const networkModule = String(c.network_module || '').trim().toLowerCase();
+    const loraType = String(c.lora_type || '').trim().toLowerCase();
+    const optimizerText = `${c.optimizer_type || ''} ${c.optimizer || ''}`.toLowerCase();
+    const isAnimaRoute = String(tt || '').startsWith('anima-') || String(c.model_train_type || '').toLowerCase().startsWith('anima-');
+    const supportedVramSwapModules = new Set([
+      'networks.lora',
+      'networks.lora_fa',
+      'networks.vera',
+      'networks.tlora',
+      'networks.lora_flux',
+      'networks.tlora_flux',
+      'networks.lora_sd3',
+      'networks.lora_lumina',
+      'networks.lora_hunyuan_image',
+      'networks.lora_anima',
+      'networks.tlora_anima',
+    ]);
+    const unsupportedVramSwapOptimizerKeywords = ['bitsandbytes', '8bit', 'paged', 'ademamix'];
 
     if (toBool(c.cache_text_encoder_outputs)) {
       const conflicts = [];
@@ -159,6 +177,35 @@ export function createTrainingActionsController({
 
     if (toBool(c.full_fp16) && toBool(c.full_bf16)) {
       errors.push('不能同时启用「完全 FP16」和「完全 BF16」。请只保留其中一个。');
+    }
+
+    if (networkModule === 'lycoris.kohya' && toBool(c.dora_wd) && toBool(c.bypass_mode)) {
+      warnings.push('当前 LyCORIS 同时启用了「DoRA」和「Bypass Mode」。这条组合存在已知 bypass 缺陷风险，建议关闭 bypass_mode。');
+    }
+    if (networkModule === 'lycoris.kohya' && String(c.lycoris_algo || '').toLowerCase() === 'ia3' && toBool(c.train_norm)) {
+      warnings.push('当前 LyCORIS 算法为 IA3，一般不建议同时开启「训练 Norm 层」，请确认这是你有意为之。');
+    }
+
+    if (toBool(c.vram_swap_to_ram)) {
+      if (toBool(c.full_fp16) || toBool(c.full_bf16)) {
+        warnings.push('已启用「VRAM Swap to RAM」，但它暂不支持与 full_fp16 / full_bf16 同时使用，后端会自动忽略该项。');
+      }
+      if (toBool(c.deepspeed)) {
+        warnings.push('已启用「VRAM Swap to RAM」，但它暂不支持与 DeepSpeed 同时使用，后端会自动忽略该项。');
+      }
+      if (toBool(c.enable_distributed_training)) {
+        warnings.push('已启用「VRAM Swap to RAM」，但它当前只支持单进程训练。若本次按分布式方式启动，后端会自动忽略该项。');
+      }
+      if (unsupportedVramSwapOptimizerKeywords.some((keyword) => optimizerText.includes(keyword))) {
+        warnings.push(`已启用「VRAM Swap to RAM」，但当前优化器「${c.optimizer_type || '未知优化器'}」暂不在支持范围内，后端会自动忽略该项。`);
+      }
+      if (isAnimaRoute) {
+        if (!['lora', 'lora_fa', 'vera', 'tlora'].includes(loraType)) {
+          warnings.push(`已启用「VRAM Swap to RAM」，但当前 Anima 适配器类型「${c.lora_type || '未识别'}」暂不支持。现阶段仅支持 LoRA / LoRA-FA / VeRA / T-LoRA，后端会自动忽略该项。`);
+        }
+      } else if (!supportedVramSwapModules.has(networkModule)) {
+        warnings.push(`已启用「VRAM Swap to RAM」，但当前网络路线「${c.network_module || '未识别'}」暂不支持。现阶段仅支持原生 LoRA / LoRA-FA / VeRA / T-LoRA 路线，后端会自动忽略该项。`);
+      }
     }
 
     const effUnetLr = Number(c.unet_lr || c.learning_rate || 0);

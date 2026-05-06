@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoRA v1.6.0 | RE-SCRIPTS</title>
+  <script type="module" crossorigin src="./assets/index--sDzXEAD.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index--8I86S4D.css">
+</head>
+
+<body class="dark-theme">
+    <div id="app">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-text">LORA<span>RESCRIPTS</span></div>
+                <div class="logo-version">v1.6.0</div>
+            </div>
+            <nav class="nav-links">
+                <div class="expand-toggle-btn" id="navigator-expand-btn">
+                    <svg class="icon">
+                        <use href="#icon-chevron-right"></use>
+                    </svg>
+                </div>
+                <a href="#" class="nav-item active" data-module="config" title="Config">
+                    <svg class="icon">
+                        <use href="#icon-layout"></use>
+                    </svg>
+                    <span data-i18n="nav.config">配置</span>
+                </a>
+                <a href="#" class="nav-item" data-module="training" title="Training">
+                    <svg class="icon">
+                        <use href="#icon-training"></use>
+                    </svg>
+                    <span data-i18n="nav.training">训练</span>
+                </a>
+                <a href="#" class="nav-item" data-module="dataset" title="Dataset">
+                    <svg class="icon">
+                        <use href="#icon-dataset"></use>
+                    </svg>
+                    <span data-i18n="nav.dataset">数据集</span>
+                </a>
+                <a href="#" class="nav-item" data-module="logs" title="Logs">
+                    <svg class="icon">
+                        <use href="#icon-logs"></use>
+                    </svg>
+                 <span data-i18n="nav.logs">日志</span>
+                </a>
+                <a href="#" class="nav-item" data-module="tools" title="Tools">
+                    <svg class="icon">
+                        <use href="#icon-tools"></use>
+                    </svg>
+                    <span data-i18n="nav.tools">工具</span>
+                </a>
+                <a href="#" class="nav-item" data-module="settings" title="Settings">
+                    <svg class="icon">
+                        <use href="#icon-settings"></use>
+                    </svg>
+                    <span data-i18n="nav.settings">设置</span>
+                </a>
+                <a href="#" class="nav-item" data-module="wizard" title="Wizard">
+                    <svg class="icon">
+                        <use href="#icon-rocket"></use>
+                    </svg>
+                    <span>快速训练流程</span>
+                </a>
+                <a href="#" class="nav-item" data-module="guide" title="Guide">
+                    <svg class="icon">
+                        <use href="#icon-book-open"></use>
+                    </svg>
+                    <span>简易教程</span>
+                </a>
+                <a href="#" class="nav-item" data-module="plugins" title="Plugins">
+                    <svg class="icon">
+                        <use href="#icon-package"></use>
+                    </svg>
+                    <span>插件中心</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="#" class="nav-item" data-module="about" title="About">
+                    <svg class="icon">
+                        <use href="#icon-support"></use>
+                    </svg>
+                    <span data-i18n="nav.about">关于</span>
+                </a>
+                <div class="theme-toggle" id="theme-toggle">
+                    <svg class="icon moon-icon">
+                        <use href="#icon-moon"></use>
+                    </svg>
+                    <svg class="icon sun-icon">
+                        <use href="#icon-sun"></use>
+                    </svg>
+                    <svg class="icon clay-icon" style="display:none">
+                        <use href="#icon-clay"></use>
+                    </svg>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Navigator (Second Column) -->
+        <aside class="navigator" id="navigator">
+            <div class="navigator-header">
+                <h3 data-i18n="navigator.header">NAVIGATOR</h3>
+                <button class="collapse-btn" id="navigator-collapse-btn" title="收起导航">
+                    <svg class="icon">
+                        <use href="#icon-chevron-left"></use>
+                    </svg>
+                </button>
+            </div>
+
+            <section class="nav-section" id="section-training-types">
+                <div class="section-header">
+                    <h4 data-i18n="navigator.training_types">TRAINING TYPES</h4>
+                </div>
+                <div class="section-content">
+                    <div class="nav-group">
+                        <div class="group-header">LoRA</div>
+                        <ul class="group-list">
+                            <li class="active">SDXL</li>
+                            <li>FLUX</li>
+                            <li>SD3.5</li>
+                            <li>SD1.5</li>
+                            <li>ANIME</li>
+                            <li>NEWBIE</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <div class="navigator-footer"></div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="workspace">
+            <!-- Contextual Topbar -->
+            <header class="topbar">
+                <nav class="top-nav">
+                    <a href="#" class="top-nav-item active" data-i18n="topbar.model">Model</a>
+                    <a href="#" class="top-nav-item" data-i18n="topbar.tagger">Tagger</a>
+                    <a href="#" class="top-nav-item" data-i18n="topbar.dataset">Dataset</a>
+                    <a href="#" class="top-nav-item" data-i18n="topbar.optimizer">Optimizer</a>
+                    <a href="#" class="top-nav-item" data-i18n="topbar.advanced">Advanced</a>
+                    <a href="#" class="top-nav-item" data-i18n="topbar.tensorboard">Tensorboard</a>
+                    <a href="#" class="top-nav-item" data-i18n="topbar.tools">Tools</a>
+                    <a href="#" class="top-nav-item" data-i18n="topbar.help">Help</a>
+                </nav>
+                <div class="topbar-search" id="topbar-search">
+                    <div class="topbar-search-input-wrap">
+                        <svg class="icon" style="width:14px;height:14px;opacity:0.5;flex-shrink:0;"><use href="#icon-search"></use></svg>
+                        <input type="text" id="topbar-search-input" placeholder="搜索配置项..." autocomplete="off">
+                    </div>
+                    <div class="topbar-search-dropdown" id="topbar-search-dropdown"></div>
+                </div>
+            </header>
+
+            <!-- Configuration Form -->
+            <div class="content-area">
+                <div class="form-container">
+                    <header class="section-title">
+                        <h2 data-i18n="config.title">MODEL_CONFIGURATION</h2>
+                        <p data-i18n="config.subtitle">Defining basic architecture and core weight redistribution
+                            parameters.</p>
+                    </header>
+
+                    <div class="config-group">
+                        <label>BASE_MODEL_PATH</label>
+                        <div class="input-picker">
+                            <div class="picker-icon"><svg class="icon">
+                                    <use href="#icon-folder"></use>
+                                </svg></div>
+                            <input type="text" aria-label="基础模型路径"
+                                value="C:/StableDiffusion/models/Stable-diffusion/sd_xl_base_1.0.safetensors" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="config-group">
+                            <label>PRECISION</label>
+                            <select aria-label="训练精度">
+                                <option>BF16 (Bfloat16)</option>
+                                <option>FP16</option>
+                                <option>FP32</option>
+                            </select>
+                        </div>
+                        <div class="config-group">
+                            <label>SAVE_FORMAT</label>
+                            <select aria-label="保存格式">
+                                <option>Safetensors</option>
+                                <option>Ckpt</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="config-group highlight">
+                        <div class="label-row">
+                            <label>NETWORK_RANK (DIM)</label>
+                        </div>
+                        <input class="text-input" type="number" min="1" max="512" value="128" aria-label="网络秩">
+                    </div>
+
+                    <div class="config-group highlight">
+                        <div class="label-row">
+                            <label>NETWORK_ALPHA</label>
+                        </div>
+                        <input class="text-input" type="number" min="1" max="512" value="64" aria-label="网络Alpha">
+                    </div>
+
+                    <div class="config-group row">
+                        <div class="label-col">
+                            <label>ENABLE_PREVIEW</label>
+                            <p>Real-time sample image generation during training for quality monitoring.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" checked aria-label="启用预览">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Action Bar -->
+            <footer class="bottom-bar">
+                <button class="btn btn-primary btn-execute" onclick="executeTraining()">
+                    <span class="btn-main">开始训练</span>
+                </button>
+            </footer>
+        </main>
+
+        <!-- 参数预览面板 -->
+        <aside class="json-panel" id="json-panel">
+            <div class="panel-header">
+                <h3 data-i18n="json_panel.header">参数预览</h3>
+                <div class="panel-actions">
+                    <button class="collapse-btn" id="json-panel-toggle" title="收起参数预览"><svg class="icon">
+                            <use href="#icon-chevron-right"></use>
+                        </svg></button>
+                </div>
+            </div>
+            <div class="code-viewer" id="json-viewer">
+                <pre><code>{
+  <span class="key" data-target="base_model_path">"model_config"</span>: {
+    "pretrained_model_name_or_path": <span class="string">"sd_xl_base_1.0"</span>,
+    "v2": <span class="boolean">false</span>,
+    "v_parameterization": <span class="boolean">false</span>
+  },
+  <span class="key" data-target="precision">"train_config"</span>: {
+    "precision": <span class="string">"bf16"</span>,
+    "network_module": <span class="string">"networks.lora"</span>,
+    <span class="key" data-target="network_rank">"network_dim"</span>: <span class="number">128</span>,
+    <span class="key" data-target="network_alpha">"network_alpha"</span>: <span class="number">64</span>,
+    "optimizer_type": <span class="string">"Adafactor"</span>,
+    "learning_rate": <span class="number">1e-4</span>,
+    "max_train_epochs": <span class="number">10</span>
+  },
+  "sample_config": {
+    "enable_sample": <span class="boolean">true</span>,
+    "sample_every_n_epochs": <span class="number">1</span>
+  }
+}</code></pre>
+            </div>
+            <div class="panel-preset-actions" id="panel-preset-actions"></div>
+        </aside>
+    </div>
+    <input type="file" id="config-file-input" accept=".toml,.json,application/json" hidden>
+    <input type="file" id="native-picker-input" hidden>
+    <div class="builtin-picker-modal" id="builtin-picker-modal">
+        <div class="builtin-picker-dialog">
+            <div class="builtin-picker-header">
+                <div>
+                    <h3 id="builtin-picker-title">请选择目录</h3>
+                    <p id="builtin-picker-path"></p>
+                </div>
+                <button class="collapse-btn" id="builtin-picker-close" title="关闭内置文件选择器"><svg class="icon">
+                        <use href="#icon-close"></use>
+                    </svg></button>
+            </div>
+            <div class="builtin-picker-list" id="builtin-picker-list"></div>
+            <div class="builtin-picker-footer">
+                <button class="btn btn-outline btn-sm" type="button" id="builtin-picker-cancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SVG Icon Sprite -->
+    <svg aria-hidden="true" class="svg-sprite-hidden">
+        <symbol id="icon-layout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect width="7" height="9" x="3" y="3" rx="1" />
+            <rect width="7" height="5" x="14" y="3" rx="1" />
+            <rect width="7" height="9" x="14" y="12" rx="1" />
+            <rect width="7" height="5" x="3" y="16" rx="1" />
+        </symbol>
+        <symbol id="icon-training" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v10" />
+            <path d="m16 8-4 4-4-4" />
+            <path d="M4.5 9a9 9 0 0 1 15 0" />
+            <circle cx="12" cy="12" r="10" />
+        </symbol>
+        <symbol id="icon-tagger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path
+                d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        </symbol>
+        <symbol id="icon-dataset" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+            <path d="M3 12A9 3 0 0 0 21 12" />
+        </symbol>
+        <symbol id="icon-logs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12H3" />
+            <path d="M18 6H6" />
+            <path d="M18 18H6" />
+        </symbol>
+        <symbol id="icon-tools" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="m2 22 5-5" />
+            <path d="M7 22l5-5" />
+            <path d="m15 13-5 5L2 10l5-5 5 5 3-3z" />
+            <path d="m18 10 4-4-2-2-4 4-2-2 4-4" />
+            <path d="M15 13 5 3" />
+        </symbol>
+        <symbol id="icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path
+                d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
+        </symbol>
+        <symbol id="icon-support" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <path d="M12 17h.01" />
+        </symbol>
+        <symbol id="icon-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+        </symbol>
+        <symbol id="icon-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+        </symbol>
+        <symbol id="icon-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+        </symbol>
+        <symbol id="icon-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+        </symbol>
+        <symbol id="icon-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93l-2.73-3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+        </symbol>
+        <symbol id="icon-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <path d="M14 2v6h6" />
+        </symbol>
+        <symbol id="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+        </symbol>
+        <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2" />
+            <path d="M12 20v2" />
+            <path d="m4.93 4.93 1.41 1.41" />
+            <path d="m17.66 17.66 1.41 1.41" />
+            <path d="M2 12h2" />
+            <path d="M20 12h2" />
+            <path d="m6.34 17.66-1.41 1.41" />
+            <path d="m19.07 4.93-1.41 1.41" />
+        </symbol>
+        <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+        </symbol>
+        <symbol id="icon-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5" />
+            <line x1="12" x2="20" y1="19" y2="19" />
+        </symbol>
+        <symbol id="icon-translate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" />
+            <path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
+        </symbol>
+        <symbol id="icon-theme" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2" /><path d="M12 20v2" />
+            <path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" />
+            <path d="M2 12h2" /><path d="M20 12h2" />
+            <path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />
+        </symbol>
+        <symbol id="icon-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+        <symbol id="icon-trending-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></symbol>
+        <symbol id="icon-trending-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></symbol>
+        <symbol id="icon-minus-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol>
+        <symbol id="icon-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></symbol>
+        <symbol id="icon-trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></symbol>
+        <symbol id="icon-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></symbol>
+        <symbol id="icon-alert-tri" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+        <symbol id="icon-x-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+        <symbol id="icon-bar-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></symbol>
+        <symbol id="icon-loader" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></symbol>
+        <symbol id="icon-stop-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect width="6" height="6" x="9" y="9"/></symbol>
+        <symbol id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+        <symbol id="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
+        <symbol id="icon-refresh-cw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></symbol>
+        <symbol id="icon-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+        <symbol id="icon-book-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
+        <symbol id="icon-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></symbol>
+        <symbol id="icon-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16.5 9.4-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/></symbol>
+        <symbol id="icon-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+        <symbol id="icon-unlock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></symbol>
+            <symbol id="icon-clay" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22v-8"/>
+                <path d="M9 14c-1.5-1-3-3.5-3-6 0-2 1-3.5 3-4 .5 1.5 1.5 2.5 3 2.5S14.5 5.5 15 4c2 .5 3 2 3 4 0 2.5-1.5 5-3 6"/>
+                <path d="M8 20c0-1.1.9-2 2-2h4a2 2 0 0 1 2 2v1H8v-1z"/>
+            </symbol>
+
+
+
+    </svg>
+
+</body>
+
+</html>
