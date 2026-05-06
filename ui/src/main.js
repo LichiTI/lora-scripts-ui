@@ -2920,7 +2920,7 @@ function renderWizard(container) {
   var lokrVisible = (c.network_module === 'lycoris.kohya' && c.lycoris_algo === 'lokr') ? '' : 'display:none;';
 
   // 优化器选项
-  var optimizers = ['AdamW8bit', 'Prodigy', 'AdamW', 'Lion8bit', 'Lion', 'SGDNesterov8bit', 'DAdaptation', 'Adafactor'];
+  var optimizers = ['AdamW8bit', 'AdamW8bitKahan', 'Prodigy', 'AdamW', 'Lion8bit', 'Lion', 'SGDNesterov8bit', 'DAdaptation', 'Adafactor'];
   var optSelect = optimizers.map(function(o) {
     return '<option value="' + o + '"' + (c.optimizer_type === o ? ' selected' : '') + '>' + o + '</option>';
   }).join('');
@@ -3834,7 +3834,7 @@ function renderAbout(container) {
       </header>
       <section class="form-section">
         <div class="section-content" style="display:block;">
-          <p style="margin-bottom:16px;">SD-reScripts v1.6.0</p>
+          <p style="margin-bottom:16px;">SD-reScripts v1.6.1</p>
           <p style="margin-bottom:16px;">由 <a href="https://github.com/Akegarasu/lora-scripts" target="_blank" rel="noopener" style="color:var(--accent);">schemastery</a> 强力驱动</p>
           <h3 style="margin:24px 0 8px;font-size:1.1rem;">下载地址</h3>
           <p>GitHub 地址：<a href="https://github.com/WhitecrowAurora/lora-rescripts" target="_blank" rel="noopener" style="color:var(--accent);">https://github.com/WhitecrowAurora/lora-rescripts</a></p>

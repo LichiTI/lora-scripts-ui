@@ -200,7 +200,7 @@ export function renderAboutPage(container) {
       </header>
       <section class="form-section">
         <div class="section-content" style="display:block;">
-          <p style="margin-bottom:16px;">SD-reScripts v1.6.0</p>
+          <p style="margin-bottom:16px;">SD-reScripts v1.6.1</p>
           <p style="margin-bottom:16px;">由 <a href="https://github.com/Akegarasu/lora-scripts" target="_blank" rel="noopener" style="color:var(--accent);">schemastery</a> 强力驱动</p>
           <h3 style="margin:24px 0 8px;font-size:1.1rem;">下载地址</h3>
           <p>GitHub 地址：<a href="https://github.com/WhitecrowAurora/lora-rescripts" target="_blank" rel="noopener" style="color:var(--accent);">https://github.com/WhitecrowAurora/lora-rescripts</a></p>
