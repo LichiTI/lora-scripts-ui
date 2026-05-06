@@ -1522,6 +1522,29 @@ body.compact-layout .config-group.row {
   grid-column: span 1;
 }
 
+.config-group.group-heading {
+  grid-column: 1 / -1;
+  gap: 6px;
+  margin-top: 4px;
+  margin-bottom: 2px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.group-heading-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text-main);
+}
+
+.group-heading-desc {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
 .action-footer {
   display: flex;
   justify-content: center;

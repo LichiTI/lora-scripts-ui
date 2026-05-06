@@ -62,7 +62,7 @@ export function createTopbarSearchController({ state, uiTabs, getSectionsForType
     const results = [];
     for (const section of sections) {
       for (const field of section.fields) {
-        if (field.type === 'hidden') continue;
+        if (field.type === 'hidden' || field.type === 'ui_group') continue;
         const matchLabel = (field.label || '').toLowerCase().includes(query);
         const matchKey = (field.key || '').toLowerCase().includes(query);
         const matchDesc = (field.desc || '').toLowerCase().includes(query);

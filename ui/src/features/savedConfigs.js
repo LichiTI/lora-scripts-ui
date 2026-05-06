@@ -287,13 +287,31 @@ function normalizeLegacySavedConfig(data) {
     }
     if (argMap.conv_dim != null) { const n = Number(argMap.conv_dim); data.conv_dim = Number.isNaN(n) ? '' : n; }
     if (argMap.conv_alpha != null) { const n = Number(argMap.conv_alpha); data.conv_alpha = Number.isNaN(n) ? '' : n; }
+    if (argMap.preset != null) data.lycoris_preset = argMap.preset;
     if (argMap.dropout != null) { const n = Number(argMap.dropout); data.dropout = Number.isNaN(n) ? '' : n; }
+    if (argMap.rank_dropout != null) { const n = Number(argMap.rank_dropout); data.rank_dropout = Number.isNaN(n) ? '' : n; }
+    if (argMap.module_dropout != null) { const n = Number(argMap.module_dropout); data.module_dropout = Number.isNaN(n) ? '' : n; }
     if (argMap.train_norm != null) data.train_norm = argMap.train_norm === 'True';
+    if (argMap.use_tucker != null) data.use_tucker = argMap.use_tucker === 'True';
+    else if (argMap.use_cp != null) data.use_tucker = argMap.use_cp === 'True';
+    else if (argMap.use_conv_cp != null) data.use_tucker = argMap.use_conv_cp === 'True';
+    else if (argMap.disable_conv_cp != null) data.use_tucker = argMap.disable_conv_cp !== 'True';
+    if (argMap.use_scalar != null) data.use_scalar = argMap.use_scalar === 'True';
+    if (argMap.block_size != null) { const n = Number(argMap.block_size); data.block_size = Number.isNaN(n) ? '' : n; }
+    if (argMap.rescaled != null) data.rescaled = argMap.rescaled === 'True';
+    if (argMap.constraint != null) { const n = Number(argMap.constraint); data.constraint = Number.isNaN(n) ? '' : n; }
+    else if (argMap.constrain != null) { const n = Number(argMap.constrain); data.constraint = Number.isNaN(n) ? '' : n; }
+    if (argMap.rs_lora != null) data.rs_lora = argMap.rs_lora === 'True';
     if (argMap.factor != null) { const n = Number(argMap.factor); data.lokr_factor = Number.isNaN(n) ? '' : n; }
     if (argMap.dora_wd != null) data.dora_wd = argMap.dora_wd === 'True';
+    if (argMap.wd_on_output != null) data.wd_on_output = argMap.wd_on_output === 'True';
+    if (argMap.bypass_mode != null) data.bypass_mode = argMap.bypass_mode === 'True';
+    if (argMap.decompose_both != null) data.decompose_both = argMap.decompose_both === 'True';
+    if (argMap.full_matrix != null) data.full_matrix = argMap.full_matrix === 'True';
+    if (argMap.unbalanced_factorization != null) data.unbalanced_factorization = argMap.unbalanced_factorization === 'True';
     if (argMap.scale_weight_norms != null) { const n = Number(argMap.scale_weight_norms); data.scale_weight_norms = Number.isNaN(n) ? '' : n; }
 
-    const structured = new Set(['algo', 'conv_dim', 'conv_alpha', 'dropout', 'train_norm', 'factor', 'dora_wd', 'scale_weight_norms']);
+    const structured = new Set(['algo', 'conv_dim', 'conv_alpha', 'preset', 'dropout', 'rank_dropout', 'module_dropout', 'train_norm', 'use_tucker', 'use_scalar', 'block_size', 'rescaled', 'constraint', 'constrain', 'rs_lora', 'factor', 'dora_wd', 'wd_on_output', 'bypass_mode', 'decompose_both', 'full_matrix', 'unbalanced_factorization', 'scale_weight_norms', 'disable_conv_cp', 'use_cp', 'use_conv_cp']);
     const remaining = data.network_args.filter((arg) => {
       const key = String(arg).split('=')[0].trim();
       return !structured.has(key);

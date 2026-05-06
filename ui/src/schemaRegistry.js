@@ -56,6 +56,7 @@ export function isFieldVisible(field, config) {
 
 export function normalizeDraftValue(field, rawValue) {
   if (!field) return rawValue;
+  if (field.type === 'ui_group') return '';
   if (field.type === 'boolean') return Boolean(rawValue);
   if (field.type === 'number' || field.type === 'slider') {
     if (rawValue === '' || rawValue === null || rawValue === undefined) return '';
@@ -73,6 +74,7 @@ export function buildRunConfig(sections, config, trainType) {
   const payload = {};
   for (const section of sections) {
     for (const field of section.fields) {
+      if (field.type === 'ui_group') continue;
       if (field.type !== 'hidden' && !isFieldVisible(field, config)) continue;
       const value = config[field.key];
       if (field.type === 'boolean') { payload[field.key] = Boolean(value); continue; }

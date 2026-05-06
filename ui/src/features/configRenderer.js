@@ -50,12 +50,13 @@ export function createConfigRenderer({
 
   function renderSection(section) {
     const fields = section.fields.filter((field) => field.type !== 'hidden' && isFieldVisible(field, state.config));
+    const realFieldCount = fields.filter((field) => field.type !== 'ui_group').length;
 
     return `
       <section class="form-section" id="${escapeHtml(section.id)}">
         <header class="section-header">
           <h3>${escapeHtml(section.title)}</h3>
-          <span class="section-meta">${fields.length} 项参数</span>
+          <span class="section-meta">${realFieldCount} 项参数</span>
         </header>
         <div class="section-summary">${escapeHtml(section.description)}</div>
         <div class="section-content">
@@ -69,6 +70,14 @@ export function createConfigRenderer({
     const value = state.config[field.key];
     const label = field.label;
     const defaultValue = field.defaultValue ?? '';
+    if (field.type === 'ui_group') {
+      return `
+        <div class="config-group group-heading" data-field-key="${field.key}">
+          <div class="group-heading-title">${escapeHtml(label || '')}</div>
+          ${field.desc ? `<p class="group-heading-desc">${escapeHtml(field.desc)}</p>` : ''}
+        </div>
+      `;
+    }
     const isPicker = field.type === 'file' || field.type === 'folder';
     const isModified = String(value ?? '') !== String(defaultValue);
     const showBuiltinPicker = canUseBuiltinPicker(field);
