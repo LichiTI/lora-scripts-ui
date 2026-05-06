@@ -6552,7 +6552,6 @@ window.executeTraining = async () => {
   syncFooterAction();
   resetTrainingMetrics();
   let trainingLaunched = false;
-
   const clientCheck = validateConfigConflicts();
   if (clientCheck.errors.length > 0) {
     showToast(clientCheck.errors[0]);
@@ -6604,6 +6603,8 @@ window.executeTraining = async () => {
     const freshTasks = tasksResponse?.data?.tasks || [];
     const localHistory = await loadLocalTaskHistory();
     for (const t of freshTasks) {
+      // 为刚启动的新任务注入元数据，后端 dump 只返回 id/status/returncode
+      // 对 RUNNING 任务且缺少 output_name 的注入元数据（新任务 or 之前漏注入的）
       if (t.status === 'RUNNING') {
         const meta = getPendingTrainingMetadata(t.id) || (!state.activeTrainingTaskId ? launchMetadata : null);
         if (meta) {
