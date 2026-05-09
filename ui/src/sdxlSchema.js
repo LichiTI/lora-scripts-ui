@@ -12,9 +12,9 @@ import {
 export const UI_TABS = [
   { key: 'model', label: '模型' },
   { key: 'dataset', label: '数据集' },
+  { key: 'training', label: '训练' },
   { key: 'network', label: '网络' },
   { key: 'optimizer', label: '优化器' },
-  { key: 'training', label: '训练' },
   { key: 'preview', label: '预览/验证' },
   { key: 'speed', label: '加速' },
   { key: 'advanced', label: '高级' },
@@ -123,7 +123,6 @@ const S_LR = [
   { key: 'learning_rate', type: 'string', label: '总学习率（learning_rate）', desc: '总学习率, 在分开设置 U-Net 与文本编码器学习率后这个值失效。', defaultValue: '1e-4' },
   { key: 'unet_lr', type: 'string', label: 'U-Net 学习率（unet_lr）', desc: 'U-Net 学习率', defaultValue: '1e-4' },
   { key: 'text_encoder_lr', type: 'string', label: '文本编码器学习率（text_encoder_lr）', desc: '文本编码器学习率', defaultValue: '1e-5' },
-  { key: 'weight_decay', type: 'number', label: '权重衰减（weight_decay）', desc: '权重衰减（等价于自动注入 optimizer_args: weight_decay=...）', defaultValue: '', step: 0.0001 },
   { key: 'lr_scheduler', type: 'select', label: '学习率调度器（lr_scheduler）', desc: '学习率调度器设置；选择 torch.optim.* / pytorch_optimizer.* 等自定义项时会自动写入 lr_scheduler_type', defaultValue: 'cosine_with_restarts', options: ALL_SCHEDULERS },
   { key: 'lr_warmup_steps', type: 'number', label: '预热步数（lr_warmup_steps）', desc: '学习率预热步数', defaultValue: 0, min: 0 },
   { key: 'lr_scheduler_num_cycles', type: 'number', label: '重启次数（lr_scheduler_num_cycles）', desc: '重启次数', defaultValue: 1, min: 1, visibleWhen: when('lr_scheduler', 'cosine_with_restarts') },
@@ -136,7 +135,9 @@ const S_LR = [
   { key: 'optimizer_args_custom', type: 'textarea', label: '自定义 optimizer_args（optimizer_args_custom）', desc: '自定义优化器参数，每行一个 key=value（如 decouple=True）。Prodigy 默认已自动填充标准参数', defaultValue: '' },
 ];
 const S_TRAIN = (epochs = 10) => [
-  { key: 'max_train_epochs', type: 'number', label: '最大训练轮数（max_train_epochs）', desc: '最大训练 epoch（轮数）', defaultValue: epochs, min: 1 },
+  { key: 'train_length_mode', type: 'select', label: '训练长度模式（train_length_mode）', desc: '选择按最大轮数或最大步数控制训练结束', defaultValue: '最大轮数', options: ['最大轮数', '最大步数'] },
+  { key: 'max_train_epochs', type: 'number', label: '最大训练轮数（max_train_epochs）', desc: '最大训练 epoch（轮数）', defaultValue: epochs, min: 1, visibleWhen: (c) => !c.train_length_mode || c.train_length_mode === '最大轮数' },
+  { key: 'max_train_steps', type: 'number', label: '最大训练步数（max_train_steps）', desc: '最大训练 step（步数）', defaultValue: 1000, min: 1, visibleWhen: when('train_length_mode', '最大步数') },
   { key: 'train_batch_size', type: 'slider', label: '批量大小（train_batch_size）', desc: '批量大小。数值越高显存占用越高。', defaultValue: 1, min: 1, max: 32, step: 1 },
   { key: 'gradient_checkpointing', type: 'boolean', label: '梯度检查点（gradient_checkpointing）', desc: '梯度检查点', defaultValue: true },
   { key: 'gradient_accumulation_steps', type: 'number', label: '梯度累加步数（gradient_accumulation_steps）', desc: '梯度累加步数', defaultValue: 1, min: 1 },
@@ -160,6 +161,26 @@ const S_PREVIEW = [
   { key: 'sample_sampler', type: 'select', label: '采样器（sample_sampler）', desc: '生成预览图所用采样器', defaultValue: 'euler_a', options: ['ddim', 'pndm', 'lms', 'euler', 'euler_a', 'heun', 'dpm_2', 'dpm_2_a', 'dpmsolver', 'dpmsolver++'], visibleWhen: when('enable_preview', true) },
   { key: 'random_prompt_include_subdirs', type: 'boolean', label: '从子目录随机选择（random_prompt_include_subdirs）', desc: '从 train_data_dir 下所有子目录随机选择 Prompt', defaultValue: false, visibleWhen: all(when('enable_preview', true), when('randomly_choice_prompt', true)) },
 ];
+const S_STAGED_RESOLUTION = [
+  { key: 'enable_mixed_resolution_training', type: 'boolean', label: '启用阶段分辨率训练（enable_mixed_resolution_training）', desc: '实验性，仅支持 SDXL', defaultValue: false },
+  { key: 'staged_resolution_ratio_512', type: 'number', label: '512 阶段占比 (%)（staged_resolution_ratio_512）', desc: '当最终分辨率最大边 < 512 时忽略', defaultValue: 20, min: 0, max: 100, step: 1, visibleWhen: when('enable_mixed_resolution_training', true) },
+  { key: 'staged_resolution_ratio_768', type: 'number', label: '768 阶段占比 (%)（staged_resolution_ratio_768）', desc: '当最终分辨率最大边 < 768 时忽略', defaultValue: 30, min: 0, max: 100, step: 1, visibleWhen: when('enable_mixed_resolution_training', true) },
+  { key: 'staged_resolution_ratio_1024', type: 'number', label: '1024 阶段占比 (%)（staged_resolution_ratio_1024）', desc: '1024 基准和 2048 基准都会用到', defaultValue: 50, min: 0, max: 100, step: 1, visibleWhen: when('enable_mixed_resolution_training', true) },
+  { key: 'staged_resolution_ratio_1536', type: 'number', label: '1536 阶段占比 (%)（staged_resolution_ratio_1536）', desc: '仅 2048 基准会用到', defaultValue: 30, min: 0, max: 100, step: 1, visibleWhen: when('enable_mixed_resolution_training', true) },
+  { key: 'staged_resolution_ratio_2048', type: 'number', label: '2048 阶段占比 (%)（staged_resolution_ratio_2048）', desc: '仅 2048 基准会用到', defaultValue: 50, min: 0, max: 100, step: 1, visibleWhen: when('enable_mixed_resolution_training', true) },
+];
+const vParameterizationFields = (includeVPredOptions = false) => {
+  const fields = [
+    { key: 'v_parameterization', type: 'boolean', label: 'V 参数化（v_parameterization）', desc: 'v-parameterization 学习（训练 Illustrious 等 v-pred 模型时需要开启）', defaultValue: false },
+  ];
+  if (includeVPredOptions) {
+    fields.push(
+      { key: 'zero_terminal_snr', type: 'boolean', label: '零终端 SNR（zero_terminal_snr）', desc: 'Zero Terminal SNR（v-pred 模型训练推荐开启）', defaultValue: true, visibleWhen: when('v_parameterization', true) },
+      { key: 'scale_v_pred_loss_like_noise_pred', type: 'boolean', label: '缩放 v-pred 损失（scale_v_pred_loss_like_noise_pred）', desc: '缩放 v-prediction 损失（v-pred 模型训练推荐开启）', defaultValue: true, visibleWhen: when('v_parameterization', true) },
+    );
+  }
+  return fields;
+};
 const S_SPEED_SDXL = [
   { key: 'mixed_precision', type: 'select', label: '混合精度（mixed_precision）', desc: '训练混合精度, RTX30系列以后也可以指定 bf16', defaultValue: 'bf16', options: ['no', 'fp16', 'bf16'] },
   { key: 'xformers', type: 'boolean', label: '启用 xformers（xformers）', desc: '启用 xformers', defaultValue: true },
@@ -288,7 +309,6 @@ const S_SPEED_SD15 = [
 ];
 const S_ADV = [
   { key: 'gpu_ids', type: 'string', label: '指定显卡（gpu_ids）', desc: '指定参与训练的 GPU 编号，多卡用逗号分隔（如 0,1）。留空使用默认主显卡。可在启动日志中查看可用 GPU 编号', defaultValue: '' },
-  { key: 'noise_offset', type: 'number', label: '噪声偏移（noise_offset）', desc: '在训练中添加噪声偏移来改良生成非常暗或者非常亮的图像，如果启用推荐为 0.1', defaultValue: '', step: 0.01 },
   { key: 'seed', type: 'number', label: '随机种子（seed）', desc: '随机种子', defaultValue: 1337 },
   { key: 'clip_skip', type: 'slider', label: 'CLIP 跳层（clip_skip）', desc: 'CLIP 跳过层数 *玄学*（默认值 2 不会发送给后端，等同于不设置）', defaultValue: 2, min: 0, max: 12, step: 1 },
   { key: 'masked_loss', type: 'boolean', label: '启用蒙版损失（masked_loss）', desc: '启用 Masked Loss。训练带透明蒙版 / alpha 的图像时可用', defaultValue: false },
@@ -317,12 +337,12 @@ const S_ADV = [
 ];
 
 const S_NOISE = [
+  { key: 'noise_offset', type: 'number', label: '噪声偏移（noise_offset）', desc: '在训练中添加噪声偏移来改良生成非常暗或者非常亮的图像，如果启用推荐为 0.1', defaultValue: '', step: 0.01 },
   { key: 'noise_offset_random_strength', type: 'boolean', label: '噪声偏移随机强度（noise_offset_random_strength）', desc: '噪声偏移强度在 0 到 noise_offset 间随机变化', defaultValue: false },
   { key: 'multires_noise_iterations', type: 'number', label: '多分辨率噪声迭代（multires_noise_iterations）', desc: '多分辨率（金字塔）噪声迭代次数 推荐 6-10', defaultValue: '',step: 1 },
   { key: 'multires_noise_discount', type: 'number', label: '多分辨率噪声衰减（multires_noise_discount）', desc: '多分辨率（金字塔）衰减率 推荐 0.3-0.8', defaultValue: '', step: 0.01 },
   { key: 'ip_noise_gamma', type: 'number', label: '输入扰动噪声（ip_noise_gamma）', desc: '输入扰动噪声强度，常用于正则化', defaultValue: '', step: 0.01 },
   { key: 'ip_noise_gamma_random_strength', type: 'boolean', label: '扰动噪声随机强度（ip_noise_gamma_random_strength）', desc: '输入扰动噪声强度在 0 到 ip_noise_gamma 间随机变化', defaultValue: false },
-  { key: 'adaptive_noise_scale', type: 'number', label: '自适应噪声缩放（adaptive_noise_scale）', desc: '按 latent 平均绝对值动态追加 noise_offset', defaultValue: '', step: 0.01 },
   { key: 'min_timestep', type: 'number', label: '最小时间步（min_timestep）', desc: '训练时允许的最小 timestep', defaultValue: '', min: 0 },
   { key: 'max_timestep', type: 'number', label: '最大时间步（max_timestep）', desc: '训练时允许的最大 timestep', defaultValue: '', min: 1 },
 ];
@@ -364,9 +384,9 @@ const S_PEAK_VRAM = [
 // dataset fields helper
 const ds = (reso, bucketMax = 2048, bucketStep = 64, extra = []) => [
   { key: 'train_data_dir', type: 'folder', pickerType: 'folder', label: '训练数据集路径（train_data_dir）', desc: '训练数据集路径', defaultValue: './train/aki' },
-  { key: 'reg_data_dir', type: 'folder', pickerType: 'folder', label: '正则化数据集路径（reg_data_dir）', desc: '正则化数据集路径。默认留空，不使用正则化图像', defaultValue: '' },
+  { key: 'reg_data_dir', type: 'folder', pickerType: 'folder', label: '正则化数据集路径（reg_data_dir）', desc: '正则化数据集路径。默认留空，不使用正则化图像。适用于全量训练，轻量 LoRA 可忽略', defaultValue: '' },
   { key: 'prior_loss_weight', type: 'number', label: '先验损失权重（prior_loss_weight）', desc: '正则化 - 先验损失权重', defaultValue: 1, min: 0, step: 0.1 },
-  { key: 'resolution', type: 'string', label: '训练分辨率（resolution）', desc: '训练图片分辨率，宽x高。支持非正方形，但必须是 64 倍数。', defaultValue: reso },
+  { key: 'resolution', type: 'string', label: '训练分辨率（resolution）', desc: '训练图片分辨率，宽x高。支持非正方形，但必须是 64 倍数。', importantDesc: '重要:训练集图像会被按比例缩放至训练分辨率总像素进行训练(宽度*高度,与比例无关),sdxl系列模型默认训练分辨率为1024*1024像素.', defaultValue: reso },
   { key: 'enable_bucket', type: 'boolean', label: '启用分桶（enable_bucket）', desc: '启用 arb 桶以允许非固定宽高比的图片', defaultValue: true },
   { key: 'min_bucket_reso', type: 'number', label: '桶最小分辨率（min_bucket_reso）', desc: 'arb 桶最小分辨率', defaultValue: 256 },
   { key: 'max_bucket_reso', type: 'number', label: '桶最大分辨率（max_bucket_reso）', desc: 'arb 桶最大分辨率', defaultValue: bucketMax },
@@ -390,16 +410,16 @@ const uiGroup = (title, desc = '', visibleWhen = null) => ({
 const netLora = (mod, dim = 32, alpha = 32, maxDim = 512, extra = [], extraModules = []) => [
   { key: 'network_module', type: 'select', label: '训练网络模块（network_module）', desc: '训练网络模块', defaultValue: mod, options: [mod, ...extraModules, ...(mod.includes('lycoris') ? [] : ['lycoris.kohya'])] },
   { key: 'network_dim', type: 'slider', label: '网络维度（network_dim）', desc: '网络维度，常用 4~128，不是越大越好, 低 dim 可以降低显存占用', defaultValue: dim, min: 1, max: maxDim, step: 1 },
-  { key: 'network_alpha', type: 'slider', label: '网络 Alpha（network_alpha）', desc: '常用值：等于 network_dim 或 network_dim*1/2 或 1。使用较小的 alpha 需要提升学习率', defaultValue: alpha, min: 1, max: maxDim, step: 1 },
-  { key: 'network_dropout', type: 'number', label: '网络 Dropout（network_dropout）', desc: 'dropout 概率（与 lycoris 不兼容，需要用 lycoris 自带的）', defaultValue: 0, min: 0, step: 0.01 },
+  { key: 'network_alpha', type: 'slider', label: '网络 Alpha（network_alpha）', desc: '常用值：等于 network_dim 或 network_dim*1/2 或 1。', defaultValue: alpha, min: 1, max: maxDim, step: 1 },
+  { key: 'network_dropout', type: 'number', label: '网络 Dropout（network_dropout）', desc: 'dropout 概率（与 lycoris 不兼容，需要用 lycoris 自带的）', defaultValue: 0, min: 0, step: 0.01, visibleWhen: (c) => c.network_module !== 'lycoris.kohya' },
   { key: 'dim_from_weights', type: 'boolean', label: '从权重推断 Dim（dim_from_weights）', desc: '从已有 network_weights 自动推断 rank / dim', defaultValue: false },
   { key: 'scale_weight_norms', type: 'number', label: '最大范数正则化（scale_weight_norms）', desc: '最大范数正则化。如果使用，推荐为 1', defaultValue: '', min: 0, step: 0.01 },
   uiGroup('LyCORIS 基础结构', '这里放算法类型、卷积维度、preset 这类决定网络骨架的参数。普通 LoRA 路线可直接忽略。', when('network_module', 'lycoris.kohya')),
   { key: 'lycoris_algo', type: 'select', label: 'LyCORIS 算法（lycoris_algo）', desc: 'LyCORIS 网络算法', defaultValue: 'locon', options: ['locon', 'loha', 'lokr', 'ia3', 'dylora', 'glora', 'diag-oft', 'boft'], visibleWhen: when('network_module', 'lycoris.kohya') },
   { key: 'conv_dim', type: 'number', label: '卷积维度（conv_dim）', desc: 'LyCORIS 卷积维度', defaultValue: 4, min: 1, visibleWhen: (c) => c.network_module === 'lycoris.kohya' && c.lycoris_algo !== 'ia3' },
   { key: 'conv_alpha', type: 'number', label: '卷积 Alpha（conv_alpha）', desc: 'LyCORIS 卷积 Alpha', defaultValue: 1, min: 1, visibleWhen: (c) => c.network_module === 'lycoris.kohya' && c.lycoris_algo !== 'ia3' },
-  { key: 'lycoris_preset', type: 'string', label: 'LyCORIS Preset（preset）', desc: '传给 LyCORIS 库的 preset。通常留空即可，等同于使用其默认 preset；只有你明确知道要切 preset 时再填。', defaultValue: '', visibleWhen: when('network_module', 'lycoris.kohya') },
-  uiGroup('正则化与稳定性', '这一组主要控制 dropout、Norm 训练和 rsLoRA 缩放。大部分训练先保守设置，确认稳定后再逐步加。', when('network_module', 'lycoris.kohya')),
+  { key: 'lycoris_preset', type: 'string', label: 'LyCORIS Preset（preset）', desc: '传给 LyCORIS 库的 preset。通常留空即可，等同于使用其默认 preset。', defaultValue: '', visibleWhen: when('network_module', 'lycoris.kohya') },
+  uiGroup('正则化与稳定性', 'LyCORIS 专用 dropout / 正则项。大多数训练保持默认即可。', when('network_module', 'lycoris.kohya')),
   { key: 'dropout', type: 'number', label: 'LyCORIS Dropout', desc: 'LyCORIS 主 dropout 概率。当前版本对多数 LyCORIS 算法可用，推荐从 0~0.3 开始试。', defaultValue: 0, min: 0, max: 1, step: 0.01, visibleWhen: when('network_module', 'lycoris.kohya') },
   { key: 'rank_dropout', type: 'number', label: 'Rank Dropout（rank_dropout）', desc: '按 rank 维度随机丢弃的概率。属于更激进的结构级 dropout，常见起点 0.05~0.15。', defaultValue: '', min: 0, max: 1, step: 0.01, visibleWhen: (c) => c.network_module === 'lycoris.kohya' && c.lycoris_algo !== 'ia3' },
   { key: 'module_dropout', type: 'number', label: 'Module Dropout（module_dropout）', desc: '按整个模块随机丢弃的概率。比普通 dropout 更猛，建议保守使用。', defaultValue: '', min: 0, max: 1, step: 0.01, visibleWhen: (c) => c.network_module === 'lycoris.kohya' && c.lycoris_algo !== 'ia3' },
@@ -467,12 +487,9 @@ const SDXL_LORA_SECTIONS = [
     { key: 'resume', type: 'folder', pickerType: 'output-folder', label: '继续训练路径（resume）', desc: '从某个 save_state 保存的中断状态继续训练，填写文件路径', defaultValue: '' },
     { key: 'vae', type: 'file', pickerType: 'model-file', label: 'VAE 路径（vae）', desc: '(可选) VAE 模型文件路径，使用外置 VAE 文件覆盖模型内本身的', defaultValue: '' },
     { key: 'network_weights', type: 'file', pickerType: 'output-model-file', label: '继续训练 LoRA（network_weights）', desc: '从已有的 LoRA 模型上继续训练，填写路径', defaultValue: '' },
-    { key: 'v_parameterization', type: 'boolean', label: 'V 参数化（v_parameterization）', desc: 'v-parameterization 学习（训练 Illustrious 等 v-pred 模型时需要开启）', defaultValue: false },
-    { key: 'zero_terminal_snr', type: 'boolean', label: '零终端 SNR（zero_terminal_snr）', desc: 'Zero Terminal SNR（v-pred 模型训练推荐开启）', defaultValue: true, visibleWhen: when('v_parameterization', true) },
-    { key: 'scale_v_pred_loss_like_noise_pred', type: 'boolean', label: '缩放 v-pred 损失（scale_v_pred_loss_like_noise_pred）', desc: '缩放 v-prediction 损失（v-pred 模型训练推荐开启）', defaultValue: true, visibleWhen: when('v_parameterization', true) },
   ]),
   sec('save-settings', 'model', '保存设置', '输出路径、格式与训练状态。', [...S_SAVE]),
-  sec('dataset-settings', 'dataset', '数据集设置', '训练数据、正则图与分桶。', ds('1024,1024', 2048, 32)),
+  sec('dataset-settings', 'dataset', '数据集设置', '训练数据、正则图与分桶。', [...ds('1024,1024', 2048, 32), ...S_STAGED_RESOLUTION]),
   sec('caption-settings', 'dataset', 'Caption 选项', '标签打乱与丢弃策略。', [...S_CAPTION]),
   sec('data-aug-settings', 'dataset', '数据增强', '颜色、翻转与裁剪增强。', [...S_DATA_AUG]),
   sec('network-settings', 'network', '网络设置', 'LoRA / LyCORIS 参数。', netLora('networks.lora', 32, 32, 512, [
@@ -495,6 +512,7 @@ const SDXL_LORA_SECTIONS = [
     { key: 'up_lr_weight', type: 'string', label: 'Decoder 分层权重 (12层)（up_lr_weight）', desc: 'U-Net Decoder 各层的学习率权重，逗号分隔共 12 个值。设为 0 可冻结该层', defaultValue: '1,1,1,1,1,1,1,1,1,1,1,1', visibleWhen: when('enable_block_weights', true) },
     { key: 'block_lr_zero_threshold', type: 'number', label: '分层置零阈值（block_lr_zero_threshold）', desc: '低于该阈值的 block 权重按 0 处理', defaultValue: 0, step: 0.01, visibleWhen: when('enable_block_weights', true) },
   ]),
+  sec('v-parameterization-settings', 'training', 'V 参数化', 'v-pred 训练目标与相关补偿项。', vParameterizationFields(true)),
   sec('rf-settings', 'training', 'Rectified Flow', 'RF / Flow Matching 训练目标与时间步策略。', rectifiedFlowParams()),
   sec('peak-vram-settings', 'speed', '显存峰值控制', '目标等效 batch、启动峰值保护、micro-batch 拆分与显存诊断。', [...S_PEAK_VRAM]),
   sec('block-swap-settings', 'speed', 'SDXL Block Swap（兜底）', '独立的 SDXL U-Net block swap 兜底开关。主要用于显存吃紧时保命，能正常跑就不要开；若同时开启 ≤6GB 低显存优化，则仍会由低显存预设接管 block swap。', [
@@ -522,14 +540,6 @@ const SDXL_LORA_SECTIONS = [
     { key: 'sdxl_low_vram_auto_protection', type: 'boolean', label: 'OOM 自动保护（sdxl_low_vram_auto_protection）', desc: '预览 OOM 时先降频再自动关闭预览', defaultValue: true, visibleWhen: when('sdxl_low_vram_optimization', true) },
     { key: 'sdxl_low_vram_auto_resolution_probe', type: 'boolean', label: '自动分辨率探测（sdxl_low_vram_auto_resolution_probe）', desc: '启动前自动预跑检查显存，必要时下调分辨率', defaultValue: true, visibleWhen: when('sdxl_low_vram_optimization', true) },
   ]),
-  sec('staged-resolution-settings', 'advanced', '阶段分辨率训练', '实验性。1024 基准使用 512/768/1024；2048 基准使用 1024/1536/2048。', [
-    { key: 'enable_mixed_resolution_training', type: 'boolean', label: '启用阶段分辨率训练（enable_mixed_resolution_training）', desc: '实验性，仅支持 SDXL', defaultValue: false },
-    { key: 'staged_resolution_ratio_512', type: 'number', label: '512 阶段占比 (%)（staged_resolution_ratio_512）', desc: '当最终分辨率最大边 < 512 时忽略', defaultValue: 20, min: 0, max: 100, step: 1, visibleWhen: when('enable_mixed_resolution_training', true) },
-    { key: 'staged_resolution_ratio_768', type: 'number', label: '768 阶段占比 (%)（staged_resolution_ratio_768）', desc: '当最终分辨率最大边 < 768 时忽略', defaultValue: 30, min: 0, max: 100, step: 1, visibleWhen: when('enable_mixed_resolution_training', true) },
-    { key: 'staged_resolution_ratio_1024', type: 'number', label: '1024 阶段占比 (%)（staged_resolution_ratio_1024）', desc: '1024 基准和 2048 基准都会用到', defaultValue: 50, min: 0, max: 100, step: 1, visibleWhen: when('enable_mixed_resolution_training', true) },
-    { key: 'staged_resolution_ratio_1536', type: 'number', label: '1536 阶段占比 (%)（staged_resolution_ratio_1536）', desc: '仅 2048 基准会用到', defaultValue: 30, min: 0, max: 100, step: 1, visibleWhen: when('enable_mixed_resolution_training', true) },
-    { key: 'staged_resolution_ratio_2048', type: 'number', label: '2048 阶段占比 (%)（staged_resolution_ratio_2048）', desc: '仅 2048 基准会用到', defaultValue: 50, min: 0, max: 100, step: 1, visibleWhen: when('enable_mixed_resolution_training', true) },
-  ]),
   sec('preview-settings', 'preview', '预览图设置', '训练中生成预览图。', [...S_PREVIEW]),
   sec('validation-settings', 'preview', '验证设置', '验证集划分与验证频率。', [...S_VALIDATION]),
   sec('lulynx-settings', 'advanced', 'Lulynx 实验核心 (SDXL)', 'SafeGuard、EMA、ResourceManager、BlockWeight (SDXL 分层)、SmartRank、AutoController。', S_LULYNX_SDXL),
@@ -550,7 +560,6 @@ const SD15_LORA_SECTIONS = [
     { key: 'vae', type: 'file', pickerType: 'model-file', label: 'VAE 路径（vae）', desc: '(可选) VAE 模型文件路径，使用外置 VAE 文件覆盖模型内本身的', defaultValue: '' },
     { key: 'network_weights', type: 'file', pickerType: 'output-model-file', label: '继续训练 LoRA（network_weights）', desc: '从已有的 LoRA 模型上继续训练，填写路径', defaultValue: '' },
     { key: 'v2', type: 'boolean', label: 'SD 2.x 模型（v2）', desc: '使用 SD 2.x 模型', defaultValue: false },
-    { key: 'v_parameterization', type: 'boolean', label: 'V 参数化（v_parameterization）', desc: 'v-parameterization 学习（训练 Illustrious 等 v-pred 模型时需要开启）', defaultValue: false },
   ]),
   sec('save-settings', 'model', '保存设置', '', [...S_SAVE]),
   sec('dataset-settings', 'dataset', '数据集设置', '', ds('512,512', 1024, 64)),
@@ -559,6 +568,7 @@ const SD15_LORA_SECTIONS = [
   sec('network-settings', 'network', '网络设置', '', netLora('networks.lora', 32, 32, 256)),
   sec('optimizer-settings', 'optimizer', '学习率与优化器', '', [...S_LR]),
   sec('training-settings', 'training', '训练参数', '', S_TRAIN(10)),
+  sec('v-parameterization-settings', 'training', 'V 参数化', 'v-pred 训练目标开关。', vParameterizationFields()),
   sec('rf-settings', 'training', 'Rectified Flow', 'RF / Flow Matching 训练目标与时间步策略。', rectifiedFlowParams()),
   sec('preview-settings', 'preview', '预览图设置', '', [...S_PREVIEW]),
   sec('validation-settings', 'preview', '验证设置', '验证集划分与验证频率。', [...S_VALIDATION]),
@@ -999,7 +1009,6 @@ const DB_SECTIONS = [
   sec('model-settings', 'model', '训练用模型', 'SD DreamBooth 全参微调。', [
     ...finetuneModel('sd-dreambooth', 'SD1.5'),
     { key: 'v2', type: 'boolean', label: 'SD 2.x 模型（v2）', desc: '使用 SD 2.x 模型', defaultValue: false },
-    { key: 'v_parameterization', type: 'boolean', label: 'V 参数化（v_parameterization）', desc: 'v-parameterization 学习（训练 Illustrious 等 v-pred 模型时需要开启）', defaultValue: false },
   ]),
   sec('save-settings', 'model', '保存设置', '', [...S_SAVE]),
   sec('dataset-settings', 'dataset', '数据集设置', '', ds('512,512', 1024, 64)),
@@ -1007,6 +1016,7 @@ const DB_SECTIONS = [
   sec('data-aug-settings', 'dataset', '数据增强', '颜色、翻转与裁剪增强。', [...S_DATA_AUG]),
   sec('optimizer-settings', 'optimizer', '学习率与优化器', '', [...S_LR]),
   sec('training-settings', 'training', '训练参数', '', S_TRAIN(10)),
+  sec('v-parameterization-settings', 'training', 'V 参数化', 'v-pred 训练目标开关。', vParameterizationFields()),
   sec('preview-settings', 'preview', '预览图设置', '', [...S_PREVIEW]),
   sec('validation-settings', 'preview', '验证设置', '验证集划分与验证频率。', [...S_VALIDATION]),
   sec('speed-settings', 'speed', '速度优化', '', [...S_SPEED_SD15]),
@@ -1018,7 +1028,6 @@ const DB_SECTIONS = [
 const SDXL_FT_SECTIONS = [
   sec('model-settings', 'model', '训练用模型', 'SDXL 全参微调。', [
     ...finetuneModel('sdxl-finetune', 'SDXL'),
-    { key: 'v_parameterization', type: 'boolean', label: 'V 参数化（v_parameterization）', desc: 'v-parameterization 学习（训练 Illustrious 等 v-pred 模型时需要开启）', defaultValue: false },
   ]),
   sec('save-settings', 'model', '保存设置', '', [...S_SAVE]),
   sec('dataset-settings', 'dataset', '数据集设置', '', ds('1024,1024', 2048, 32)),
@@ -1026,6 +1035,7 @@ const SDXL_FT_SECTIONS = [
   sec('data-aug-settings', 'dataset', '数据增强', '颜色、翻转与裁剪增强。', [...S_DATA_AUG]),
   sec('optimizer-settings', 'optimizer', '学习率与优化器', '', [...S_LR]),
   sec('training-settings', 'training', '训练参数', '', S_TRAIN(10)),
+  sec('v-parameterization-settings', 'training', 'V 参数化', 'v-pred 训练目标开关。', vParameterizationFields()),
   sec('rf-settings', 'training', 'Rectified Flow', 'RF / Flow Matching 训练目标与时间步策略。', rectifiedFlowParams()),
   sec('preview-settings', 'preview', '预览图设置', '', [...S_PREVIEW]),
   sec('validation-settings', 'preview', '验证设置', '验证集划分与验证频率。', [...S_VALIDATION]),
@@ -1215,13 +1225,14 @@ const SD_CN_SECTIONS = [
   sec('distributed-settings', 'advanced', '分布式训练', '多 GPU / 多机分布式训练配置。', [...S_DISTRIBUTED]),
 ];
 const SDXL_CN_SECTIONS = [
-  sec('model-settings', 'model', '训练用模型', 'SDXL ControlNet。', cnModel('sdxl-controlnet', 'SDXL', [{ key: 'v_parameterization', type: 'boolean', label: 'V 参数化（v_parameterization）', desc: 'V 参数化', defaultValue: false }])),
+  sec('model-settings', 'model', '训练用模型', 'SDXL ControlNet。', cnModel('sdxl-controlnet', 'SDXL')),
   sec('save-settings', 'model', '保存设置', '', [...S_SAVE]),
   sec('dataset-settings', 'dataset', '数据集设置', '', cnDataset('1024,1024', 2048, 32)),
   sec('caption-settings', 'dataset', 'Caption 选项', '', [...S_CAPTION]),
   sec('data-aug-settings', 'dataset', '数据增强', '颜色、翻转与裁剪增强。', [...S_DATA_AUG]),
   sec('optimizer-settings', 'optimizer', '学习率与优化器', '', [...cnLR]),
   sec('training-settings', 'training', '训练参数', '', [...cnTrainFields]),
+  sec('v-parameterization-settings', 'training', 'V 参数化', 'v-pred 训练目标开关。', vParameterizationFields()),
   sec('preview-settings', 'preview', '预览图设置', '', [...S_PREVIEW]),
   sec('validation-settings', 'preview', '验证设置', '验证集划分与验证频率。', [...S_VALIDATION]),
   sec('speed-settings', 'speed', '速度优化', '', [...S_SPEED_SDXL]),
@@ -1530,7 +1541,51 @@ export function getFieldDefinition(key, typeId) {
 }
 
 export function getSectionsForTab(tabKey, typeId) {
-  return getSectionsForType(typeId || 'sdxl-lora').filter((s) => s.tab === tabKey);
+  const sections = getSectionsForType(typeId || 'sdxl-lora');
+  let filtered = sections.filter((s) => {
+    if (tabKey === 'dataset') return s.tab === 'dataset' || s.id === 'noise-settings';
+    if (tabKey === 'advanced') return s.tab === 'advanced' && s.id !== 'noise-settings';
+    if (tabKey === 'model') return (s.tab === 'model' && s.id !== 'save-settings') || s.id === 'v-parameterization-settings' || s.id === 'rf-settings';
+    if (tabKey === 'training') return (s.tab === 'training' || s.id === 'save-settings') && s.id !== 'v-parameterization-settings' && s.id !== 'rf-settings';
+    return s.tab === tabKey;
+  });
+
+  if (tabKey === 'dataset') {
+    const dataAugIndex = filtered.findIndex((s) => s.id === 'data-aug-settings');
+    const noiseIndex = filtered.findIndex((s) => s.id === 'noise-settings');
+    if (dataAugIndex !== -1 && noiseIndex !== -1 && noiseIndex !== dataAugIndex + 1) {
+      const [noiseSection] = filtered.splice(noiseIndex, 1);
+      filtered.splice(dataAugIndex + 1, 0, noiseSection);
+    }
+  }
+
+  if (tabKey === 'training') {
+    const trainingIndex = filtered.findIndex((s) => s.id === 'training-settings');
+    const saveIndex = filtered.findIndex((s) => s.id === 'save-settings');
+    if (trainingIndex !== -1 && saveIndex !== -1 && saveIndex !== trainingIndex + 1) {
+      const [saveSection] = filtered.splice(saveIndex, 1);
+      filtered.splice(trainingIndex + 1, 0, saveSection);
+    }
+  }
+
+  if (tabKey === 'model') {
+    const modelIndex = filtered.findIndex((s) => s.id === 'model-settings');
+    const vParamIndex = filtered.findIndex((s) => s.id === 'v-parameterization-settings');
+    const rfIndex = filtered.findIndex((s) => s.id === 'rf-settings');
+    const moved = [];
+    if (vParamIndex !== -1) {
+      moved.push(filtered.splice(vParamIndex, 1)[0]);
+    }
+    const rfCurrentIndex = filtered.findIndex((s) => s.id === 'rf-settings');
+    if (rfCurrentIndex !== -1) {
+      moved.push(filtered.splice(rfCurrentIndex, 1)[0]);
+    }
+    if (modelIndex !== -1 && moved.length) {
+      filtered.splice(modelIndex + 1, 0, ...moved);
+    }
+  }
+
+  return filtered;
 }
 
 export function getAvailableTabs(typeId) {
@@ -1556,6 +1611,7 @@ export function createDefaultConfig(typeId) {
 export function normalizeDraftValue(field, rawValue) {
   if (!field) return rawValue;
   if (field.type === 'ui_group') return '';
+  if (field.key === 'prior_loss_weight' && (rawValue === '' || rawValue === null || rawValue === undefined)) return 1;
   if (field.type === 'boolean') return Boolean(rawValue);
   if (field.type === 'number' || field.type === 'slider') {
     if (rawValue === '' || rawValue === null || rawValue === undefined) return '';

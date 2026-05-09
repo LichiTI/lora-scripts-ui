@@ -377,6 +377,7 @@ export function createTrainingActionsController({
     try {
       await api.deleteTask(taskId);
       state._deletedTaskIds.add(taskId);
+      if (typeof window.persistDeletedTaskIds === 'function') window.persistDeletedTaskIds();
       state.tasks = state.tasks.filter((task) => task.id !== taskId);
       await saveLocalTaskHistory();
       delete state.taskSummaries[taskId];
@@ -397,13 +398,17 @@ export function createTrainingActionsController({
   async function clearAllTaskHistory() {
     if (!confirm('确认清空所有已完成的任务历史？\n（正在运行的任务不会被删除）')) return;
     try {
-      const resp = await api.deleteAllTasks();
-      showToast('已清空 ' + (resp?.data?.deleted || 0) + ' 条任务记录');
+      const deletedCount = state.tasks.filter((task) => task.status !== 'RUNNING').length;
+      await api.deleteAllTasks();
       const tasksResponse = await api.getTasks();
       const allBackendTasks = tasksResponse?.data?.tasks || [];
       for (const task of allBackendTasks) {
         if (task.status !== 'RUNNING') state._deletedTaskIds.add(task.id);
       }
+      for (const task of state.tasks) {
+        if (task.status !== 'RUNNING') state._deletedTaskIds.add(task.id);
+      }
+      if (typeof window.persistDeletedTaskIds === 'function') window.persistDeletedTaskIds();
       state.tasks = allBackendTasks.filter((task) => !state._deletedTaskIds.has(task.id));
       try { await fetch('/api/local/task_history', { method: 'DELETE' }); } catch (error) { /* ignore */ }
       state.taskSummaries = {};
@@ -412,6 +417,7 @@ export function createTrainingActionsController({
         renderView('training');
       }
       renderTaskStatus();
+      showToast('已清空 ' + deletedCount + ' 条任务记录');
     } catch (error) {
       showToast(error.message || '清空历史失败。');
     }

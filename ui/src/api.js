@@ -37,6 +37,23 @@ function postJson(path, data) {
   });
 }
 
+async function deleteTaskFromLocalHistory(taskId) {
+  const normalizedId = String(taskId || '');
+  if (!normalizedId) {
+    return { status: 'success', data: { deleted: 0, localOnly: true } };
+  }
+
+  const history = await request('/api/local/task_history').catch(() => ({ data: { tasks: [] } }));
+  const tasks = Array.isArray(history?.data?.tasks) ? history.data.tasks : [];
+  const filtered = tasks.filter((task) => String(task?.id || task?.task_id || '') !== normalizedId);
+  await postJson('/api/local/task_history', { tasks: filtered });
+  return {
+    status: 'success',
+    message: 'Task history entry removed locally.',
+    data: { deleted: tasks.length - filtered.length, localOnly: true },
+  };
+}
+
 export const api = {
   getGraphicCards() {
     return request('/api/graphic_cards');
@@ -59,15 +76,19 @@ export const api = {
   },
 
   deleteTask(taskId) {
-    return request(`/api/tasks/${taskId}`, { method: 'DELETE' });
+    return deleteTaskFromLocalHistory(taskId);
   },
 
   deleteAllTasks() {
-    return request('/api/tasks', { method: 'DELETE' });
+    return request('/api/local/task_history', { method: 'DELETE' })
+      .then((resp) => ({
+        ...(resp || { status: 'success' }),
+        data: { ...((resp && resp.data) || {}), localOnly: true },
+      }));
   },
 
   deleteLocalTaskHistory(taskId) {
-    return request(`/api/local/task_history/${encodeURIComponent(taskId)}`, { method: 'DELETE' });
+    return deleteTaskFromLocalHistory(taskId);
   },
 
   pickFile(type) {
@@ -201,7 +222,13 @@ export const api = {
   },
 
   getImageResizeStatus() {
-    return request('/api/local/image_resize_status').catch(() => ({ status: 'success', data: { process_status: 'done', lines: ['（后端模式下不支持实时日志，任务已在后台运行）'] } }));
+    return request('/api/local/image_resize_status').catch(() => ({
+      status: 'success',
+      data: {
+        process_status: 'unavailable',
+        lines: ['后端已接收图像预处理任务，但 Beta45 后端不提供实时日志状态。请稍后查看输出目录。'],
+      },
+    }));
   },
 
   getSampleImages() {

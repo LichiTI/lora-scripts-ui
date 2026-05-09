@@ -50,11 +50,13 @@ export function createTrainingPageController({
     var epochs = Number(state.config.max_train_epochs) || 1;
     var estSteps = Math.ceil((s.effective_image_count || 0) / batchSize) * epochs;
 
-    var metricsHtml = '<div class="train-pf-metrics">'
+    var metricsHtml = '<details class="train-pf-collapse" open>'
+      + '<summary class="train-pf-collapse-summary"><span>\u6570\u636e\u6982\u89c8</span><span class="collapsible-caret" aria-hidden="true">⌄</span></summary>'
+      + '<div class="train-pf-metrics">'
       + _pfMetric('\u56fe\u7247\u603b\u6570', s.image_count || 0, '')
       + _pfMetric('\u6709\u6548\u56fe\u7247 (\u00d7Repeats)', s.effective_image_count || 0, '')
       + _pfMetric('\u9884\u4f30\u6b65\u6570', estSteps.toLocaleString(), 'accent')
-      + '</div>';
+      + '</div></details>';
 
     // Resolution bar chart
     var resoHtml = '';
@@ -67,9 +69,9 @@ export function createTrainingPageController({
           + '</div><div class="train-reso-bar" style="height:' + pct + '%"></div>'
           + '<div class="train-reso-label">' + escapeHtml(r.name || '') + '</div></div>';
       }).join('');
-      resoHtml = '<div class="train-pf-card"><div class="train-pf-card-hdr"><span>\u5206\u8fa8\u7387\u5206\u5e03</span>'
-        + '<span class="train-tag">' + topReso.length + ' \u4e2a\u6876</span></div>'
-        + '<div class="train-reso-chart">' + bars + '</div></div>';
+      resoHtml = '<details class="train-pf-card train-pf-collapse" open><summary class="train-pf-card-hdr train-pf-collapse-summary"><span>\u5206\u8fa8\u7387\u5206\u5e03</span>'
+        + '<span style="display:flex;align-items:center;gap:8px;"><span class="train-tag">' + topReso.length + ' \u4e2a\u6876</span><span class="collapsible-caret" aria-hidden="true">⌄</span></span></summary>'
+        + '<div class="train-reso-chart">' + bars + '</div></details>';
     }
 
     // Diagnostics
@@ -86,16 +88,16 @@ export function createTrainingPageController({
     if (diags.length === 0) diags.push({ok: true, text: '\u5168\u90e8\u68c0\u67e5\u901a\u8fc7'});
 
 
-    var diagHtml = '<div class="train-pf-card"><div class="train-pf-card-hdr"><span>\u8bca\u65ad</span></div>'
+    var diagHtml = '<details class="train-pf-card train-pf-collapse" open><summary class="train-pf-card-hdr train-pf-collapse-summary"><span>\u8bca\u65ad</span><span class="collapsible-caret" aria-hidden="true">⌄</span></summary>'
       + '<ul class="train-diag-list">' + diags.map(function(d) {
           var icon = d.ok ? _ico('check-circle', 15) : (d.warn ? _ico('alert-tri', 15) : _ico('x-circle', 15));
           var color = d.ok ? '#22c55e' : (d.warn ? '#f59e0b' : '#ef4444');
           return '<li style="color:' + color + ';">' + icon + ' <span style="color:var(--text-main);">' + escapeHtml(d.text) + '</span></li>';
-        }).join('') + '</ul></div>';
+        }).join('') + '</ul></details>';
 
     // Folder table with expandable image preview
-    var tableHtml = '<div class="train-pf-table-wrap">'
-      + '<div class="train-pf-table-hdr"><span class="train-pf-card-hdr"><span>\u6587\u4ef6\u5939\u7ed3\u6784</span></span></div>'
+    var tableHtml = '<details class="train-pf-table-wrap train-pf-collapse" open>'
+      + '<summary class="train-pf-table-hdr train-pf-collapse-summary"><span class="train-pf-card-hdr"><span>\u6587\u4ef6\u5939\u7ed3\u6784</span></span><span class="collapsible-caret" aria-hidden="true">⌄</span></summary>'
       + '<div class="train-pf-table-head"><div>\u8def\u5f84</div><div>\u6982\u5ff5\u6807\u7b7e</div><div style="text-align:right;">Repeats</div><div style="text-align:right;">\u56fe\u7247\u6570</div></div>';
     tableHtml += folders.map(function(f, idx) {
       var tag = f.name.replace(/^\d+_/, '');
@@ -109,7 +111,7 @@ export function createTrainingPageController({
         + '</div>'
         + '<div class="train-pf-thumbs" id="pf-thumbs-' + idx + '" data-folder="' + escapeHtml(fPath) + '" style="display:none;"></div>';
     }).join('');
-    tableHtml += '</div>';
+    tableHtml += '</details>';
 
     return '<div class="train-pf-scroll">'
       + '<div class="train-pf-header"><div style="display:flex;align-items:center;gap:10px;">'
