@@ -255,6 +255,7 @@ svg.icon {
   width: var(--navigator-width);
   background-color: var(--bg-dark);
   border-right: 1px solid var(--border);
+  position: relative;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -270,11 +271,15 @@ svg.icon {
 }
 
 .navigator-header {
-  padding: 20px;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
+  justify-content: flex-end;
+  border-bottom: none;
+  z-index: 2;
 }
 
 .navigator-header h3 {
@@ -767,6 +772,104 @@ body.compact-layout .form-container {
   background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
+.collapsible-field {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.collapsible-field.field-modified {
+  padding-left: 0;
+}
+
+.collapsible-field-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.collapsible-field-summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-field-summary-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.collapsible-field-title {
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collapsible-field-note {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.collapsible-field-value {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collapsible-field-value.is-empty {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.collapsible-field-body {
+  padding: 0 14px 14px;
+}
+
+.collapsible-field-group {
+  grid-column: 1 / -1;
+}
+
+.collapsible-field-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.collapsible-field-subfield {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.collapsible-field-subtitle {
+  display: block;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0;
+}
+
+.collapsible-field-body > .field-header-row,
+.collapsible-field-body > .field-desc {
+  display: none;
+}
+
 .light-theme .config-group.field-modified {
   background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
@@ -983,6 +1086,11 @@ input[type="range"]::-webkit-slider-thumb {
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 4px;
+}
+
+.field-desc-strong {
+  font-weight: 700;
+  color: var(--text-main);
 }
 
 .switch {
@@ -1376,6 +1484,210 @@ input[type="range"]::-webkit-slider-thumb {
   opacity: 0.6;
 }
 
+details.collapsible-panel,
+details.collapsible-status-card,
+details.collapsible-subgroup,
+details.train-pf-collapse {
+  min-width: 0;
+}
+
+.collapsible-summary,
+.status-card-summary,
+.train-pf-collapse-summary,
+.preflight-group-title {
+  cursor: pointer;
+  list-style: none;
+}
+
+.collapsible-summary::-webkit-details-marker,
+.status-card-summary::-webkit-details-marker,
+.train-pf-collapse-summary::-webkit-details-marker,
+.preflight-group-title::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.collapsible-summary-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.collapsible-title {
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.collapsible-desc {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.collapsible-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.collapsible-caret {
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+details[open] > summary .collapsible-caret {
+  transform: rotate(180deg);
+}
+
+.section-toolbar.collapsible-panel {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+}
+
+.section-toolbar.collapsible-panel .collapsible-summary {
+  padding: 14px 16px;
+}
+
+.section-toolbar.collapsible-panel .collapsible-body {
+  padding: 0 16px 14px;
+}
+
+.form-section.preflight-overview-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.form-section.preflight-overview-panel > .preflight-overview-summary {
+  margin: 0;
+  padding: 12px 18px;
+  background: transparent;
+  border-bottom: none;
+  border-radius: 12px;
+  min-height: 0;
+}
+
+.preflight-overview-panel > .preflight-overview-body {
+  padding: 18px 24px 20px;
+}
+
+.preflight-overview-panel:not([open]) > .preflight-overview-body {
+  display: none;
+}
+
+.preflight-overview-panel[open] > .preflight-overview-summary {
+  border-bottom: 1px solid var(--border);
+  border-radius: 12px 12px 0 0;
+}
+
+.preflight-overview-panel .status-deck {
+  margin-bottom: 16px;
+}
+
+.preflight-overview-panel .preflight-action-panel {
+  margin-bottom: 0;
+}
+
+.form-section.data-aug-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.form-section.data-aug-panel > .data-aug-summary,
+.form-section.noise-settings-panel > .noise-settings-summary {
+  margin: 0;
+  padding: 14px 18px;
+  background: transparent;
+  border-bottom: none;
+  border-radius: 12px;
+  min-height: 0;
+}
+
+.data-aug-panel > .section-summary,
+.data-aug-panel > .section-content,
+.noise-settings-panel > .section-summary,
+.noise-settings-panel > .section-content {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.data-aug-panel > .section-summary,
+.noise-settings-panel > .section-summary {
+  padding-top: 18px;
+}
+
+.data-aug-panel > .section-content,
+.noise-settings-panel > .section-content {
+  padding-bottom: 20px;
+}
+
+.data-aug-panel:not([open]) > .section-summary,
+.data-aug-panel:not([open]) > .section-content,
+.noise-settings-panel:not([open]) > .section-summary,
+.noise-settings-panel:not([open]) > .section-content {
+  display: none;
+}
+
+.data-aug-panel[open] > .data-aug-summary,
+.noise-settings-panel[open] > .noise-settings-summary {
+  border-bottom: 1px solid var(--border);
+  border-radius: 12px 12px 0 0;
+}
+
+.form-section.noise-settings-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.collapsible-status-card {
+  padding: 0;
+}
+
+.status-card-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  padding: 16px 18px;
+}
+
+.status-card-summary .status-label,
+.status-card-summary .status-value {
+  grid-column: 1;
+}
+
+.status-card-summary .collapsible-caret {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.collapsible-status-card .status-sub {
+  display: block;
+  padding: 0 18px 16px;
+}
+
+.preflight-report-summary {
+  margin-bottom: 0;
+}
+
+.preflight-report-section > .collapsible-body {
+  padding-top: 20px;
+}
+
 /* Settings View Extra Styles */
 .settings-view {
   display: none;
@@ -1516,6 +1828,16 @@ body.compact-layout .form-section .section-content {
 
 .config-group.row {
   grid-column: span 1;
+}
+
+.dataset-layout-full {
+  grid-column: 1 / -1;
+}
+
+.network-group-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
 
 body.compact-layout .config-group.row {
@@ -2417,6 +2739,50 @@ body.compact-layout .config-group.row {
   justify-content: space-between;
   align-items: center;
 }
+
+.train-pf-collapse-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 700;
+  list-style: none;
+}
+
+.train-pf-collapse-summary::-webkit-details-marker {
+  display: none;
+}
+
+.train-pf-scroll > .train-pf-collapse {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.train-pf-scroll > .train-pf-collapse[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.train-pf-card.train-pf-collapse {
+  gap: 0;
+}
+
+.train-pf-card.train-pf-collapse[open] {
+  gap: 10px;
+}
+
+.train-pf-table-wrap.train-pf-collapse > .train-pf-table-hdr {
+  margin: 0;
+}
+
+.train-pf-table-wrap.train-pf-collapse:not([open]) {
+  border-radius: 8px;
+}
 .train-pf-badge {
   display: inline-flex;
   align-items: center;
@@ -2654,6 +3020,31 @@ body.compact-layout .config-group.row {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.preflight-group-title .icon,
+.preflight-group-title svg {
+  flex-shrink: 0;
+}
+
+.preflight-group-title .collapsible-caret {
+  margin-left: auto;
+}
+
+.collapsible-subgroup > .preflight-group-title {
+  padding: 3px 0;
+}
+
+.collapsible-subgroup[open] > .preflight-group-title {
+  margin-bottom: 6px;
+}
+
+.collapsible-subgroup:not([open]) > .preflight-group-title {
+  margin-bottom: 0;
+}
+
+.preflight-dataset-grid {
+  padding-top: 2px;
 }
 .preflight-item {
   font-size: 0.78rem;
@@ -3294,7 +3685,7 @@ body.compact-layout .config-group.row {
 }
 
 .clay-theme .navigator-header {
-  border-bottom: 1px solid #e4e0f0;
+  border-bottom: none;
 }
 
 .clay-theme .navigator-header h3 {
@@ -3886,54 +4277,4 @@ body.compact-layout .config-group.row {
 .vertical-tabs .bottom-bar {
   grid-column: 2;
   grid-row: 2;
-}
-
-
-/* ========================================
-   配置页瀑布流模式（一页式：所有 Tab 在同一页铺开）
-   ======================================== */
-.form-container-waterfall {
-  max-width: 1100px;
-}
-
-.form-container-waterfall .waterfall-tab-anchor {
-  position: relative;
-  margin: 28px 0 12px;
-  padding: 14px 0 10px;
-  border-top: 2px solid var(--accent, #5b8cff);
-  /* 注意：.content-area 是独立滚动容器，topbar 是它的兄弟元素，
-     不会遮挡其内部内容，因此不需要 scroll-margin-top 补偿。
-     设为 0 才能保证「点击 tab 直接跳到该分段顶部」。 */
-  scroll-margin-top: 0;
-}
-
-.form-container-waterfall .waterfall-tab-anchor:first-of-type {
-  margin-top: 8px;
-}
-
-.form-container-waterfall .waterfall-tab-title {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--accent, #5b8cff);
-  margin: 0;
-  padding: 0 4px;
-  display: inline-block;
-}
-
-.form-container-waterfall .waterfall-tab-anchor::after {
-  content: '';
-  display: block;
-  height: 2px;
-  width: 40px;
-  background: var(--accent, #5b8cff);
-  margin-top: 6px;
-  opacity: 0.5;
-  border-radius: 1px;
-}
-
-/* 瀑布流模式下 form-section 减小间距，更接近一页式 */
-.form-container-waterfall .form-section {
-  margin-bottom: 16px;
 }

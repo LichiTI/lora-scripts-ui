@@ -8,6 +8,7 @@ export function createWizardPageController({ state, renderView, updateConfigValu
   function renderWizard(container) {
     var c = state.config;
     // 参数预览
+    var trainLengthMode = c.train_length_mode || '最大轮数';
     var previewRows = [
       ['pretrained_model_name_or_path', 'SDXL 底模', c.pretrained_model_name_or_path],
       ['train_data_dir', '训练数据集', c.train_data_dir],
@@ -19,7 +20,7 @@ export function createWizardPageController({ state, renderView, updateConfigValu
       ['unet_lr', 'U-Net 学习率', c.unet_lr],
       ['optimizer_type', '优化器', c.optimizer_type],
       ['lr_scheduler', '调度器', c.lr_scheduler],
-      ['max_train_epochs', '训练轮数', c.max_train_epochs],
+      [trainLengthMode === '最大步数' ? 'max_train_steps' : 'max_train_epochs', trainLengthMode === '最大步数' ? '训练步数' : '训练轮数', trainLengthMode === '最大步数' ? c.max_train_steps : c.max_train_epochs],
       ['train_batch_size', '批量大小', c.train_batch_size],
       ['gradient_accumulation_steps', '梯度累加', c.gradient_accumulation_steps],
       ['enable_preview', '预览图', c.enable_preview ? '开启' : '关闭'],
@@ -189,18 +190,41 @@ export function createWizardPageController({ state, renderView, updateConfigValu
             <!-- 6. 训练参数 -->
             <div class="wizard-field-group">
               <label class="wizard-field-label">⑥ 训练参数</label>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;">
-                <div>
-                  <label style="font-size:0.82rem;color:var(--text-muted);">最大训练轮数</label>
-                  <input class="text-input" type="number" value="${c.max_train_epochs || 10}" min="1" oninput="wizardSet('max_train_epochs', this.value)" />
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;">
+                <div style="grid-column:1/-1;">
+                  <label style="font-size:0.82rem;color:var(--text-muted);">训练长度模式</label>
+                  <select class="field-select" onchange="wizardSet('train_length_mode', this.value)">
+                    <option value="最大轮数" ${(trainLengthMode === '最大轮数') ? 'selected' : ''}>最大轮数</option>
+                    <option value="最大步数" ${(trainLengthMode === '最大步数') ? 'selected' : ''}>最大步数</option>
+                  </select>
+                </div>
+                <div style="grid-column:1/-1;">
+                  <label style="font-size:0.82rem;color:var(--text-muted);">${trainLengthMode === '最大步数' ? '最大训练步数' : '最大训练轮数'}</label>
+                  <input class="text-input" type="number" value="${trainLengthMode === '最大步数' ? (c.max_train_steps || 1000) : (c.max_train_epochs || 10)}" min="1" oninput="wizardSet('${trainLengthMode === '最大步数' ? 'max_train_steps' : 'max_train_epochs'}', this.value)" />
                 </div>
                 <div>
                   <label style="font-size:0.82rem;color:var(--text-muted);">批量大小</label>
                   <input class="text-input" type="number" value="${c.train_batch_size || 1}" min="1" max="32" oninput="wizardSet('train_batch_size', this.value)" />
                 </div>
                 <div>
+                  <label style="font-size:0.82rem;color:var(--text-muted);">梯度检查点</label>
+                  <label class="switch switch-compact" style="margin-top:10px;"><input type="checkbox" ${c.gradient_checkpointing ? 'checked' : ''} onchange="wizardSet('gradient_checkpointing', this.checked)" /><span class="slider round"></span></label>
+                </div>
+                <div>
                   <label style="font-size:0.82rem;color:var(--text-muted);">梯度累加步数</label>
                   <input class="text-input" type="number" value="${c.gradient_accumulation_steps || 1}" min="1" oninput="wizardSet('gradient_accumulation_steps', this.value)" />
+                </div>
+                <div>
+                  <label style="font-size:0.82rem;color:var(--text-muted);">仅训练 U-Net / DiT</label>
+                  <label class="switch switch-compact" style="margin-top:10px;"><input type="checkbox" ${c.network_train_unet_only ? 'checked' : ''} onchange="wizardSet('network_train_unet_only', this.checked)" /><span class="slider round"></span></label>
+                </div>
+                <div>
+                  <label style="font-size:0.82rem;color:var(--text-muted);">仅训练文本编码器</label>
+                  <label class="switch switch-compact" style="margin-top:10px;"><input type="checkbox" ${c.network_train_text_encoder_only ? 'checked' : ''} onchange="wizardSet('network_train_text_encoder_only', this.checked)" /><span class="slider round"></span></label>
+                </div>
+                <div>
+                  <label style="font-size:0.82rem;color:var(--text-muted);">启用分层学习率</label>
+                  <label class="switch switch-compact" style="margin-top:10px;"><input type="checkbox" ${c.enable_block_weights ? 'checked' : ''} onchange="wizardSet('enable_block_weights', this.checked)" /><span class="slider round"></span></label>
                 </div>
               </div>
             </div>
@@ -266,10 +290,15 @@ export function createWizardPageController({ state, renderView, updateConfigValu
   /* wizard: 设置参数并刷新预览 */
   function wizardSet(key, value) {
     updateConfigValue(key, value);
+    if (key === 'train_length_mode') {
+      wizardRender();
+      return;
+    }
     // 刷新右侧预览
     var previewEl = document.getElementById('wz-preview');
     if (previewEl) {
       var c = state.config;
+      var trainLengthMode = c.train_length_mode || '最大轮数';
       var rows = [
         ['pretrained_model_name_or_path', 'SDXL 底模', c.pretrained_model_name_or_path],
         ['train_data_dir', '训练数据集', c.train_data_dir],
@@ -281,7 +310,7 @@ export function createWizardPageController({ state, renderView, updateConfigValu
         ['unet_lr', 'U-Net 学习率', c.unet_lr],
         ['optimizer_type', '优化器', c.optimizer_type],
         ['lr_scheduler', '调度器', c.lr_scheduler],
-        ['max_train_epochs', '训练轮数', c.max_train_epochs],
+        [trainLengthMode === '最大步数' ? 'max_train_steps' : 'max_train_epochs', trainLengthMode === '最大步数' ? '训练步数' : '训练轮数', trainLengthMode === '最大步数' ? c.max_train_steps : c.max_train_epochs],
         ['train_batch_size', '批量大小', c.train_batch_size],
         ['gradient_accumulation_steps', '梯度累加', c.gradient_accumulation_steps],
         ['enable_preview', '预览图', c.enable_preview ? '开启' : '关闭'],

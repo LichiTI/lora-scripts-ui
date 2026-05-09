@@ -539,13 +539,16 @@ export function createDatasetPageController({ api, state, renderView, showToast 
             logEl.textContent = data.lines.join('\n');
             logEl.scrollTop = logEl.scrollHeight;
           }
-          if (data.process_status === 'done' || data.process_status === 'error') {
+          if (data.process_status === 'done' || data.process_status === 'error' || data.process_status === 'unavailable') {
             clearInterval(_resizePollTimer);
             _resizePollTimer = null;
             if (btn) { btn.disabled = false; btn.textContent = '开始处理'; }
             if (data.process_status === 'done') {
               if (hint) hint.innerHTML = '<span style="color:#22c55e;">' + _ico('check-circle') + ' 处理完成</span>';
               showToast('✓ 图像预处理完成');
+            } else if (data.process_status === 'unavailable') {
+              if (hint) hint.innerHTML = '<span style="color:#22c55e;">' + _ico('check-circle') + ' 已提交，稍后查看输出目录</span>';
+              showToast('图像预处理已提交，Beta45 后端不提供实时日志');
             } else {
               if (hint) hint.innerHTML = '<span style="color:#ef4444;">' + _ico('x-circle') + ' 处理异常</span>';
               showToast('图像预处理出现错误，请查看日志');
