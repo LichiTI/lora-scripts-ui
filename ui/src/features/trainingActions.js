@@ -398,8 +398,11 @@ export function createTrainingActionsController({
   async function clearAllTaskHistory() {
     if (!confirm('确认清空所有已完成的任务历史？\n（正在运行的任务不会被删除）')) return;
     try {
-      const deletedCount = state.tasks.filter((task) => task.status !== 'RUNNING').length;
-      await api.deleteAllTasks();
+      const localCount = state.tasks.filter((task) => task.status !== 'RUNNING').length;
+      // 后端 DELETE /api/tasks 会返回 {data: {deleted: N}}，优先使用其计数；失败时回退到本地统计
+      const resp = await api.deleteAllTasks();
+      const backendDeleted = Number(resp?.data?.deleted);
+      const deletedCount = Number.isFinite(backendDeleted) ? backendDeleted : localCount;
       const tasksResponse = await api.getTasks();
       const allBackendTasks = tasksResponse?.data?.tasks || [];
       for (const task of allBackendTasks) {
@@ -410,7 +413,7 @@ export function createTrainingActionsController({
       }
       if (typeof window.persistDeletedTaskIds === 'function') window.persistDeletedTaskIds();
       state.tasks = allBackendTasks.filter((task) => !state._deletedTaskIds.has(task.id));
-      try { await fetch('/api/local/task_history', { method: 'DELETE' }); } catch (error) { /* ignore */ }
+      // 注意：api.deleteAllTasks() 内部已同步清空本地 task_history.json，这里不再重复调用
       state.taskSummaries = {};
       try { sessionStorage.removeItem('sd-rescripts:task-summaries'); } catch (error) { /* ignore */ }
       if (state.activeModule === 'training') {

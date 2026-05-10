@@ -1874,6 +1874,12 @@ export function buildRunConfig(config, typeId) {
   }
   delete payload.enable_block_weights;
 
+  // ── train_length_mode: 纯 UI 开关，后端无对应 CLI 参数 ──
+  // 它仅决定 UI 显示哪一个长度字段（max_train_epochs / max_train_steps），
+  // 真正的长度字段已经由上方的 visibleWhen 过滤逻辑保证只发激活的那个，
+  // 这里把控制开关本身从 payload 中移除，避免污染 .toml 文件和 metadata。
+  delete payload.train_length_mode;
+
   // ── PiSSA: 关闭时清理子字段 ──
   if (!payload.pissa_init) {
     delete payload.pissa_method;

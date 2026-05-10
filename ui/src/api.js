@@ -37,21 +37,30 @@ function postJson(path, data) {
   });
 }
 
-async function deleteTaskFromLocalHistory(taskId) {
+/**
+ * 仅同步本地历史文件 (./task_history.json)。
+ * 用于在调用后端真删除接口成功后，把本地缓存里同 ID 的条目一并清掉，
+ * 避免下次启动时本地历史文件把已删任务又拉回来。
+ * 失败不抛异常（本地缓存是兜底，后端才是权威）。
+ */
+async function syncLocalTaskHistoryRemoval(taskId) {
   const normalizedId = String(taskId || '');
-  if (!normalizedId) {
-    return { status: 'success', data: { deleted: 0, localOnly: true } };
-  }
+  if (!normalizedId) return;
+  try {
+    const history = await request('/api/local/task_history');
+    const tasks = Array.isArray(history?.data?.tasks) ? history.data.tasks : [];
+    const filtered = tasks.filter((task) => String(task?.id || task?.task_id || '') !== normalizedId);
+    if (filtered.length !== tasks.length) {
+      await postJson('/api/local/task_history', { tasks: filtered });
+    }
+  } catch (_e) { /* 本地缓存同步失败不影响主流程 */ }
+}
 
-  const history = await request('/api/local/task_history').catch(() => ({ data: { tasks: [] } }));
-  const tasks = Array.isArray(history?.data?.tasks) ? history.data.tasks : [];
-  const filtered = tasks.filter((task) => String(task?.id || task?.task_id || '') !== normalizedId);
-  await postJson('/api/local/task_history', { tasks: filtered });
-  return {
-    status: 'success',
-    message: 'Task history entry removed locally.',
-    data: { deleted: tasks.length - filtered.length, localOnly: true },
-  };
+/** 清空本地任务历史文件（与 DELETE /api/tasks 配合使用）。失败静默。 */
+async function clearLocalTaskHistoryFile() {
+  try {
+    await request('/api/local/task_history', { method: 'DELETE' });
+  } catch (_e) { /* ignore */ }
 }
 
 export const api = {
@@ -75,20 +84,35 @@ export const api = {
     return request(`/api/tasks/terminate/${taskId}`);
   },
 
-  deleteTask(taskId) {
-    return deleteTaskFromLocalHistory(taskId);
+  /**
+   * 删除单个任务记录。优先走后端 DELETE /api/tasks/{taskId}，
+   * 同时同步清理本地 task_history.json 缓存。
+   */
+  async deleteTask(taskId) {
+    const normalizedId = String(taskId || '');
+    if (!normalizedId) {
+      return { status: 'success', data: { deleted: 0 } };
+    }
+    const resp = await request(`/api/tasks/${encodeURIComponent(normalizedId)}`, { method: 'DELETE' });
+    // 后端真删除成功后，再同步清掉本地历史中的同 ID 记录
+    syncLocalTaskHistoryRemoval(normalizedId);
+    return resp;
   },
 
-  deleteAllTasks() {
-    return request('/api/local/task_history', { method: 'DELETE' })
-      .then((resp) => ({
-        ...(resp || { status: 'success' }),
-        data: { ...((resp && resp.data) || {}), localOnly: true },
-      }));
+  /**
+   * 清空所有已完成任务记录。优先走后端 DELETE /api/tasks，
+   * 同时清空本地 task_history.json 文件。
+   */
+  async deleteAllTasks() {
+    const resp = await request('/api/tasks', { method: 'DELETE' });
+    // 后端真清空后，本地缓存文件也一并清空
+    clearLocalTaskHistoryFile();
+    return resp;
   },
 
+  /** 仅清空本地 task_history.json 缓存（不动后端）。 */
   deleteLocalTaskHistory(taskId) {
-    return deleteTaskFromLocalHistory(taskId);
+    return syncLocalTaskHistoryRemoval(taskId);
   },
 
   pickFile(type) {
@@ -226,7 +250,7 @@ export const api = {
       status: 'success',
       data: {
         process_status: 'unavailable',
-        lines: ['后端已接收图像预处理任务，但 Beta45 后端不提供实时日志状态。请稍后查看输出目录。'],
+        lines: ['后端已接收图像预处理任务（后台运行），不提供实时日志状态，请稍后查看输出目录。'],
       },
     }));
   },

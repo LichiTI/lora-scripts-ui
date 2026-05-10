@@ -125,9 +125,10 @@ const state = {
   theme: localStorage.getItem('theme') || 'dark',
   roundedUI: localStorage.getItem('roundedUI') === 'true',
   verticalTabs: localStorage.getItem('verticalTabs') === 'true',
+  configWaterfall: localStorage.getItem('sd-rescripts:config-waterfall') === 'true',
   activeModule: 'config',
   activeTab: localStorage.getItem('sdxl_ui_tab') || 'model',
-  navigatorCollapsed: false,
+  navigatorCollapsed: localStorage.getItem('sd-rescripts:navigator-collapsed') === 'true',
   sections: {
     'training-types': true,
     'preset-list': true,
@@ -565,22 +566,57 @@ function renderView(module) {
 function renderConfig(container) {
   const tt = state.activeTrainingType;
   const typeLabel = TRAINING_TYPES.find((t) => t.id === tt)?.label || tt;
-  const sections = getSectionsForTab(state.activeTab, tt);
-  const visibleSections = sections.filter((section) =>
-    section.fields.some((field) => field.type !== 'hidden' && isFieldVisible(field, state.config))
-  );
+
+  // 瀑布流模式：把所有 Tab 的 sections 按 UI_TABS 顺序铺开成一页
+  let visibleSections;
+  let waterfall = !!state.configWaterfall;
+  if (waterfall) {
+    const allSections = [];
+    const tabKeyToLabel = {};
+    for (const tab of UI_TABS) tabKeyToLabel[tab.key] = tab.label;
+    const availTabKeys = getAvailableTabs(tt).map((t) => t.key);
+    for (const tabKey of availTabKeys) {
+      const tabSections = getSectionsForTab(tabKey, tt);
+      for (const section of tabSections) {
+        // 给 section 注入 _tabKey/_tabLabel 用于渲染分组锚点
+        allSections.push({ ...section, _tabKey: tabKey, _tabLabel: tabKeyToLabel[tabKey] || tabKey });
+      }
+    }
+    visibleSections = allSections.filter((section) =>
+      section.fields.some((field) => field.type !== 'hidden' && isFieldVisible(field, state.config))
+    );
+  } else {
+    const sections = getSectionsForTab(state.activeTab, tt);
+    visibleSections = sections.filter((section) =>
+      section.fields.some((field) => field.type !== 'hidden' && isFieldVisible(field, state.config))
+    );
+  }
+
+  // 瀑布流：在每个新 tab 段前插入分组标题（tab 锚点）
+  let lastRenderedTab = '';
+  const renderSectionWithAnchor = (section) => {
+    if (!waterfall) return renderSection(section);
+    let prefix = '';
+    if (section._tabKey && section._tabKey !== lastRenderedTab) {
+      lastRenderedTab = section._tabKey;
+      prefix = `<div class="waterfall-tab-anchor" id="waterfall-tab-${escapeHtml(section._tabKey)}" data-waterfall-tab="${escapeHtml(section._tabKey)}">
+        <h2 class="waterfall-tab-title">${escapeHtml(section._tabLabel)}</h2>
+      </div>`;
+    }
+    return prefix + renderSection(section);
+  };
 
   container.innerHTML = `
-    <div class="form-container">
+    <div class="form-container${waterfall ? ' form-container-waterfall' : ''}">
       <header class="section-title">
         <h2>${typeLabel} LoRA 模式</h2>
-        <p></p>
+        <p>${waterfall ? '<span style="color:var(--text-muted);font-size:0.82rem;">📜 瀑布流模式：所有参数在同一页展示，可通过顶部标签栏快速跳转。</span>' : ''}</p>
       </header>
       ${renderPreflightOverviewPanel()}
       ${renderPreflightReport()}
       ${renderSlot('training.preflight_panel')}
       ${renderSlot('config.after_status_deck')}
-      ${visibleSections.map(renderSection).join('')}
+      ${visibleSections.map(renderSectionWithAnchor).join('')}
     </div>
   `;
 
@@ -588,6 +624,39 @@ function renderConfig(container) {
   syncTopbarState();
   syncFooterAction();
   updateJSONPreview();
+
+  // 瀑布流模式：监听滚动来高亮顶部 tab
+  if (waterfall) {
+    _setupWaterfallScrollSpy(container);
+  }
+}
+
+// ---- 瀑布流滚动联动 ----
+let _waterfallScrollHandler = null;
+function _setupWaterfallScrollSpy(container) {
+  if (_waterfallScrollHandler) {
+    document.removeEventListener('scroll', _waterfallScrollHandler, true);
+    _waterfallScrollHandler = null;
+  }
+  const anchors = container.querySelectorAll('.waterfall-tab-anchor');
+  if (!anchors.length) return;
+  _waterfallScrollHandler = () => {
+    if (state.activeModule !== 'config' || !state.configWaterfall) return;
+    let curTab = '';
+    const triggerY = 140; // topbar 大约高度
+    anchors.forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      if (rect.top <= triggerY) curTab = el.dataset.waterfallTab;
+    });
+    if (curTab && curTab !== state.activeTab) {
+      state.activeTab = curTab;
+      localStorage.setItem('sdxl_ui_tab', curTab);
+      $$('.top-nav-item').forEach((item) => {
+        item.classList.toggle('active', item.dataset.tab === curTab);
+      });
+    }
+  };
+  document.addEventListener('scroll', _waterfallScrollHandler, true);
 }
 
 function renderSection(section) {
@@ -1419,14 +1488,30 @@ function renderNavigator() {
       if (!groups[tt.group]) groups[tt.group] = [];
       groups[tt.group].push(tt);
     }
-    // 默认折叠的组
-    const defaultCollapsed = new Set(['ControlNet', 'Textual Inversion', '其他模型训练']);
-    const _collapsedGroups = state._collapsedTrainingGroups || (state._collapsedTrainingGroups = new Set(defaultCollapsed));
+    // 默认折叠的组（首次进入时使用）
+    const defaultCollapsed = ['ControlNet', 'Textual Inversion', '其他模型训练'];
+    if (!state._collapsedTrainingGroups) {
+      const saved = localStorage.getItem('sd-rescripts:training-groups-collapsed');
+      let initial;
+      if (saved !== null) {
+        try {
+          const parsed = JSON.parse(saved);
+          initial = Array.isArray(parsed) ? parsed : defaultCollapsed;
+        } catch (_e) {
+          initial = defaultCollapsed;
+        }
+      } else {
+        initial = defaultCollapsed;
+      }
+      state._collapsedTrainingGroups = new Set(initial);
+    }
+    const _collapsedGroups = state._collapsedTrainingGroups;
     // 仅在用户切换训练类型时自动展开该组（通过标记避免每次渲染都展开）
     const activeGroup = TRAINING_TYPES.find(t => t.id === state.activeTrainingType)?.group || '';
     if (activeGroup && _collapsedGroups.has(activeGroup) && state._lastExpandedForType !== state.activeTrainingType) {
       _collapsedGroups.delete(activeGroup);
       state._lastExpandedForType = state.activeTrainingType;
+      _persistTrainingGroupsCollapsed();
     }
 
     trainingTypeList.innerHTML = Object.entries(groups).map(([group, items]) => {
@@ -1463,8 +1548,16 @@ window.toggleTrainingGroup = function(group) {
   } else {
     state._collapsedTrainingGroups.add(group);
   }
+  _persistTrainingGroupsCollapsed();
   renderNavigator();
 };
+
+function _persistTrainingGroupsCollapsed() {
+  try {
+    const arr = Array.from(state._collapsedTrainingGroups || []);
+    localStorage.setItem('sd-rescripts:training-groups-collapsed', JSON.stringify(arr));
+  } catch (_e) { /* ignore */ }
+}
 
 
 function applyLayoutPreferences() {
@@ -1480,6 +1573,13 @@ function applyLayoutPreferences() {
     if (expandBtn) {
       expandBtn.style.display = 'none';
     }
+    return;
+  }
+
+  // 在 config 模块下，根据持久化状态恢复 navigator 的折叠态
+  navigator?.classList.toggle('collapsed', state.navigatorCollapsed);
+  if (expandBtn) {
+    expandBtn.style.display = state.navigatorCollapsed ? 'flex' : 'none';
   }
 }
 
@@ -1652,7 +1752,22 @@ function setupTopbar() {
       state.activeTab = tabKey;
       localStorage.setItem('sdxl_ui_tab', tabKey);
       if (state.activeModule === 'config') {
-        renderView('config');
+        if (state.configWaterfall) {
+          // 瀑布流模式：滚动到对应锚点
+          const anchor = document.getElementById('waterfall-tab-' + tabKey);
+          if (anchor) {
+            anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } else {
+            // 该 tab 在当前训练类型下没有可见 section，直接重渲染
+            renderView('config');
+          }
+          // 仍然刷新 topbar 高亮
+          $$('.top-nav-item').forEach((it) => {
+            it.classList.toggle('active', it.dataset.tab === tabKey);
+          });
+        } else {
+          renderView('config');
+        }
       } else {
         syncTopbarState();
       }
@@ -1678,10 +1793,12 @@ function setupNavigator() {
 
   collapseBtn?.addEventListener('click', () => {
     state.navigatorCollapsed = true;
+    localStorage.setItem('sd-rescripts:navigator-collapsed', 'true');
     updateNavUI();
   });
   expandBtn?.addEventListener('click', () => {
     state.navigatorCollapsed = false;
+    localStorage.setItem('sd-rescripts:navigator-collapsed', 'false');
     updateNavUI();
   });
   updateNavUI();
@@ -4423,6 +4540,16 @@ function renderSettings(container) {
               <span class="slider round"></span>
             </label>
           </div>
+          <div class="settings-row">
+            <div>
+              <label>配置页瀑布流模式</label>
+              <p class="field-desc">开启后「配置」模块所有标签页的参数会在同一页中铺开，点击顶部标签会平滑滚动到对应分段。关闭后回到原本的分页式（每个标签栏一个页面）。</p>
+            </div>
+            <label class="switch switch-compact">
+              <input type="checkbox" id="config-waterfall-toggle" ${state.configWaterfall ? 'checked' : ''}>
+              <span class="slider round"></span>
+            </label>
+          </div>
           <div class="settings-row settings-slider-row">
             <label>左侧资源管理器宽度</label>
             <div class="settings-slider-control">
@@ -4501,6 +4628,12 @@ function renderSettings(container) {
   });
   $('#vertical-tabs-toggle')?.addEventListener('change', (e) => {
     state.verticalTabs = e.target.checked; localStorage.setItem('verticalTabs', state.verticalTabs); applyTheme();
+  });
+  $('#config-waterfall-toggle')?.addEventListener('change', (e) => {
+    state.configWaterfall = e.target.checked;
+    localStorage.setItem('sd-rescripts:config-waterfall', state.configWaterfall ? 'true' : 'false');
+    showToast(state.configWaterfall ? '已开启瀑布流模式' : '已关闭瀑布流模式');
+    // 当前如果正在配置页，立即生效；否则下次进入配置页生效
   });
   $('#navigator-width-slider')?.addEventListener('input', (e) => updateLayoutWidth('navigator', e.target.value, false));
   $('#navigator-width-slider')?.addEventListener('change', (e) => updateLayoutWidth('navigator', e.target.value, true));
@@ -7238,8 +7371,11 @@ window.deleteTaskHistory = async (taskId) => {
 window.clearAllTaskHistory = async () => {
   if (!confirm('确认清空所有已完成的任务历史？\n（正在运行的任务不会被删除）')) return;
   try {
-    const deletedCount = state.tasks.filter(t => t.status !== 'RUNNING').length;
-    await api.deleteAllTasks();
+    const localCount = state.tasks.filter(t => t.status !== 'RUNNING').length;
+    // 后端 DELETE /api/tasks 会返回 {data: {deleted: N}}，优先使用其计数；失败时回退到本地统计
+    const resp = await api.deleteAllTasks();
+    const backendDeleted = Number(resp?.data?.deleted);
+    const deletedCount = Number.isFinite(backendDeleted) ? backendDeleted : localCount;
     // 重新拉取任务列表
     const tasksResponse = await api.getTasks();
     // 把所有非运行中的任务加入黑名单，防止轮询又拉回来
@@ -7248,7 +7384,7 @@ window.clearAllTaskHistory = async () => {
     for (const t of state.tasks) { if (t.status !== 'RUNNING') state._deletedTaskIds.add(t.id); }
     persistDeletedTaskIds();
     state.tasks = allBackendTasks.filter(t => !state._deletedTaskIds.has(t.id));
-    try { await fetch('/api/local/task_history', { method: 'DELETE' }); } catch (e) {}
+    // 注意：api.deleteAllTasks() 内部已同步清空本地 task_history.json，这里不再重复调用
     state.taskSummaries = {};
     try { sessionStorage.removeItem('sd-rescripts:task-summaries'); } catch (e) {}
     if (state.activeModule === 'training') {

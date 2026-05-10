@@ -4278,3 +4278,53 @@ body.compact-layout .config-group.row {
   grid-column: 2;
   grid-row: 2;
 }
+
+
+/* ========================================
+   配置页瀑布流模式（一页式：所有 Tab 在同一页铺开）
+   ======================================== */
+.form-container-waterfall {
+  max-width: 1100px;
+}
+
+.form-container-waterfall .waterfall-tab-anchor {
+  position: relative;
+  margin: 28px 0 12px;
+  padding: 14px 0 10px;
+  border-top: 2px solid var(--accent, #5b8cff);
+  /* 注意：.content-area 是独立滚动容器，topbar 是它的兄弟元素，
+     不会遮挡其内部内容，因此不需要 scroll-margin-top 补偿。
+     设为 0 才能保证「点击 tab 直接跳到该分段顶部」。 */
+  scroll-margin-top: 0;
+}
+
+.form-container-waterfall .waterfall-tab-anchor:first-of-type {
+  margin-top: 8px;
+}
+
+.form-container-waterfall .waterfall-tab-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent, #5b8cff);
+  margin: 0;
+  padding: 0 4px;
+  display: inline-block;
+}
+
+.form-container-waterfall .waterfall-tab-anchor::after {
+  content: '';
+  display: block;
+  height: 2px;
+  width: 40px;
+  background: var(--accent, #5b8cff);
+  margin-top: 6px;
+  opacity: 0.5;
+  border-radius: 1px;
+}
+
+/* 瀑布流模式下 form-section 减小间距，更接近一页式 */
+.form-container-waterfall .form-section {
+  margin-bottom: 16px;
+}
