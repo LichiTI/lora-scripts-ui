@@ -1,72 +1,208 @@
-## 1. 拆分架构概览
+# 新前端重构总结
 
-重构后的架构将 `main.js` 的定位从“全能上帝类”转换为 **“状态容器与模块接线层 (Wiring Layer)”**。
-所有功能被划分为三类：`utils`（纯函数工具）、`features`（功能控制器组件）、`schema`（后端表单定义）。
+本文档记录重构成果，将原本 6999 行的“上帝类” `main.js` 拆分为 **utils + renderers + actions + orchestrator** 四层架构，全程零行为变更。
 
-### 1.1 `utils` 工具模块
-负责基础逻辑抽象，无 UI 状态耦合：
-- **`dom.js`**: `$`、`$$` 选择器、`escapeHtml` 净化器及轻量级 `showToast`。
-- **`toml.js`**: TOML 格式轻量解析与序列化，替代以前在 `main.js` 结尾大段的 AST 遍历逻辑。
-- **`preferences.js`**: 浏览器 `localStorage` 读取及持久化（例如 `jsonPanelCollapsed`、界面主题、抽屉状态）。
-- **`trainingMetrics.js`**: 训练日志指标解析（Loss、Step、Speed 计算）及概要卡片数据结构生成。
-- **`logRendering.js`**: 纯计算模块，处理增量日志 `cursor`、重复进度条过滤和 HTML 生成。
-
-### 1.2 `features` 功能组件 (Controllers)
-各业务模块被封装为工厂函数（例如 `createDatasetPageController`），在 `main.js` 中注入依赖并在 `bindGlobals(window)` 时暴露出对应的 `window.*` 内联方法：
-
-- **`appShell.js`**: 渲染导航栏 (Navigator)、顶栏 (Topbar)、左侧栏、暗/亮主题切换、界面布局偏好管理。
-- **`configRenderer.js`**: 动态表单的核心渲染器，将 TOML/JSON 配置转化为 DOM（下拉框、输入框、内置选择器）。
-- **`configActions.js`**: 配置的导入、导出为 `.toml`、撤销参数修改、重置参数以及切换训练类型 (Training Type)。
-- **`trainingPage.js`**: 渲染训练监控主页，包含 GPU 状态、实时 Loss 折线图 (Sparkline)、数据集预检摘要。
-- **`trainingActions.js`**: 训练操作控制器：启动预检 (`runPreflight`)、环境监测 (`refreshRuntime`)、启动训练 (`executeTraining`)、终止任务 (`terminateAllTasks`)、清空历史任务。
-- **`bootstrapRuntime.js`**: 系统级后台任务管理：初始化加载默认配置 (`loadBootstrapData`) 和任务轮询服务 (`startTaskPolling`) 以及自动清理前状态同步。
-- **`taskHistorySummary.js`**: 解析已结束的训练任务，渲染评分摘要卡片，并管理 `localTaskHistory` 在浏览器 Session 和后端磁盘上的双向同步。
-- **`datasetPage.js`**: 数据集工作流：AI 打标器 (`runTagger`)、尺寸预处理 (`runImageResize`)、Caption 批量清洗、蒙版损失审查。
-- **`samplesPanel.js`**: 训练样本的图片浏览与灯箱 (`Lightbox`) 组件。
-- **`builtinPicker.js`**: 模型与目录的内置浮层选择器 (`modal`)。
-- **`pickerRuntime.js`**: 调用本地文件浏览器 (Native File System) 的弹窗支持。
-- **`savedConfigs.js`**: 自定义参数组合的命名保存、读取与删除管理弹窗。
-- **`settingsPage.js` & `settingsOptions.js`**: UI 界面设置及默认优化器/调度器展示设置。
-- **`toolsPage.js` & `toolDefinitions.js`**: `SDXL/Flux/Anima` 等底模转换、元数据查询工具运行及进度条读取。
-- **`topbarSearch.js`**: 全局跨 Tab 配置项模糊搜索与 `jumpToConfigField`。
-- **`pluginCenter.js` & `pluginCenterController.js`**: 后端插件的加载、启停、展示管理面板。
-- **`staticPages.js`**: 静态文本说明（教程、关于、更新日志）。
 
 ---
 
-## 接线模式示例 
+## 1. 重构成果
 
-重构后，`main.js` 将扮演以下角色：
+| 指标 | 重构前 | 重构后 | 变化 |
+|---|---|---|---|
+| `main.js` 行数 | 6999 | **1090** | **-84.4%** |
+| 模块文件数 | 13 | **46** | +33 |
+| 顶层架构层数 | 1（全在 main.js） | **4**（utils / renderers / actions / orchestrator） | — |
+| build 产物（gzip） | ~101 kB | ~107 kB | +6 kB |
+| 行为变更 | — | **0** | 严格只搬代码，不改逻辑 |
 
-```javascript
-// 1. 初始化核心状态容器
-const state = { config: {}, tasks: [], activeModule: 'config', ... };
+构建：`52 modules transformed`，全程 50+ 次 build 全部通过。
 
-// 2. 注入依赖，实例化 Controller
-const datasetPage = createDatasetPageController({
-  api, state, renderView, showToast 
-});
+---
 
-// 3. 将原 main.js 暴露给内联 HTML 的全局函数统一挂载
-datasetPage.bindGlobals(window);
+## 2. 当前目录结构
+
+```text
+plugin/lora-scripts-ui-main/ui/src/
+├── main.js                      # ~1090 行 orchestrator（state + 工厂装配 + polling + init）
+├── api.js                       # 后端 HTTP 封装（不动）
+├── i18n.js                      # 多语言（不动）
+├── pluginHost.js                # 插件宿主运行时（不动）
+├── sdxlSchema.js                # 训练参数 schema 总入口（不动）
+├── animaSchema.js               # Anima 路线 schema（不动）
+├── schemaRegistry.js            # schema 注册中心（不动）
+├── style.css                    # 样式表（不动）
+│
+├── utils/                       # 6 个：纯函数 &常量
+│   ├── constants.js             # TOPBAR_TABS / DRAFT_STORAGE_KEY 等
+│   ├── dom.js                   # $ / $$ / escapeHtml / _ico / showToast
+│   ├── storage.js               # draft / deletedTaskIds 持久化
+│   ├── toml.js                  # TOML 解析与序列化
+│   ├── logRender.js             # 日志行 HTML 渲染
+│   └── trainingMetrics.js       # 训练指标（loss/speed/epoch 解析与摘要）
+│
+├── features/                    # 1 个保留：settingsOptions.js（被 main.js 直接 import）
+│
+├── renderers/               # 17 个：所有 HTML 字符串生成层
+│   ├── index.js                 # 统一导出
+│   ├── about.js / guide.js / logs.js                # 静态页
+│   ├── builtinPickerModal.js    # 内置 picker 模态
+│   ├── statusDeck.js            # 状态卡片（GPU /任务 / 后端状态）
+│   ├── navigator.js             # 左侧导航（训练类型分组 + 参数管理面板）
+│   ├── settings.js              # 设置页
+│   ├── configForm.js            # 配置表单（field / section / 分组）
+│   ├── preflight.js             # 训练预检报告
+│   ├── samples.js      # 训练样本浏览
+│   ├── wizard.js                # 新手向导
+│   ├── plugins.js               # 插件中心
+│   ├── tools.js                 # 工具页
+│   ├── dataset.js               # 数据集页（tagger / resize / caption / masked-loss）
+│   ├── sysMonitor.js            # 系统监控
+│   └── training.js              # 训练监控主页
+│
+└── actions/                     # 20 个：业务动作 + 副作用层（含 60+ 个 window.* 入口）
+    ├── index.js                 # 统一导出
+    ├── theme.js                 # applyTheme / toggleTheme / setLanguage / applyLanguage
+    ├── trainTabs.js             # switchTrainTab
+    ├── jsonPanel.js             # setupJsonPanel / updateJSONPreview
+    ├── fieldMenu.js             # setupFieldMenus（撤销/恢复菜单）
+    ├── taskHistory.js           # load/save/mergeTaskHistory + delete/clear
+    ├── search.js                # setupTopbarSearch + jumpToConfigField
+    ├── picker.js                # 10 个 picker 函数（native / 内置 / overlay）
+    ├── layout.js                # applyLayoutPreferences / syncFooterAction / syncTopbarState
+    ├── config.js                # updateConfigValue + reset/undo/applyPreset 等 11 个
+    ├── sampleActions.js         # lightbox / scanDataset / toggleFolderPreview / runTrainingPreflight
+    ├── wizard.js                # wizardSet / wizardStartTraining
+    ├── pluginsActions.js        # pluginToggleDevMode / Approve / Revoke / ShowAudit
+    ├── toolsActions.js          # runTool（完整轮询逻辑）
+    ├── navActions.js            # setupSidebar/Topbar/Navigator + dismiss helpers
+    ├── runtimeActions.js        # runPreflight / refreshRuntime
+    ├── terminateActions.js      # terminateAllTasks
+    ├── savedConfigs.js          # 10 个命名配置 actions + setupImportConfig
+    ├── trainingActions.js       # validateConfigConflicts + executeTraining（核心）
+    └── trainingMetadata.js      # 任务元数据 + summary + showTaskSummary（12 个）
 ```
-此模式的优势在于：
-1. 原 HTML 无需改动任何 `onclick="runTagger()"`。
-2. 规避了因循环引用导致的构建失败（所有的 `features/` 模块之间解耦，依赖仅靠形参）。
 
-## 后续开发与维护指引
+---
 
-1. **新增 Schema 参数**: 
-   若要在 WebUI 添加新训练参数，请直接编辑 `plugin/lora-scripts-ui-main/ui/src/sdxlSchema.js` 的 `getSectionsForType`，新字段会自动通过 `configRenderer.js` 渲染。
+## 3. 架构分层职责
 
-2. **添加新的标签页 / 工具**:
-   如果需要新页面，在 `features/` 目录中创建类似于 `myNewPage.js` 的导出对象。然后在 `main.js` 的 `renderView` 路由判断中加入该组件。
+### 3.1 `utils/` — 纯函数与常量
+- 不持有 state，不操作真实 DOM 状态。
+- 只接收输入，返回输出 / 字符串。
+- 任何层都可以 import。
 
-3. **构建流程**:
-   目前 WebUI 的产物由 Vite 构建：
-   ```bash
-   cd plugin/lora-scripts-ui-main/ui
-   npm install
-   npm run build
-   ```
-   构建出的 `dist/index.html` 会被 `mikazuki/utils/frontend_profiles.py` 自动检索接管为活跃的 Profile (`community:lora-scripts-ui-main`) 并由 FastApi 提供宿主服务。
+### 3.2 `renderers/` — 渲染层（HTML 生成）
+- 工厂模式：`createXxxRenderer({ state, deps })` 返回 render 函数。
+- 只**读** state 生成 HTML 字符串。
+- 不主动写 state、不调 API、不挂 window。
+- 渲染函数最终统一通过 `renderView(module)` 在 main.js 调度。
+
+### 3.3 `actions/` — 业务动作 & 副作用层
+- 工厂模式：`createXxxActions({ state, api, ... })` 返回动作集合。
+- 负责：
+  - 写 state（`state.config[key] = value`）
+  - 调 API（`api.runTraining(...)`）
+  - 调 renderView 触发重渲染
+  - 弹 toast / 操作 DOM
+- main.js 装配后将公共动作挂到`window.*`，HTML 字符串内的 `onclick="xxx()"` 不需改动。
+
+### 3.4 `main.js` — Orchestrator（状态容器 + 接线层）
+剩余 ~1090 行内容分布：
+- **state 定义**（~80 行）
+- **renderer工厂装配**（L143-L245，~100 行）
+- **actions 工厂装配 + window 挂载**（L246-L920，~675 行）
+- **polling 模块**（L955-L1208，~250 行）
+  - `startTaskPolling` / `startTrainingLogPolling` / `startSysMonitorPolling`
+  - `refreshTrainingLog` / `_updateTrainingLiveMetrics` / `_fetchGpuStatus`
+  - 这部分含模块级状态变量与定时器，**有意保留**在 orchestrator 层
+- **renderView / loadBootstrapData / init / DOMContentLoaded**（~60 行）
+
+---
+
+## 4. 关键工程模式
+
+### 4.1 工厂注入依赖，避免循环依赖
+所有 renderer / action 模块都以工厂函数导出，依赖通过参数传入：
+
+```js
+// renderers/training.js
+export function createTrainingRenderer({ state, renderSlot, deps }) {
+  return {
+renderTraining(container) { /* 用 state + deps */ },
+    renderTrainingSummaryHTML(s) { /* ... */ },
+  };
+}
+```
+
+### 4.2 `_rendererDeps` / `_trainingDeps` 共享对象解决循环引用
+`statusDeck` 与 `preflight` 互相调用：先创建空 `deps` 对象传给两个工厂，工厂返回后再反向填充，运行时通过对象属性查找。
+
+### 4.3 Getter 模式延迟解析
+训练 renderer 在装配时还读不到 `syncFooterAction` / `startTrainingLogPolling`（它们是后续声明的 const），用 getter 在调用时才取值：
+
+```js
+const _trainingDeps = {
+  renderPreflightPanel,
+  renderSamplesPanel,
+  get syncFooterAction()        { return syncFooterAction; },
+  get startTrainingLogPolling() { return startTrainingLogPolling; },
+// ...
+};
+```
+
+同样模式也用于 `taskHistory` 工厂中读取 `trainingMetadata` 的const 解构变量，避免 TDZ 错误。
+
+### 4.4 window 挂载收敛
+所有 `window.xxx = ...` 集中在 main.js L246-L920 的工厂装配区，行号集中、便于审计；HTML 字符串中的 `onclick="updateConfigValue(...)"` 等 inline handler **完全不需要改动**。
+
+### 4.5 零行为变更
+每抽一个模块都执行 `npm run build` 验证。50+ 次 build 全部通过，gzip 体积仅增长 ~6 kB（来自工厂样板代码）。
+
+---
+
+## 5. 不可变更文件（约束）
+
+以下文件在重构期间严格保持只读：
+
+- `api.js`、`pluginHost.js`、`i18n.js`
+- `schemaRegistry.js`、`sdxlSchema.js`、`animaSchema.js`
+- `features/settingsOptions.js`
+- `style.css`、`index.html`、`vite.config.js`
+- 所有 HTML 字符串中的 `onclick="..."` 内联调用（保持向后兼容）
+
+---
+
+## 6. 维护指引
+
+### 6.1 新增训练参数
+直接编辑 `sdxlSchema.js` / `animaSchema.js` 的 schema 定义。`renderers/configForm.js` 会自动渲染。
+
+### 6.2 新增页面 / Tab
+1. 在 `renderers/` 下创建 `myPage.js`，导出 `createMyPageRenderer({ state })`。
+2. 在 `renderers/index.js` 注册导出。
+3. 在 `main.js` 的工厂装配区调用 `const { renderMyPage } = createMyPageRenderer(...)`。
+4. 在 `renderView(module)` 路由中加入 `case 'mypage': return renderMyPage(container);`。
+
+### 6.3 新增 window 动作
+1. 在 `actions/` 下创建 `myActions.js`，导出 `createMyActions({ state, api, ... })`。
+2. 在 `actions/index.js` 注册导出。
+3. 在 `main.js` 装配工厂并挂 `window.myAction = myAction`。
+
+### 6.4 修改样式 / HTML
+直接编辑 `index.html` 与 `style.css`，无需触碰任何 JS。
+
+### 6.5 构建产物
+```bash
+cd plugin/lora-scripts-ui-main/ui
+npm install
+npm run build
+# 产物在 ui/dist/，会被 mikazuki/utils/frontend_profiles.py 自动识别为活跃 Profile
+```
+
+---
+
+## 7. 已知保留事项（非问题）
+
+- **polling 模块仍在 main.js**：`startTaskPolling` 等 6 个 polling 函数 + `_trainingLogCursor` / `_sysMonitorTimer` / `_gpuPollCooldown` 等模块级状态变量。这部分含定时器副作用与跨函数闭包，留在 orchestrator 层是合理的架构选择，进一步抽离收益边际递减且引入风险。
+- **window 挂载未集中到 `registerWindowActions()`**：当前分散在工厂调用区每个模块后面，读起来反而更直观（哪个工厂解构出什么，立即就能看到挂了什么）。
+- **`features/` 目录仅剩 `settingsOptions.js`**：保留是因为它被 `main.js` 直接 import；保留目录避免改动 import 路径。

@@ -1,0 +1,75 @@
+// 全局常量集中管理：状态键、UI 配置常量、字段集合等
+// 这些常量在 main.js 与未来拆出的 actions/renderers 中都会用到，
+// 抽取到这里是为了让 main.js 的顶部装配代码更清爽，并避免循环依赖。
+
+import { UI_TABS } from '../sdxlSchema.js';
+
+export const TOPBAR_TABS = UI_TABS.map((tab) => tab.key);
+
+export const BUILTIN_LEGACY_UI_PROFILE_ID = 'builtin-legacy';
+
+// 用户切换这些字段时，需要联动重新渲染整个 config 视图（visibleWhen 依赖）。
+// 任何会改变其他字段可见性的字段都应在这里登记。
+export const CONDITIONAL_KEYS = new Set([
+  'v_parameterization',
+  'save_state',
+  'network_module',
+  'lycoris_algo',
+  'lr_scheduler',
+  'optimizer_type',
+  'enable_preview',
+  'randomly_choice_prompt',
+  'ema_enabled',
+  'safeguard_enabled',
+  'wavelet_loss_enabled',
+  'torch_compile',
+  'enable_base_weight',
+  'log_with',
+  'lora_type',
+  'enable_distributed_training',
+  'sync_use_password_auth',
+  'lulynx_experimental_core_enabled',
+  'lulynx_safeguard_enabled',
+  'lulynx_ema_enabled',
+  'lulynx_resource_manager_enabled',
+  'lulynx_block_weight_enabled',
+  'lulynx_smart_rank_enabled',
+  'lulynx_auto_controller_enabled',
+  'lulynx_lisa_enabled',
+  'lulynx_pcgrad_enabled',
+  'lulynx_pause_enabled',
+  'lulynx_prodigy_guard_enabled',
+  'lulynx_advanced_stats_enabled',
+  'enable_block_weights',
+  'sdxl_low_vram_optimization',
+  'sdxl_low_vram_fixed_block_swap',
+  'enable_mixed_resolution_training',
+  'adapter_type',
+  'bucket_selection_mode',
+  'peak_vram_control_enabled',
+  'peak_vram_startup_guard_enabled',
+  'peak_vram_micro_batch_enabled',
+  'peak_vram_diagnostics_enabled',
+  'peak_vram_auto_protection_enabled',
+  'experimental_attention_profile_enabled',
+  'flow_model',
+  'flow_timestep_distribution',
+  'flow_uniform_shift',
+  'contrastive_flow_matching',
+  'pissa_init',
+  'dora_wd',
+  'bypass_mode',
+  'enable_debug_options',
+  'caption_tag_dropout_target_mode',
+  'train_length_mode',
+]);
+
+// 这些字段在配置面板中折叠展示，仅在被启用时才显示完整输入。
+export const COLLAPSIBLE_FIELD_KEYS = new Set([
+  'reg_data_dir',
+  'prior_loss_weight',
+]);
+
+// localStorage 键名（与 storage.js 配合使用）
+export const DRAFT_STORAGE_KEY = 'sd-rescripts:ui:sdxl-draft';
+export const DELETED_TASK_IDS_STORAGE_KEY = 'sd-rescripts:task-history:deleted-ids';
