@@ -23,6 +23,14 @@ export function all(...conditions) {
   return (config) => conditions.every((c) => c(config));
 }
 
+export function not(condition) {
+  return (config) => !condition(config);
+}
+
+export function oneOf(key, values) {
+  return (config) => values.includes(config[key]);
+}
+
 // ── schema 通用工具 ──
 
 export function createDefaultConfigFromSections(sections) {

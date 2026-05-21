@@ -283,6 +283,76 @@ export const api = {
     return postJson('/api/dataset/analyze', params);
   },
 
+  /** 分布式/异步任务列表 */
+  getJobs() {
+    return request('/api/jobs');
+  },
+
+  /** 异步任务详情 */
+  getJob(jobId) {
+    return request(`/api/jobs/${encodeURIComponent(jobId)}`);
+  },
+
+  /** 取消异步任务 */
+  cancelJob(jobId) {
+    return postJson(`/api/jobs/${encodeURIComponent(jobId)}/cancel`, {});
+  },
+
+  /** 标签分析 - 提交异步任务 */
+  startTagAnalysis(params) {
+    return postJson('/api/tageditor/analysis/start', params);
+  },
+
+  /** 标签分析 - 快速预览 */
+  previewTagAnalysis(params) {
+    return postJson('/api/tageditor/analysis/preview', params);
+  },
+
+  /** 标签分析 - 读取缓存结果 */
+  getTagAnalysisResult(params) {
+    return postJson('/api/tageditor/analysis/result', params);
+  },
+
+  /** 标签建议 - 获取建议 */
+  getTagSuggestions(params) {
+    return postJson('/api/tageditor/suggestions', params);
+  },
+
+  /** 标签建议 - LLM 精修 */
+  refineTagSuggestions(params) {
+    return postJson('/api/tageditor/suggestions/llm_refine', params);
+  },
+
+  /** 标签建议 - 刷新索引 */
+  refreshTagSuggestions(params) {
+    return postJson('/api/tageditor/suggestions/refresh', params);
+  },
+
+  /** 标签批量操作 - 预览 */
+  previewTagBatchAction(params) {
+    return postJson('/api/tageditor/batch_action/preview', params);
+  },
+
+  /** 标签批量操作 - 开始 */
+  startTagBatchAction(params) {
+    return postJson('/api/tageditor/batch_action/start', params);
+  },
+
+  /** 标签批量标注 - 开始 */
+  startInterrogateBatch(params) {
+    return postJson('/api/tageditor/interrogate_batch/start', params);
+  },
+
+  /** 标签结果列表 */
+  listTagResults(params) {
+    return postJson('/api/tageditor/results/list', params);
+  },
+
+  /** 标签任务结果 */
+  getTagJobResult(params) {
+    return postJson('/api/tageditor/job_result', params);
+  },
+
   /** Masked-loss 数据集审查 */
   maskedLossAudit(params) {
     return postJson('/api/dataset/masked_loss_audit', params);
@@ -296,6 +366,11 @@ export const api = {
   /** Caption 清洗 - 应用 */
   captionCleanupApply(params) {
     return postJson('/api/captions/cleanup/apply', params);
+  },
+
+  /** Caption 清洗 - 提交异步任务 */
+  captionCleanupStart(params) {
+    return postJson('/api/captions/cleanup/start', params);
   },
 
   /** Caption 备份 - 创建 */

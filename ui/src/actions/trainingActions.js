@@ -35,6 +35,24 @@ export function createTrainingActions({
     const loraType = String(c.lora_type || '').trim().toLowerCase();
     const optimizerText = `${c.optimizer_type || ''} ${c.optimizer || ''}`.toLowerCase();
     const isAnimaRoute = String(tt || '').startsWith('anima-') || String(c.model_train_type || '').toLowerCase().startsWith('anima-');
+    const swapGranularity = String(c.swap_granularity || 'off').trim().toLowerCase().replace('-', '_');
+    const validSwapGranularities = new Set(['off', 'auto', 'block', 'merged_block', 'layer']);
+    const swapRatio = toNum(c.swap_ratio);
+    const swapCount = toNum(c.swap_count);
+    const legacyBlocksToSwap = toNum(c.blocks_to_swap);
+    const memorySwapEnabled = (swapGranularity !== 'off' && (swapRatio > 0 || swapCount > 0 || swapGranularity === 'auto')) || legacyBlocksToSwap > 0;
+    const moduleOffloadEnabled = toBool(c.module_offload_enabled);
+    const moduleOffloadRatio = toNum(c.module_offload_ratio);
+    const moduleOffloadBackboneRatio = c.module_offload_backbone_ratio === '' || c.module_offload_backbone_ratio == null ? null : toNum(c.module_offload_backbone_ratio);
+    const moduleOffloadTextEncoderRatio = c.module_offload_text_encoder_ratio === '' || c.module_offload_text_encoder_ratio == null ? null : toNum(c.module_offload_text_encoder_ratio);
+    const effectiveModuleOffloadBackboneRatio = moduleOffloadBackboneRatio == null ? moduleOffloadRatio : moduleOffloadBackboneRatio;
+    const effectiveModuleOffloadTextEncoderRatio = moduleOffloadTextEncoderRatio == null ? moduleOffloadRatio : moduleOffloadTextEncoderRatio;
+    const moduleOffloadRequested = moduleOffloadEnabled && (effectiveModuleOffloadBackboneRatio > 0 || effectiveModuleOffloadTextEncoderRatio > 0);
+    const distributedEnabled = toBool(c.enable_distributed_training) || toBool(c.enable_distributed) || toBool(c.multi_gpu) || toNum(c.num_processes) > 1 || toNum(c.num_machines) > 1;
+    const moduleOffloadPipelineRoute = String(tt || '').includes('controlnet') || String(tt || '').includes('ip-adapter') || String(tt || '').includes('lllite') || toBool(c.ip_adapter_enabled) || Boolean(String(c.controlnet_model || '').trim());
+    const flowModel = String(c.flow_model || '').trim();
+    const flowEnabled = flowModel === 'rectified_flow' || flowModel === 'cfm' || toBool(c.flow_model);
+    const timestepSampling = String(c.timestep_sampling || c.flow_timestep_distribution || 'uniform');
     const supportedVramSwapModules = new Set([
       'networks.lora',
       'networks.lora_fa',
@@ -152,29 +170,84 @@ export function createTrainingActions({
       warnings.push('「缓存 Latent 到磁盘」已开启但「缓存 Latent」未开启。建议一并开启。');
     }
 
-    // 13. blocks_to_swap 与 cpu_offload_checkpointing 冲突（Anima 特有）
-    if (toNum(c.blocks_to_swap) > 0 && toBool(c.cpu_offload_checkpointing)) {
-  warnings.push('blocks_to_swap 与 cpu_offload_checkpointing 通常不建议同时使用。');
+    // 13. 显存交换 / 模块级 Offload 冲突
+    if (!validSwapGranularities.has(swapGranularity)) {
+      errors.push(`显存交换模式无效：${swapGranularity}。`);
+    }
+    if (swapRatio < 0 || swapRatio > 1) {
+      errors.push('显存交换比例必须在 0 到 1 之间。');
+    }
+    if (memorySwapEnabled && toBool(c.torch_compile)) {
+      errors.push('显存交换不能与 torch.compile 同时使用。请关闭其中一个。');
+    }
+    if (memorySwapEnabled && toBool(c.vram_swap_to_ram)) {
+      errors.push('显存交换不能与 VRAM Swap to RAM 同时使用。请只保留一种显存搬运策略。');
+    }
+    if (memorySwapEnabled && (toBool(c.safe_fallback) || toBool(c.newbie_safe_fallback))) {
+      errors.push('显存交换不能与 OOM 安全回退同时使用。请关闭其中一个。');
+    }
+    if (swapGranularity === 'layer' && toBool(c.gradient_checkpointing)) {
+      errors.push('Layer Swap 不能与梯度检查点同时使用。请改用 block/merged_block 或关闭梯度检查点。');
+    }
+    if (memorySwapEnabled && toBool(c.cpu_offload_checkpointing)) {
+      warnings.push('显存交换与 cpu_offload_checkpointing 通常不建议同时使用。');
     }
 
-    // 14. Rectified Flow 与 v-parameterization 冲突
-    if (toBool(c.flow_model)&& toBool(c.v_parameterization)) {
-      errors.push('Rectified Flow 不能与「V 参数化」同时开启。请二选一。');
+    if (moduleOffloadRatio < 0 || moduleOffloadRatio > 100) {
+      errors.push('模块级 Offload 总比例必须在 0 到 100 之间。');
+    }
+    if (moduleOffloadBackboneRatio != null && (moduleOffloadBackboneRatio < 0 || moduleOffloadBackboneRatio > 100)) {
+      errors.push('模块级 Offload 的主干覆盖比例必须在 0 到 100 之间。');
+    }
+    if (moduleOffloadTextEncoderRatio != null && (moduleOffloadTextEncoderRatio < 0 || moduleOffloadTextEncoderRatio > 100)) {
+      errors.push('模块级 Offload 的文本编码器覆盖比例必须在 0 到 100 之间。');
+    }
+    if (moduleOffloadRequested && memorySwapEnabled) {
+      errors.push('模块级 Offload 不能与现有显存交换同时使用。请关闭其中一个。');
+    }
+    if (moduleOffloadRequested && toBool(c.vram_swap_to_ram)) {
+      errors.push('模块级 Offload 不能与 VRAM Swap to RAM 同时使用。请只保留一种 CPU offload 策略。');
+    }
+    if (moduleOffloadRequested && (toBool(c.safe_fallback) || toBool(c.newbie_safe_fallback))) {
+      errors.push('模块级 Offload 不能与 OOM 安全回退同时使用。请关闭其中一个。');
+    }
+    if (moduleOffloadRequested && toBool(c.torch_compile)) {
+      errors.push('模块级 Offload 不能与 torch.compile 同时使用。请关闭其中一个。');
+    }
+    if (moduleOffloadRequested && distributedEnabled) {
+      errors.push('模块级 Offload v1 目前只支持单 GPU eager 训练，不能与分布式 / 多卡同时使用。');
+    }
+    if (moduleOffloadRequested && toBool(c.deepspeed)) {
+      errors.push('模块级 Offload v1 不能与 DeepSpeed 同时使用。');
+    }
+    if (moduleOffloadRequested && moduleOffloadPipelineRoute) {
+      errors.push('模块级 Offload v1 不能用于 ControlNet / IP-Adapter / LLLite 路线。');
+    }
+    if (moduleOffloadRequested && toBool(c.gradient_checkpointing)) {
+      errors.push('模块级 Offload v1 不能与梯度检查点同时使用。');
+    }
+    if (moduleOffloadRequested && toBool(c.cpu_offload_checkpointing)) {
+      errors.push('模块级 Offload 不能与 cpu_offload_checkpointing 同时使用。');
+    }
+
+    // 14. Flow Matching 参数校验
+    if (flowEnabled && toBool(c.v_parameterization)) {
+      errors.push('Flow Matching 不能与「V 参数化」同时开启。请二选一。');
     }
 
     // 15. 对比 Flow Matching 依赖 Rectified Flow
-    if (toBool(c.contrastive_flow_matching) && !toBool(c.flow_model)) {
+    if (toBool(c.contrastive_flow_matching) && !flowEnabled) {
       errors.push('启用「对比 Flow Matching」前，必须先开启「Rectified Flow」。');
     }
 
     // 16. RF logit-normal 标准差必须大于 0
-    if(toBool(c.flow_model) && String(c.flow_timestep_distribution || 'logit_normal') === 'logit_normal' && toNum(c.flow_logit_std) <= 0) {
+    if (flowEnabled && timestepSampling === 'logit_normal' && toNum(c.flow_logit_std) <= 0) {
       errors.push('RF Logit Std 必须大于 0。');
     }
 
-    // 17. RF 固定偏移比率必须为正数
-    if (toBool(c.flow_model) && c.flow_uniform_static_ratio !=='' && c.flow_uniform_static_ratio != null && toNum(c.flow_uniform_static_ratio) <= 0) {
-      errors.push('RF固定偏移比率必须大于 0。');
+    // 17. RF 固定偏移比率不能小于 0
+    if (flowEnabled && c.flow_uniform_static_ratio !== '' && c.flow_uniform_static_ratio != null && toNum(c.flow_uniform_static_ratio) < 0) {
+      errors.push('RF 固定偏移比率不能小于 0。');
     }
 
 
@@ -233,6 +306,7 @@ export function createTrainingActions({
       state.trainingFailed = false;
       state.lastMessage = response.message || '训练已启动。';
       showToast(state.lastMessage);
+      resetTrainingMetrics();
       const responseTaskId = response?.data?.task_id || response?.data?.id || '';
       if (responseTaskId) rememberTrainingTaskMetadata(responseTaskId, launchMetadata);
       const tasksResponse = await api.getTasks();

@@ -41,13 +41,19 @@ import {
 } from './utils/constants.js';
 import { $, $$, escapeHtml, _ico, showToast } from './utils/dom.js';
 import {
+  readUiPreferences,
   readDraftFromStorage,
   writeDraftToStorage,
   loadDeletedTaskIds as _readDeletedIdsFromStorage,
   persistDeletedTaskIds as _persistDeletedIdsToStorage,
 } from './utils/storage.js';
 import { configToToml as _configToToml, parseSimpleToml as _parseSimpleToml } from './utils/toml.js';
-import { renderLogLines as _renderLogLines } from './utils/logRender.js';
+import {
+  renderLogLines as _renderLogLines,
+  createTrainingLogCursor,
+  mergeTrainingLogLines,
+  collectIncrementalTrainingLogLines,
+} from './utils/logRender.js';
 import {
   collectTrainingMetrics as _collectTrainingMetricsFromLines,
   parseLinesIntoMetrics,
@@ -63,12 +69,14 @@ import { renderAbout, renderGuide, renderLogs, createBuiltinPickerRenderer, crea
 import { createThemeActions, createTrainTabsActions, createJsonPanelActions, createFieldMenuActions, createTaskHistoryActions, createSearchActions, createPickerActions, createLayoutActions, createConfigActions, createSampleActions, createWizardActions, createPluginsActions, createToolsActions, createNavActions, createRuntimeActions, createTerminateActions, createSavedConfigsActions, createTrainingActions, createTrainingMetadataActions } from './actions/index.js';
 
 
+const uiPreferences = readUiPreferences();
+
 const state = {
   compactLayout: false,
   importInputBound: false,
   pickerInputBound: false,
-  navigatorWidth: Number(localStorage.getItem('sd-rescripts:ui:navigator-width') || 240),
-  jsonPanelWidth: Number(localStorage.getItem('sd-rescripts:ui:json-width') || 280),
+  navigatorWidth: uiPreferences.navigatorWidth,
+  jsonPanelWidth: uiPreferences.jsonPanelWidth,
   fieldUndo: {},
   activeFieldMenu: null,
   datasetSubTab: 'tagger',
@@ -86,22 +94,22 @@ const state = {
     navigatorWidth: 240,
     jsonPanelWidth: 280,
   },
-  jsonPanelCollapsed: false,
+  jsonPanelCollapsed: uiPreferences.jsonPanelCollapsed,
   lang: 'zh',
-  theme: localStorage.getItem('theme') || 'dark',
-  roundedUI: localStorage.getItem('roundedUI') === 'true',
-  verticalTabs: localStorage.getItem('verticalTabs') === 'true',
+  theme: uiPreferences.theme,
+  roundedUI: uiPreferences.roundedUI,
+  verticalTabs: uiPreferences.verticalTabs,
   configWaterfall: localStorage.getItem('sd-rescripts:config-waterfall') === 'true',
   activeModule: 'config',
-  activeTab: localStorage.getItem('sdxl_ui_tab') || 'model',
-  navigatorCollapsed: localStorage.getItem('sd-rescripts:navigator-collapsed') === 'true',
+  activeTab: uiPreferences.activeTab,
+  navigatorCollapsed: uiPreferences.navigatorCollapsed,
   sections: {
     'training-types': true,
     'preset-list': true,
   },
   accentColor: localStorage.getItem('accentColor') || null,
-  activeTrainingType: localStorage.getItem('sd-rescripts:training-type') || 'sdxl-lora',
-  config: createDefaultConfig(localStorage.getItem('sd-rescripts:training-type') || 'sdxl-lora'),
+  activeTrainingType: uiPreferences.activeTrainingType,
+  config: createDefaultConfig(uiPreferences.activeTrainingType),
   hasLocalDraft: false,
   presets: [],
   tasks: [],
@@ -207,8 +215,20 @@ const {
   refreshTagEditorIframe,
   runImageResize,
   runDatasetAnalysis,
+  previewDatasetAnalysis,
+  startDatasetAnalysis,
+  loadCachedDatasetAnalysis,
+  cancelDatasetAnalysisJob,
+  viewReviewQueue,
+  inspectFindingImage,
+  sendFindingToSuggestions,
+  loadTagSuggestions,
+  refreshTagSuggestionsIndex,
+  refineTagSuggestionsWithLlm,
+  useSuggestionPreview,
   runCaptionCleanupPreview,
   runCaptionCleanupApply,
+  cancelCleanupJob,
   createCaptionBackup,
   listCaptionBackups,
   restoreCaptionBackup,
@@ -220,8 +240,20 @@ window.runLlmTagger = runLlmTagger;
 window.refreshTagEditorIframe = refreshTagEditorIframe;
 window.runImageResize = runImageResize;
 window.runDatasetAnalysis = runDatasetAnalysis;
+window.previewDatasetAnalysis = previewDatasetAnalysis;
+window.startDatasetAnalysis = startDatasetAnalysis;
+window.loadCachedDatasetAnalysis = loadCachedDatasetAnalysis;
+window.cancelDatasetAnalysisJob = cancelDatasetAnalysisJob;
+window.viewReviewQueue = viewReviewQueue;
+window.inspectFindingImage = inspectFindingImage;
+window.sendFindingToSuggestions = sendFindingToSuggestions;
+window.loadTagSuggestions = loadTagSuggestions;
+window.refreshTagSuggestionsIndex = refreshTagSuggestionsIndex;
+window.refineTagSuggestionsWithLlm = refineTagSuggestionsWithLlm;
+window.useSuggestionPreview = useSuggestionPreview;
 window.runCaptionCleanupPreview = runCaptionCleanupPreview;
 window.runCaptionCleanupApply = runCaptionCleanupApply;
+window.cancelCleanupJob = cancelCleanupJob;
 window.createCaptionBackup = createCaptionBackup;
 window.listCaptionBackups = listCaptionBackups;
 window.restoreCaptionBackup = restoreCaptionBackup;
@@ -956,53 +988,16 @@ window.executeTraining = executeTraining;
 
 
 let _trainingLogPollTimer = null;
-let _trainingLogCursor = { taskId: '', total: 0, liveLine: '' };
+let _trainingLogCursor = createTrainingLogCursor();
 
 function _resetTrainingLogCursor(taskId = '') {
-  _trainingLogCursor = { taskId, total: 0, liveLine: '' };
-}
-
-function _normalizeTrainingLiveLine(liveLine) {
-  if (typeof liveLine !== 'string') return '';
-  return liveLine.replace(/\s+$/, '');
-}
-
-function _mergeTrainingLogLines(lines, liveLine) {
-  const merged = Array.isArray(lines) ? lines.slice() : [];
-  const normalizedLiveLine = _normalizeTrainingLiveLine(liveLine);
-  if (normalizedLiveLine && merged[merged.length - 1] !== normalizedLiveLine) {
-    merged.push(normalizedLiveLine);
-  }
-  return merged;
+  _trainingLogCursor = createTrainingLogCursor(taskId);
 }
 
 function _collectIncrementalTrainingLogLines(taskId, lines, total, liveLine) {
-  if (_trainingLogCursor.taskId !== taskId) {
-    _resetTrainingLogCursor(taskId);
-  }
-
-  const safeLines = Array.isArray(lines) ? lines : [];
-  const normalizedLiveLine = _normalizeTrainingLiveLine(liveLine);
-  const previousTotal = _trainingLogCursor.total || 0;
-  let incremental = safeLines;
-
-  if (previousTotal > 0 && total >= previousTotal) {
-    const delta = total - previousTotal;
-    if (delta <= 0) {
-      incremental = [];
-    } else if (delta < safeLines.length) {
-      incremental = safeLines.slice(-delta);
-    }
-  }
-
-  if (normalizedLiveLine && normalizedLiveLine !== _trainingLogCursor.liveLine) {
-    if (!incremental.length || incremental[incremental.length - 1] !== normalizedLiveLine) {
-      incremental = incremental.concat(normalizedLiveLine);
-    }
-  }
-
-  _trainingLogCursor = { taskId, total, liveLine: normalizedLiveLine };
-  return incremental;
+  const result = collectIncrementalTrainingLogLines(_trainingLogCursor, taskId, lines, total, liveLine);
+  _trainingLogCursor = result.cursor;
+  return result.incremental;
 }
 
 function getActiveTrainingLogTask() {
@@ -1086,7 +1081,7 @@ async function refreshTrainingLog(taskId = '') {
     const lines = resp?.data?.lines || [];
     const total = Number(resp?.data?.total || 0) || 0;
     const liveLine = resp?.data?.live_line || '';
-    const renderedLines = _mergeTrainingLogLines(lines, liveLine);
+    const renderedLines = mergeTrainingLogLines(lines, liveLine);
     const incrementalLines = _collectIncrementalTrainingLogLines(targetId, lines, total, liveLine);
     const logEl = $('#training-log-container');
     const isRunningTarget = target.status === 'RUNNING' || state.tasks.some((t) => t.status === 'RUNNING' && t.id === targetId);
