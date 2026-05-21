@@ -1,11 +1,11 @@
 // renderers/wizard.js — 快速训练流程向导页
 // 包含 renderWizard + _wizardApplyDefaults。wizardSet / wizardStartTraining 是 actions，在 main.js 保留。
 //
-// 依赖（工厂注入）：state, updateConfigValue（调用于设默认值）
+// 依赖（工厂注入）：state, updateConfigValue（调用于设默认值）, getFieldDefinition
 
 import { escapeHtml } from '../utils/dom.js';
 
-export function createWizardRenderer({ state, updateConfigValue }) {
+export function createWizardRenderer({ state, updateConfigValue, getFieldDefinition }) {
   function renderWizard(container) {
   var c = state.config;
     // 参数预览
@@ -53,13 +53,13 @@ export function createWizardRenderer({ state, updateConfigValue }) {
     var lokrVisible = (c.network_module === 'lycoris.kohya' && c.lycoris_algo === 'lokr') ? '' :'display:none;';
 
     //优化器选项
-    var optimizers = ['AdamW8bit', 'Prodigy', 'AdamW', 'Lion8bit', 'Lion', 'SGDNesterov8bit', 'DAdaptation', 'Adafactor'];
+    var optimizers = getFieldDefinition?.('optimizer_type', state.activeTrainingType)?.options || ['AdamW8bit', 'prodigy', 'AdamW'];
     var optSelect = optimizers.map(function(o) {
       return '<option value="' + o + '"' + (c.optimizer_type === o ? ' selected' : '') + '>' + o + '</option>';
     }).join('');
 
     // 学习率调度器选项
-    var schedulers = ['cosine', 'cosine_with_restarts', 'polynomial', 'constant', 'constant_with_warmup', 'linear', 'adafactor'];
+    var schedulers = getFieldDefinition?.('lr_scheduler', state.activeTrainingType)?.options || ['cosine', 'cosine_with_restarts', 'constant', 'linear'];
     var schSelect = schedulers.map(function(s) {
       return '<option value="' + s + '"' + (c.lr_scheduler === s ? ' selected' : '') + '>' + s + '</option>';
     }).join('');

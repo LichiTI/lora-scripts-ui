@@ -141,7 +141,7 @@ await saveLocalTaskHistory();
       var validCount = 0;
       for (var id in cache) {
         var task = state.tasks.find(function(t) { return t.id === id; });
-        if (task && task.status !== 'FINISHED') continue;
+        if (task && !['FINISHED', 'COMPLETED'].includes(String(task.status || '').toUpperCase())) continue;
         if (cache[id] && cache[id]._v >= SUMMARY_VERSION) {
           state.taskSummaries[id] = cache[id];
           validCount++;
@@ -158,7 +158,7 @@ await saveLocalTaskHistory();
     var panel = document.getElementById('task-summary-' + taskId);
     if (!panel) return;
     var task = state.tasks.find(function(t) { return t.id === taskId; });
- if (task && task.status !== 'FINISHED') {
+ if (task && !['FINISHED', 'COMPLETED'].includes(String(task.status || '').toUpperCase())) {
       panel.innerHTML = '<span style="color:var(--text-dim);font-size:0.82rem;">失败或终止的任务不生成训练总结，请直接查看上方控制台日志。</span>';
       panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
       return;

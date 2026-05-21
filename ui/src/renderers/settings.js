@@ -1,17 +1,13 @@
 // renderers/settings.js — 设置页面渲染
-// 依赖：state、ALL_OPTIMIZERS、ALL_SCHEDULERS、t、escapeHtml、$、$$、_ico、renderSlot、BUILTIN_LEGACY_UI_PROFILE_ID
-// 以及 actions 回调：applyAndPersistLayout, renderView, applyTheme, showToast, api.activateUiProfile
+// 依赖：state、t、escapeHtml、$、_ico、renderSlot
+// 以及 actions 回调：applyAndPersistLayout, renderView, applyTheme, showToast
 // 注：updateLayoutWidth 为 window 箭头函数，直接用 window.updateLayoutWidth 调用
 
-import { $, $$, escapeHtml, _ico } from '../utils/dom.js';
+import { $, escapeHtml, _ico } from '../utils/dom.js';
 
-export function createSettingsRenderer({ state, ALL_OPTIMIZERS, ALL_SCHEDULERS, t, renderSlot, BUILTIN_LEGACY_UI_PROFILE_ID, api, applyAndPersistLayout, renderView, applyTheme, showToast }) {
+export function createSettingsRenderer({ state, t, renderSlot, applyAndPersistLayout, renderView, applyTheme, showToast }) {
   return function(container) {
-    const allOptimizers = ALL_OPTIMIZERS;
-    const allSchedulers = ALL_SCHEDULERS;
     const savedTbUrl = localStorage.getItem('sd-rescripts:tensorboard-url') || '';
-    const savedOptimizers = JSON.parse(localStorage.getItem('sd-rescripts:visible-optimizers') || '[]');
-    const savedSchedulers = JSON.parse(localStorage.getItem('sd-rescripts:visible-schedulers') || '[]');
 
     container.innerHTML = `
       <div class="form-container">
@@ -92,39 +88,8 @@ export function createSettingsRenderer({ state, ALL_OPTIMIZERS, ALL_SCHEDULERS, 
               </div>
               <input class="text-input" type="text" id="settings-tb-url" value="${escapeHtml(savedTbUrl)}" placeholder="http://127.0.0.1:6006" style="width:280px;">
             </div>
-            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
-              <div>
-                <label>visible_optimizers</label>
-                <p class="field-desc">优化器显示列表（可多选，留空=显示全部）</p>
-              </div>
-              <div style="display:flex;flex-wrap:wrap;gap:6px;" id="settings-optimizers">
-                ${allOptimizers.map((o) => `<label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="${o}" ${savedOptimizers.includes(o) ? 'checked' : ''}>${o}</label>`).join('')}
-              </div>
-            </div>
-            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
-              <div>
-                <label>visible_lr_schedulers</label>
-                <p class="field-desc">调度器显示列表（可多选，留空=显示全部）</p>
-              </div>
-              <div style="display:flex;flex-wrap:wrap;gap:6px;" id="settings-schedulers">
-                ${allSchedulers.map((s) => `<label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="${s}" ${savedSchedulers.includes(s) ? 'checked' : ''}>${s}</label>`).join('')}
-              </div>
-            </div>
             <div class="settings-row">
               <button class="btn btn-primary btn-sm" type="button" id="save-ui-settings-btn">保存训练 UI 设置</button>
-            </div>
-          </div>
-        </section>
-
-        <section class="form-section">
-          <header class="section-header"><h3>UI 切换</h3></header>
-          <div class="section-content" style="display:block;">
-            <div class="settings-row" style="align-items:flex-start;">
-              <div>
-                <label>切换回经典 UI</label>
-                <p class="field-desc">当前正在使用新 UI。如果想返回原本的内置界面，可以直接在这里切换。</p>
-              </div>
-              <button class="btn btn-outline btn-sm" type="button" id="switch-legacy-ui-btn">切换回经典 UI</button>
             </div>
           </div>
         </section>
@@ -158,28 +123,7 @@ export function createSettingsRenderer({ state, ALL_OPTIMIZERS, ALL_SCHEDULERS, 
     });
     $('#save-ui-settings-btn')?.addEventListener('click', () => {
       localStorage.setItem('sd-rescripts:tensorboard-url', $('#settings-tb-url')?.value?.trim() || '');
-      const checkedOpts = [...$$('#settings-optimizers input:checked')].map((i) => i.value);
-      localStorage.setItem('sd-rescripts:visible-optimizers', JSON.stringify(checkedOpts));
-      const checkedScheds = [...$$('#settings-schedulers input:checked')].map((i) => i.value);
-      localStorage.setItem('sd-rescripts:visible-schedulers', JSON.stringify(checkedScheds));
       showToast('训练 UI 设置已保存。');
-    });
-    $('#switch-legacy-ui-btn')?.addEventListener('click', async (event) => {
-      const button = event.currentTarget;
-      const originalText = button.textContent;
-      button.disabled = true;
-      button.textContent = '切换中...';
-      try {
-        await api.activateUiProfile(BUILTIN_LEGACY_UI_PROFILE_ID);
-        showToast('已切换到经典 UI，正在刷新...');
-        setTimeout(() => {
-          window.location.reload();
-        }, 250);
-      } catch (error) {
-        button.disabled = false;
-        button.textContent = originalText;
-        showToast(error.message || '切换 UI 失败。');
-      }
     });
   };
 }

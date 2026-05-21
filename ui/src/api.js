@@ -115,76 +115,16 @@ export const api = {
     return syncLocalTaskHistoryRemoval(taskId);
   },
 
-  pickFile(type) {
-    return request(`/api/pick_file?picker_type=${encodeURIComponent(type)}`);
+  pickFile(type, context = '') {
+    let url = `/api/pick_file?picker_type=${encodeURIComponent(type || '')}`;
+    if (context) url += `&context=${encodeURIComponent(context)}`;
+    return request(url);
   },
 
-  getBuiltinPicker(type) {
-    // Map to the original /api/get_files endpoint (no backend changes needed)
-    var getFilesMap = {
-      'model-file': 'model-file',
-      'output-model-file': 'model-saved-file',
-      'folder': 'train-dir',
-      'text-file': 'model-file',
-    };
-
-    // output-folder 特殊处理：后端没有“output目录列表”预设，
-    // 用 model-saved-file 扫描 ./output 文件，提取去重的父文件夹作为选项
-    if (type === 'output-folder') {
-      return request('/api/get_files?pick_type=model-saved-file').then(function(resp) {
-        var files = (resp && resp.data && resp.data.files) || [];
-        if (files.length === 0) {
-          return { status: 'success', data: { rootLabel: './output', items: [] } };
-        }
-        var paths = files.map(function(f) { return (f.path || '').replaceAll('\\', '/'); });
-        // 计算公共根目录
-        var rootLabel = paths.reduce(function(a, b) {
-          while (b.indexOf(a + '/') !== 0 && a) a = a.substring(0, a.lastIndexOf('/'));
-          return a;
-        });
-        var prefix = rootLabel ? rootLabel + '/' : '';
-        // 从文件路径提取父文件夹，去重
-        var folderSet = new Set();
-        files.forEach(function(f) {
-          var p = (f.path || '').replaceAll('\\', '/');
-          var rel = prefix && p.indexOf(prefix) === 0 ? p.substring(prefix.length) : f.name;
-          var slashIdx = rel.indexOf('/');
-          if (slashIdx > 0) {
-            folderSet.add(rel.substring(0, slashIdx));
-          }
-        });
-        // 如果没有子文件夹，直接返回文件列表（允许选择文件旁的状态目录）
-        var items = folderSet.size > 0
-          ? Array.from(folderSet).sort()
-          : files.map(function(f) {
-              var p = (f.path || '').replaceAll('\\', '/');
-              return prefix && p.indexOf(prefix) === 0 ? p.substring(prefix.length) : f.name;
-            });
-        return { status: 'success', data: { rootLabel: rootLabel, items: items } };
-      });
-    }
-
-    var mapped = getFilesMap[type];
-    if (!mapped) {
-      return request('/api/builtin_picker?picker_type=' + encodeURIComponent(type));
-    }
-    return request('/api/get_files?pick_type=' + encodeURIComponent(mapped)).then(function(resp) {
-      var files = (resp && resp.data && resp.data.files) || [];
-      var rootLabel = '';
-      if (files.length > 0) {
-        var paths = files.map(function(f) { return (f.path || '').replaceAll('\\', '/'); });
-        rootLabel = paths.reduce(function(a, b) {
-          while (b.indexOf(a + '/') !== 0 && a) a = a.substring(0, a.lastIndexOf('/'));
-          return a;
-        });
-      }
-      var prefix = rootLabel ? rootLabel + '/' : '';
-      var items = files.map(function(f) {
-        var p = (f.path || '').replaceAll('\\', '/');
-        return prefix && p.indexOf(prefix) === 0 ? p.substring(prefix.length) : f.name;
-      });
-      return { status: 'success', data: { rootLabel: rootLabel, items: items } };
-    });
+  getBuiltinPicker(type, context = '') {
+    var url = '/api/builtin_picker?picker_type=' + encodeURIComponent(type || '');
+    if (context) url += '&context=' + encodeURIComponent(context);
+    return request(url);
   },
 
 
@@ -201,7 +141,7 @@ export const api = {
   },
 
   deleteSavedConfig(name) {
-    return request(`/api/saved_configs/delete?name=${encodeURIComponent(name)}`);
+    return request(`/api/saved_configs/delete?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
   },
 
   renameSavedConfig(oldName, newName) {
@@ -227,6 +167,18 @@ export const api = {
 
   getLogDetail(dir) {
     return request(`/api/log_detail?dir=${encodeURIComponent(dir)}`);
+  },
+
+  getTensorBoardStatus(logdir = '') {
+    return request('/api/tensorboard/status' + (logdir ? '?logdir=' + encodeURIComponent(logdir) : ''));
+  },
+
+  startTensorBoard(logdir = '', port = 6006) {
+    return postJson('/api/tensorboard/start', { log_dir: logdir, port });
+  },
+
+  stopTensorBoard() {
+    return postJson('/api/tensorboard/stop', {});
   },
 
   runInterrogate(params) {
@@ -408,6 +360,11 @@ export const api = {
     return request('/api/config/summary');
   },
 
+  /** 获取当前后端实际支持的配置选项 */
+  getConfigOptions() {
+    return request('/api/config/options');
+  },
+
   /** 获取训练任务输出日志 */
   getTaskOutput(taskId, tail = 100) {
     return request(`/api/task_output/${taskId}?tail=${tail}`);
@@ -421,11 +378,6 @@ export const api = {
   /** 系统资源监控 (GPU VRAM + CPU + RAM) */
   getSystemMonitor() {
     return request('/api/system_monitor');
-  },
-
-  /** 切换当前启用的 UI */
-  activateUiProfile(profileId) {
-    return postJson('/api/ui_profiles/activate', { profile_id: profileId });
   },
 
   /** 列出数据集文件夹中的图片 */
@@ -474,6 +426,16 @@ export const api = {
   /** 获取插件审计日志 */
   getPluginAudit(limit) {
     return request('/api/plugins/audit' + (limit ? '?limit=' + limit : ''));
+  },
+
+  /** 获取单个插件的可编辑设置 */
+  getPluginSettings(pluginId) {
+    return request(`/api/plugins/${encodeURIComponent(pluginId)}/settings`);
+  },
+
+  /** 保存单个插件的可编辑设置 */
+  savePluginSettings(pluginId, settings) {
+    return postJson(`/api/plugins/${encodeURIComponent(pluginId)}/settings`, { settings, updated_by: 'ui_user' });
   },
 
 };

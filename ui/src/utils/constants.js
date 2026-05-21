@@ -6,8 +6,6 @@ import { UI_TABS } from '../sdxlSchema.js';
 
 export const TOPBAR_TABS = UI_TABS.map((tab) => tab.key);
 
-export const BUILTIN_LEGACY_UI_PROFILE_ID = 'builtin-legacy';
-
 // 用户切换这些字段时，需要联动重新渲染整个 config 视图（visibleWhen 依赖）。
 // 任何会改变其他字段可见性的字段都应在这里登记。
 export const CONDITIONAL_KEYS = new Set([

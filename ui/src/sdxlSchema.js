@@ -23,6 +23,7 @@ export const UI_TABS = [
 function when(key, expected) { return (c) => c[key] === expected; }
 function all(...fns) { return (c) => fns.every((f) => f(c)); }
 function oneOf(key, values) { return (c) => values.includes(c[key]); }
+function optimizerIs(value) { return (c) => String(c.optimizer_type || '').trim().toLowerCase() === String(value || '').trim().toLowerCase(); }
 function swapEnabled(c) { return c.swap_granularity && c.swap_granularity !== 'off'; }
 const flowEnabled = when('flow_model', true);
 
@@ -131,8 +132,8 @@ const S_LR = [
   { key: 'lr_scheduler_num_cycles', type: 'number', label: '重启次数（lr_scheduler_num_cycles）', desc: '重启次数', defaultValue: 1, min: 1, visibleWhen: when('lr_scheduler', 'cosine_with_restarts') },
   { key: 'optimizer_type', type: 'select', label: '优化器（optimizer_type）', desc: '优化器设置。pytorch_optimizer.* / bitsandbytes.optim.* 会按完整类路径传给后端', defaultValue: 'AdamW8bit', options: ALL_OPTIMIZERS },
   { key: 'min_snr_gamma', type: 'number', label: 'Min-SNR Gamma', desc: '最小信噪比伽马值, 如果启用推荐为 5', defaultValue: '', min: 0, step: 0.1 },
-  { key: 'prodigy_d0', type: 'string', label: 'Prodigy d0', desc: 'Prodigy 初始步长估计。留空使用默认值', defaultValue: '', visibleWhen: when('optimizer_type', 'Prodigy') },
-  { key: 'prodigy_d_coef', type: 'string', label: 'Prodigy d_coef', desc: 'Prodigy d 系数，影响自适应学习率大小', defaultValue: '2.0', visibleWhen: when('optimizer_type', 'Prodigy') },
+  { key: 'prodigy_d0', type: 'string', label: 'Prodigy d0', desc: 'Prodigy 初始步长估计。留空使用默认值', defaultValue: '', visibleWhen: optimizerIs('prodigy') },
+  { key: 'prodigy_d_coef', type: 'string', label: 'Prodigy d_coef', desc: 'Prodigy d 系数，影响自适应学习率大小', defaultValue: '2.0', visibleWhen: optimizerIs('prodigy') },
   { key: 'lr_scheduler_type', type: 'string', label: '自定义调度器类（lr_scheduler_type）', desc: '自定义学习率调度器类路径。填写后优先于上方调度器，如 torch.optim.lr_scheduler.CosineAnnealingLR', defaultValue: '' },
   { key: 'lr_scheduler_args', type: 'textarea', label: '自定义调度器参数（lr_scheduler_args）', desc: '自定义学习率调度器参数，一行一个 key=value', defaultValue: '' },
   { key: 'optimizer_args_custom', type: 'textarea', label: '自定义 optimizer_args（optimizer_args_custom）', desc: '自定义优化器参数，每行一个 key=value（如 decouple=True）。Prodigy 默认已自动填充标准参数', defaultValue: '' },
@@ -1575,6 +1576,31 @@ export function getFieldDefinition(key, typeId) {
   return undefined;
 }
 
+export function applyBackendConfigOptions(optionsPayload) {
+  const payload = optionsPayload && typeof optionsPayload === 'object' ? optionsPayload : {};
+  const optimizers = Array.isArray(payload.optimizers || payload.optimizer_type)
+    ? [...new Set((payload.optimizers || payload.optimizer_type).map((v) => String(v || '').trim()).filter(Boolean))]
+    : [];
+  const schedulers = Array.isArray(payload.schedulers || payload.lr_scheduler)
+    ? [...new Set((payload.schedulers || payload.lr_scheduler).map((v) => String(v || '').trim()).filter(Boolean))]
+    : [];
+  if (optimizers.length === 0 && schedulers.length === 0) return false;
+
+  for (const sections of Object.values(SECTIONS_MAP)) {
+    for (const section of sections) {
+      for (const field of section.fields || []) {
+        if (field.key === 'optimizer_type' && optimizers.length > 0) {
+          field.options = optimizers;
+        } else if (field.key === 'lr_scheduler' && schedulers.length > 0) {
+          field.options = schedulers;
+        }
+      }
+    }
+  }
+  Object.keys(_fmCache).forEach((key) => delete _fmCache[key]);
+  return true;
+}
+
 export function getSectionsForTab(tabKey, typeId) {
   const sections = getSectionsForType(typeId || 'sdxl-lora');
   let filtered = sections.filter((s) => {
@@ -1700,7 +1726,26 @@ export function buildRunConfig(config, typeId) {
   // ── Prodigy / 自适应优化器 optimizer_args 自动组装 ──
   // 旧前端会自动生成 optimizer_args = ["decouple=True", "weight_decay=0.01", ...]
   // 新前端需要在这里复现相同逻辑，否则 Prodigy 训练结果全是噪点
-  if (payload.optimizer_type === 'Prodigy') {
+  const rawOptimizerType = String(payload.optimizer_type || '').trim();
+  const pluginOptimizerMatch = rawOptimizerType.match(/^PytorchOptimizer[:/](.+)$/i);
+  if (pluginOptimizerMatch) {
+    const pluginOptimizerName = pluginOptimizerMatch[1].trim();
+    payload.optimizer_type = 'PytorchOptimizer';
+    const existingCustomArgs = String(payload.optimizer_args_custom || '').trim();
+    const lines = existingCustomArgs
+      ? existingCustomArgs.split(/[\n\r]+/).map(s => s.trim()).filter(s => s && s.includes('='))
+      : [];
+    const hasNameArg = lines.some((line) => /^\s*(name|optimizer_name|optimizer)\s*=/.test(line));
+    payload.optimizer_args = hasNameArg ? lines : ['name=' + pluginOptimizerName, ...lines];
+    delete payload.prodigy_d0;
+    delete payload.prodigy_d_coef;
+    delete payload.optimizer_args_custom;
+  }
+
+  const optimizerKey = String(payload.optimizer_type || '').trim().toLowerCase();
+  if (pluginOptimizerMatch) {
+    // handled above
+  } else if (optimizerKey === 'prodigy') {
     const optimArgs = [];
     optimArgs.push('decouple=True');
     optimArgs.push('weight_decay=0.01');

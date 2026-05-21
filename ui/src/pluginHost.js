@@ -109,13 +109,39 @@ export var pluginStore = {
   error: '',
 };
 
+function _unwrapApiPayload(resp) {
+  var payload = null;
+  if (resp && typeof resp === 'object' && Object.prototype.hasOwnProperty.call(resp, 'data')) {
+    payload = resp.data;
+  } else {
+    payload = resp || null;
+  }
+  return _normalizePluginPayload(payload);
+}
+
+function _normalizePluginPayload(payload) {
+  if (!payload || typeof payload !== 'object') return payload || null;
+  var normalized = Object.assign({}, payload);
+
+  if (normalized.developer_mode === undefined && normalized.developerMode !== undefined) normalized.developer_mode = normalized.developerMode;
+  if (normalized.plugin_root === undefined && normalized.pluginRoot !== undefined) normalized.plugin_root = normalized.pluginRoot;
+  if (normalized.config_root === undefined && normalized.configRoot !== undefined) normalized.config_root = normalized.configRoot;
+  if (normalized.total_count === undefined && normalized.totalCount !== undefined) normalized.total_count = normalized.totalCount;
+  if (normalized.enabled_count === undefined && normalized.enabledCount !== undefined) normalized.enabled_count = normalized.enabledCount;
+  if (normalized.loaded_count === undefined && normalized.loadedCount !== undefined) normalized.loaded_count = normalized.loadedCount;
+  if (normalized.plugin_count === undefined && normalized.pluginCount !== undefined) normalized.plugin_count = normalized.pluginCount;
+  if (normalized.active_count === undefined && normalized.activeCount !== undefined) normalized.active_count = normalized.activeCount;
+
+  return normalized;
+}
+
 /** 加载插件运行时状态 */
 export async function loadPluginRuntime() {
   pluginStore.loading = true;
   pluginStore.error = '';
   try {
     var resp = await api.getPluginRuntime();
-    pluginStore.runtime = (resp && resp.data) ? resp.data : null;
+    pluginStore.runtime = _unwrapApiPayload(resp);
   } catch (e) {
     pluginStore.error = e.message || '无法连接插件服务';
     pluginStore.runtime = null;
@@ -128,7 +154,7 @@ export async function loadPluginRuntime() {
 export async function loadPluginCapabilities() {
   try {
     var resp = await api.getPluginCapabilities();
-    pluginStore.capabilities = (resp && resp.data) ? resp.data : null;
+    pluginStore.capabilities = _unwrapApiPayload(resp);
   } catch (e) {
     pluginStore.capabilities = null;
   }
@@ -138,7 +164,7 @@ export async function loadPluginCapabilities() {
 export async function loadPluginHooks() {
   try {
     var resp = await api.getPluginHooks();
-    pluginStore.hooks = (resp && resp.data) ? resp.data : null;
+    pluginStore.hooks = _unwrapApiPayload(resp);
   } catch (e) {
     pluginStore.hooks = null;
   }
@@ -148,7 +174,7 @@ export async function loadPluginHooks() {
 export async function loadPluginAudit(limit) {
   try {
     var resp = await api.getPluginAudit(limit || 50);
-    pluginStore.audit = (resp && resp.data) ? resp.data : null;
+    pluginStore.audit = _unwrapApiPayload(resp);
   } catch (e) {
     pluginStore.audit = null;
   }

@@ -86,7 +86,6 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     }
 
     if (field.type === 'select') {
-      let filteredOptions = field.options;
       const ensureCurrentOption = (options) => {
         const current = value === undefined || value === null ? '' : String(value);
         if (!current || options.includes(current)) {
@@ -94,15 +93,7 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
         }
         return [current, ...options];
       };
-      if (field.key === 'optimizer_type') {
-        const vis = JSON.parse(localStorage.getItem('sd-rescripts:visible-optimizers') || '[]');
-        if (vis.length > 0) filteredOptions = field.options.filter((o) => vis.includes(o));
-      }
-      if (field.key === 'lr_scheduler') {
-        const vis = JSON.parse(localStorage.getItem('sd-rescripts:visible-schedulers') || '[]');
-        if (vis.length > 0) filteredOptions = field.options.filter((o) => vis.includes(o));
-      }
-      filteredOptions = ensureCurrentOption(filteredOptions);
+      let filteredOptions = ensureCurrentOption(field.options || []);
       if (COLLAPSIBLE_FIELD_KEYS.has(field.key)) {
         return renderCollapsibleField(`
           ${renderHeader()}

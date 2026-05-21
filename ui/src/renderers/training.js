@@ -53,8 +53,8 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
 
   function renderTraining(container) {
     var running = state.tasks.filter(function(t) { return t.status === 'RUNNING'; });
-    var finished = state.tasks.filter(function(t) { return t.status === 'FINISHED'; });
-    var terminated = state.tasks.filter(function(t) { return t.status === 'TERMINATED'; });
+    var finished = state.tasks.filter(function(t) { return ['FINISHED', 'COMPLETED'].includes(String(t.status || '').toUpperCase()); });
+    var terminated = state.tasks.filter(function(t) { return ['TERMINATED', 'FAILED', 'CANCELLED'].includes(String(t.status || '').toUpperCase()); });
     var lastTask = state.tasks[state.tasks.length - 1];
     var logSnapshot = state.trainingLogSnapshot || {};
     var hasRunning = running.length > 0;
@@ -276,11 +276,11 @@ var statusDot = '', statusText = '';
     +   (state.tasks.length === 0
         ? '<p style="color:var(--text-muted);font-size:0.78rem;">\u6682\u65e0\u4efb\u52a1\u8bb0\u5f55</p>'
         : state.tasks.slice().reverse().map(function(task) {
-      var statusMap = { RUNNING: _ico('loader') + ' \u8fd0\u884c\u4e2d',FINISHED: _ico('check-circle')+ ' \u5df2\u5b8c\u6210', TERMINATED: _ico('stop-circle') + ' \u5df2\u7ec8\u6b62', CREATED: _ico('clock') + ' \u5df2\u521b\u5efa' };
-      var statusColor = { RUNNING: '#f59e0b', FINISHED: '#22c55e', TERMINATED: '#ef4444', CREATED: 'var(--text-dim)' };
-      var canScore = task.status=== 'FINISHED';
+      var statusMap = { RUNNING: _ico('loader') + ' \u8fd0\u884c\u4e2d', FINISHED: _ico('check-circle')+ ' \u5df2\u5b8c\u6210', COMPLETED: _ico('check-circle') + ' \u5df2\u5b8c\u6210', TERMINATED: _ico('stop-circle') + ' \u5df2\u7ec8\u6b62', FAILED: _ico('x-circle') + ' \u5931\u8d25', CANCELLED: _ico('stop-circle') + ' \u5df2\u53d6\u6d88', CREATED: _ico('clock') + ' \u5df2\u521b\u5efa' };
+      var statusColor = { RUNNING: '#f59e0b', FINISHED: '#22c55e', COMPLETED: '#22c55e', TERMINATED: '#ef4444', FAILED: '#ef4444', CANCELLED: '#ef4444', CREATED: 'var(--text-dim)' };
+      var canScore = ['FINISHED', 'COMPLETED'].includes(String(task.status || '').toUpperCase());
       var hasCached = canScore && !!(state.taskSummaries[task.id] && state.taskSummaries[task.id]._v >= 2);
-      var isNotRunning = task.status !=='RUNNING';
+      var isNotRunning = String(task.status || '').toUpperCase() !== 'RUNNING';
       var badge = hasCached ? _ico('bar-chart', 14) : (canScore && !task._recentlyFinished ? '\u70b9\u51fb\u8bc4\u5206' : '');
       var taskLabel= task.output_name || task.id.substring(0, 8);
       var timeStr = task.created_at || '';

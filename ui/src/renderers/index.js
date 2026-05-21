@@ -4,7 +4,7 @@
 
 export { renderAbout } from './about.js';
 export { renderGuide } from './guide.js';
-export { renderLogs } from './logs.js';
+export { renderLogs, refreshTensorBoardStatus, startTensorBoardFromLogs, stopTensorBoardFromLogs } from './logs.js';
 export { createBuiltinPickerRenderer } from './builtinPickerModal.js';
 export { createStatusDeckRenderer } from './statusDeck.js';
 export { createNavigatorRenderer } from './navigator.js';
@@ -18,4 +18,5 @@ export { createToolsRenderer } from './tools.js';
 export { createDatasetRenderer } from './dataset.js';
 export { createSysMonitorRenderer } from './sysMonitor.js';
 export { createTrainingRenderer } from './training.js';
+export { renderTurboCore, turboCoreProbeStatus, turboCoreCopyFlags } from './turboCore.js';
 

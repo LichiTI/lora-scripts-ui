@@ -14,6 +14,8 @@ export function createPluginsActions({
   approvePlugin,
   revokePlugin,
   loadPluginAudit,
+  getPluginSettings,
+  savePluginSettings,
   _formatPluginAuditDetail,
   _loadAndRenderPlugins,
   showToast,
@@ -106,11 +108,47 @@ export function createPluginsActions({
     panel.innerHTML = html;
   }
 
+  async function pluginSavePytorchOptimizerSettings() {
+    const pluginId = 'lulynx.optimizer.pytorch_optimizer';
+    const exposeAll = !!document.getElementById('po-expose-all')?.checked;
+    const visible = Array.from(document.querySelectorAll('.po-visible-optimizer:checked'))
+      .map((el) => String(el.value || '').trim())
+      .filter(Boolean);
+    var result = await savePluginSettings(pluginId, {
+      expose_all_optimizers: exposeAll,
+      visible_optimizers: visible,
+    });
+    if (result.ok === false) {
+      showToast('⚠ 保存插件设置失败: ' + (result.error || '未知错误'));
+      return;
+    }
+    showToast('✓ PyTorch Optimizer 插件设置已保存');
+    await window.refreshBackendConfigOptions?.();
+    _loadAndRenderPlugins();
+  }
+
+  async function pluginResetPytorchOptimizerSettings() {
+    const pluginId = 'lulynx.optimizer.pytorch_optimizer';
+    var resp = await getPluginSettings(pluginId);
+    var payload = resp?.data || resp || {};
+    var defaults = payload.defaults || {};
+    var result = await savePluginSettings(pluginId, defaults);
+    if (result.ok === false) {
+      showToast('⚠ 重置插件设置失败: ' + (result.error || '未知错误'));
+      return;
+    }
+    showToast('✓ 已恢复 PyTorch Optimizer 插件默认设置');
+    await window.refreshBackendConfigOptions?.();
+    _loadAndRenderPlugins();
+  }
+
   return {
     pluginToggleDevMode,
     pluginReloadAll,
     pluginApprove,
     pluginRevoke,
     pluginShowAudit,
+    pluginSavePytorchOptimizerSettings,
+    pluginResetPytorchOptimizerSettings,
   };
 }

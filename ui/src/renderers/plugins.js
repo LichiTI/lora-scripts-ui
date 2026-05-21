@@ -6,7 +6,7 @@
 
 import { escapeHtml, _ico } from '../utils/dom.js';
 
-export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegisteredSlots }) {
+export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegisteredSlots, api }) {
   function renderPlugins(container) {
     container.innerHTML = '<div class="form-container">'
       + '<header class="section-title">'
@@ -25,6 +25,16 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
     if (!el) return;
 
     await loadPluginRuntime();
+
+    var pytorchOptimizerSettings = null;
+    try {
+      if (api && typeof api.getPluginSettings === 'function') {
+        var settingsResp = await api.getPluginSettings('lulynx.optimizer.pytorch_optimizer');
+        pytorchOptimizerSettings = settingsResp?.data || settingsResp || null;
+      }
+    } catch (_e) {
+      pytorchOptimizerSettings = null;
+    }
 
     if (pluginStore.error) {
       el.innerHTML = '<section class="form-section">'
@@ -50,9 +60,25 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
 
     //── 全局状态概览 ──
     var devMode = rt.developer_mode;
-    var totalCount = rt.total_count || 0;
-    var enabledCount = rt.enabled_count || 0;
-    var loadedCount = rt.loaded_count || 0;
+    var orch = (rt.orchestrator && typeof rt.orchestrator === 'object') ? rt.orchestrator : {};
+    var plugins = [];
+    if (Array.isArray(rt.plugins)) {
+      plugins = rt.plugins;
+    } else if (orch.plugins && typeof orch.plugins === 'object') {
+      plugins = Object.keys(orch.plugins).map(function(pluginId) {
+        var item = orch.plugins[pluginId] || {};
+        var state = String(item.state || '').toLowerCase();
+        return Object.assign({}, item, {
+          plugin_id: pluginId,
+          name: item.name || item.display_name || pluginId,
+          loaded: state === 'active' || state === 'loaded',
+          load_error: item.error || '',
+        });
+      });
+    }
+    var totalCount = rt.total_count ?? rt.plugin_count ?? orch.plugin_count ?? plugins.length;
+    var enabledCount = rt.enabled_count ?? rt.active_count ?? orch.active_count ?? plugins.filter(function(p) { return p.loaded; }).length;
+    var loadedCount = rt.loaded_count ?? rt.active_count ?? orch.active_count ?? plugins.filter(function(p) { return p.loaded; }).length;
 
     html += '<section class="form-section">'
       + '<header class="section-header"><h3>' + _ico('activity', 16) + ' 运行时概览</h3></header>'
@@ -61,7 +87,7 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
       + _pluginStatCard('总插件数', totalCount, 'package')
       + _pluginStatCard('已启用', enabledCount, 'check-circle')
       + _pluginStatCard('已加载', loadedCount, 'zap')
-      + _pluginStatCard('执行模式', rt.execution_mode || '—', 'shield')
+      + _pluginStatCard('执行模式', rt.execution_mode || (devMode ? 'developer' : 'policy'), 'shield')
       + '</div>'
       + '<div class="plugin-controls-row">'
       + '<label class="plugin-toggle-label">'
@@ -77,7 +103,6 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
       + '</div></section>';
 
     // ── 插件列表 ──
-    var plugins = rt.plugins || [];
     html += '<section class="form-section">'
       + '<header class="section-header"><h3>' + _ico('package', 16) + ' 插件列表 (' + plugins.length + ')</h3></header>'
       + '<div class="section-content" style="display:block;">';
@@ -88,7 +113,7 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
       html += '<div class="plugin-list">';
       for (var i = 0; i < plugins.length; i++) {
         var p = plugins[i];
-        html += _renderPluginCard(p);
+        html += _renderPluginCard(p, pytorchOptimizerSettings);
       }
       html += '</div>';
     }
@@ -246,9 +271,11 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
     return parts.join(' — ');
   }
 
-  function _renderPluginCard(p) {
-    var statusColor = p.loaded ? '#22c55e' : (p.load_error ? '#ef4444': 'var(--text-muted)');
-    var statusText = p.loaded ? '已加载' : (p.load_error ? '加载失败' : '未加载');
+  function _renderPluginCard(p, pytorchOptimizerSettings) {
+    var isLoaded = p.loaded === true || p.active === true;
+    var loadError = p.load_error || p.error || '';
+    var statusColor = isLoaded ? '#22c55e' : (loadError ? '#ef4444': 'var(--text-muted)');
+    var statusText = isLoaded ? '已加载' : (loadError ? '加载失败' : '未加载');
     var statusDot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + statusColor + ';"></span>';
 var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
     var approval = (p && p.approval && typeof p.approval === 'object') ? p.approval : {};
@@ -298,8 +325,8 @@ var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
     html += '</div>';
 
     // 加载错误
-    if (p.load_error){
-      html += '<div class="plugin-card-error">' + _ico('x-circle', 12) + ' ' + escapeHtml(p.load_error) + '</div>';
+    if (loadError){
+      html += '<div class="plugin-card-error">' + _ico('x-circle', 12) + ' ' + escapeHtml(loadError) + '</div>';
     }
 
     // Capabilities
@@ -335,6 +362,56 @@ var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
       html += '</div>';
     }
 
+    if (p.plugin_id === 'lulynx.optimizer.pytorch_optimizer') {
+      html += _renderPytorchOptimizerSettings(pytorchOptimizerSettings);
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function _renderPytorchOptimizerSettings(settingsPayload) {
+    if (!settingsPayload || typeof settingsPayload !== 'object') {
+      return '<div class="plugin-card-error">无法读取插件设置。</div>';
+    }
+    var schema = settingsPayload.schema || {};
+    var values = settingsPayload.values || {};
+    var visibleSpec = schema.visible_optimizers || {};
+    var options = Array.isArray(visibleSpec.options) ? visibleSpec.options : [];
+    var selected = new Set(Array.isArray(values.visible_optimizers) ? values.visible_optimizers.map(String) : []);
+    var exposeAll = values.expose_all_optimizers === true;
+    var recommended = new Set(['AdEMAMix', 'CAME', 'Ranger', 'Ranger21', 'ScheduleFreeAdamW', 'StableAdamW']);
+
+    var html = '<div class="plugin-card-settings" style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">'
+      + '<strong style="font-size:0.82rem;">优化器显示设置</strong>'
+      + '<div style="display:flex;gap:6px;">'
+      + '<button class="btn btn-outline btn-sm" type="button" onclick="pluginResetPytorchOptimizerSettings()">恢复默认</button>'
+      + '<button class="btn btn-primary btn-sm" type="button" onclick="pluginSavePytorchOptimizerSettings()">保存设置</button>'
+      + '</div></div>'
+      + '<label class="plugin-toggle-label" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">'
+      + '<input type="checkbox" id="po-expose-all" ' + (exposeAll ? 'checked' : '') + '> 显示全部 pytorch-optimizer 优化器'
+      + '</label>'
+      + '<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px;">'
+      + '关闭「显示全部」时，训练配置下拉框只显示下面勾选的扩展优化器；保存后刷新/重新进入配置页生效。'
+      + '</div>';
+
+    if (options.length === 0) {
+      html += '<p style="color:var(--text-muted);font-size:0.78rem;">未发现 pytorch-optimizer 优化器列表。</p>';
+    } else {
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;max-height:260px;overflow:auto;padding:6px;border:1px solid var(--border);border-radius:8px;">';
+      for (var i = 0; i < options.length; i++) {
+        var name = String(options[i] || '').trim();
+        if (!name) continue;
+        var checked = selected.has(name) || (!Array.isArray(values.visible_optimizers) && recommended.has(name));
+        html += '<label style="display:flex;align-items:center;gap:6px;font-size:0.76rem;color:var(--text-main);">'
+          + '<input class="po-visible-optimizer" type="checkbox" value="' + escapeHtml(name) + '" ' + (checked ? 'checked' : '') + '> '
+          + '<span>' + escapeHtml(name) + '</span>'
+          + (recommended.has(name) ? '<span style="color:var(--accent);font-size:0.66rem;">推荐</span>' : '')
+          + '</label>';
+      }
+      html += '</div>';
+    }
     html += '</div>';
     return html;
   }

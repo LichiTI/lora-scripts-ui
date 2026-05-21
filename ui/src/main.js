@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
 import { api } from './api.js';
 import {
   pluginStore,
@@ -17,6 +17,7 @@ import {
   UI_TABS,
   SDXL_SECTIONS,
   TRAINING_TYPES,
+  applyBackendConfigOptions,
   buildRunConfig,
   createDefaultConfig,
   getAvailableTabs,
@@ -27,13 +28,10 @@ import {
   normalizeDraftValue,
 } from './sdxlSchema.js';
 import {
-  ALL_OPTIMIZERS,
-  ALL_SCHEDULERS,
   SCHEDULER_TYPE_TO_VALUE,
 } from './features/settingsOptions.js';
 import {
   TOPBAR_TABS,
-  BUILTIN_LEGACY_UI_PROFILE_ID,
   CONDITIONAL_KEYS,
   COLLAPSIBLE_FIELD_KEYS,
   DRAFT_STORAGE_KEY,
@@ -65,7 +63,7 @@ import {
   _appendSageEnvNote,
 } from './utils/trainingMetrics.js';
 
-import { renderAbout, renderGuide, renderLogs, createBuiltinPickerRenderer, createStatusDeckRenderer, createNavigatorRenderer, createSettingsRenderer, createConfigFormRenderer, createPreflightRenderer, createSamplesRenderer, createWizardRenderer, createPluginsRenderer, createToolsRenderer, createDatasetRenderer, createSysMonitorRenderer, createTrainingRenderer } from './renderers/index.js';
+import { renderAbout, renderGuide, renderLogs, refreshTensorBoardStatus, startTensorBoardFromLogs, stopTensorBoardFromLogs, createBuiltinPickerRenderer, createStatusDeckRenderer, createNavigatorRenderer, createSettingsRenderer, createConfigFormRenderer, createPreflightRenderer, createSamplesRenderer, createWizardRenderer, createPluginsRenderer, createToolsRenderer, createDatasetRenderer, createSysMonitorRenderer, createTrainingRenderer, renderTurboCore, turboCoreProbeStatus, turboCoreCopyFlags } from './renderers/index.js';
 import { createThemeActions, createTrainTabsActions, createJsonPanelActions, createFieldMenuActions, createTaskHistoryActions, createSearchActions, createPickerActions, createLayoutActions, createConfigActions, createSampleActions, createWizardActions, createPluginsActions, createToolsActions, createNavActions, createRuntimeActions, createTerminateActions, createSavedConfigsActions, createTrainingActions, createTrainingMetadataActions } from './actions/index.js';
 
 
@@ -196,14 +194,18 @@ const {
 window.refreshSampleImages = refreshSampleImages;
 window.applySampleSort = applySampleSort;
 window.applySampleFilter = applySampleFilter;
+window.refreshTensorBoardStatus = refreshTensorBoardStatus;
+window.startTensorBoardFromLogs = startTensorBoardFromLogs;
+window.stopTensorBoardFromLogs = stopTensorBoardFromLogs;
+
 // wizard renderer（updateConfigValue 是 window 箭头函数，运行时延迟取）
-const { renderWizard } = createWizardRenderer({ state, updateConfigValue: (k, v) => window.updateConfigValue(k, v) });
+const { renderWizard } = createWizardRenderer({ state, updateConfigValue: (k, v) => window.updateConfigValue(k, v), getFieldDefinition });
 // plugins renderer
 const {
   renderPlugins,
   _loadAndRenderPlugins,
   _formatPluginAuditDetail,
-} = createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegisteredSlots });
+} = createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegisteredSlots, api });
 // tools renderer
 const { renderTools, renderToolDetail } = createToolsRenderer({ state, renderSlot });
 // dataset renderer + actions
@@ -352,12 +354,43 @@ function persistDeletedTaskIds() {
 
 window.persistDeletedTaskIds = persistDeletedTaskIds;
 
-const PERSISTED_TASK_STATUSES = new Set(['FINISHED', 'TERMINATED']);
+const PERSISTED_TASK_STATUSES = new Set(['FINISHED', 'COMPLETED', 'TERMINATED', 'FAILED', 'CANCELLED']);
+
+function isTerminalTaskStatus(status) {
+  return PERSISTED_TASK_STATUSES.has(String(status || '').trim().toUpperCase());
+}
+
+function isDeveloperModeEnabled() {
+  if (pluginStore.runtime && typeof pluginStore.runtime.developer_mode !== 'undefined') {
+    return !!pluginStore.runtime.developer_mode;
+  }
+  return localStorage.getItem('sd-rescripts:developer-mode') === 'true';
+}
+
+function syncDeveloperOnlyChrome() {
+  const enabled = isDeveloperModeEnabled();
+  document.body.classList.toggle('developer-mode-enabled', enabled);
+  localStorage.setItem('sd-rescripts:developer-mode', enabled ? 'true' : 'false');
+
+  if (!enabled && state.activeModule === 'turbocore') {
+    state.activeModule = 'config';
+    $$('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.module === 'config'));
+    renderView('config');
+  }
+}
+
+async function refreshDeveloperModeChrome() {
+  try {
+    await loadPluginRuntime();
+  } catch (_e) {
+    // loadPluginRuntime 自身会吞掉接口错误；这里保持兜底，避免后端不可用时影响 UI。
+  }
+  syncDeveloperOnlyChrome();
+}
 
 function getPersistableTasks(tasks) {
   return (tasks || []).filter((task) => {
-    const status = String(task?.status || '').trim().toUpperCase();
-    return PERSISTED_TASK_STATUSES.has(status);
+    return isTerminalTaskStatus(task?.status);
   });
 }
 
@@ -366,6 +399,7 @@ function init() {
   applyTheme();
   applyLanguage();
   setupSidebar();
+  syncDeveloperOnlyChrome();
   setupTopbar();
   setupNavigator();
   applyLayoutPreferences();
@@ -380,6 +414,7 @@ function init() {
   renderView(state.activeModule);
   startTaskPolling();
   setupTopbarSearch();
+  refreshDeveloperModeChrome();
 
   // 页面关闭前用 sendBeacon 同步保存任务历史，防止异步 fetch 被中断
   // 使用标记避免与正常保存操作竞态
@@ -387,7 +422,8 @@ function init() {
     if (state._taskHistoryDirty) {
       const completed = getPersistableTasks(state.tasks);
       if (completed.length > 0) {
-        navigator.sendBeacon('/api/local/task_history', JSON.stringify({ tasks: completed }));
+        const blob = new Blob([JSON.stringify({ tasks: completed })], { type: 'application/json' });
+        navigator.sendBeacon('/api/local/task_history', blob);
       }
     }
   });
@@ -423,12 +459,13 @@ async function loadBootstrapData() {
   state.loading.runtime = true;
   updateJSONPreview();
 
-  const [runtimeResult, presetsResult, savedParamsResult, tasksResult, interrogatorsResult] = await Promise.allSettled([
+  const [runtimeResult, presetsResult, savedParamsResult, tasksResult, interrogatorsResult, configOptionsResult] = await Promise.allSettled([
     api.getGraphicCards(),
     api.getPresets(),
     api.getSavedParams(),
     api.getTasks(),
     api.getInterrogators(),
+    api.getConfigOptions(),
   ]);
 
   if (runtimeResult.status === 'fulfilled') {
@@ -461,6 +498,11 @@ async function loadBootstrapData() {
     state.interrogators = interrogatorsResult.value?.data || null;
   }
 
+  if (configOptionsResult.status === 'fulfilled') {
+    state.backendConfigOptions = configOptionsResult.value?.data || null;
+    applyBackendConfigOptions(state.backendConfigOptions);
+  }
+
 
 
   state.loading.runtime = false;
@@ -468,8 +510,20 @@ async function loadBootstrapData() {
     renderView('config');
   } else {
     updateJSONPreview();
+
   }
 }
+
+async function refreshBackendConfigOptions() {
+  try {
+    const resp = await api.getConfigOptions();
+    state.backendConfigOptions = resp?.data || null;
+    applyBackendConfigOptions(state.backendConfigOptions);
+    if (state.activeModule === 'config') renderView('config');
+  } catch (_e) { /* ignore */ }
+}
+window.refreshBackendConfigOptions = refreshBackendConfigOptions;
+
 
 function startTaskPolling() {
   let _pollFailCount = 0;
@@ -480,6 +534,8 @@ function startTaskPolling() {
     try {
       const hadRunning = state.tasks.some((t) => t.status === 'RUNNING');
       const prevRunningIds = state.tasks.filter(t => t.status === 'RUNNING').map(t => t.id || t.task_id);
+
+
       const response = await api.getTasks();
       const backendTasks = response?.data?.tasks || [];
       const localHistory = await loadLocalTaskHistory();
@@ -504,7 +560,7 @@ function startTaskPolling() {
         for (const task of state.tasks) {
           if (prevRunningIds.includes(task.id || task.task_id) && task.status !== 'RUNNING') task._recentlyFinished = true;
         }
-        const failed = lastTask && (lastTask.status === 'TERMINATED' || (lastTask.returncode != null && lastTask.returncode !== 0));
+        const failed = lastTask && (['TERMINATED', 'FAILED', 'CANCELLED'].includes(String(lastTask.status || '').toUpperCase()) || (lastTask.returncode != null && lastTask.returncode !== 0));
         await refreshTrainingLog(lastTaskId);
         if (failed) {
           state.trainingSummary = null;
@@ -547,7 +603,7 @@ function startTaskPolling() {
           const r = state.tasks.some((t) => t.status === 'RUNNING');
           if (r) badge.innerHTML = '<span style="color:#f59e0b;font-weight:700;">' + _ico('loader') + ' 训练中</span>';
           else if (state.trainingFailed) badge.innerHTML = '<span style="color:#ef4444;font-weight:700;">' + _ico('x-circle') + ' 训练失败</span>';
-          else if (state.tasks.some((t) => t.status === 'FINISHED')) badge.innerHTML = '<span style="color:#22c55e;font-weight:700;">' + _ico('check-circle') + ' 已完成</span>';
+          else if (state.tasks.some((t) => ['FINISHED', 'COMPLETED'].includes(String(t.status || '').toUpperCase()))) badge.innerHTML = '<span style="color:#22c55e;font-weight:700;">' + _ico('check-circle') + ' 已完成</span>';
           else badge.innerHTML = '<span style="color:var(--text-dim);">空闲</span>';
         }
       }
@@ -632,6 +688,10 @@ function renderView(module) {
   }
   if (module === 'plugins') {
     renderPlugins(container);
+    return;
+  }
+  if (module === 'turbocore') {
+    renderTurboCore(container);
     return;
   }
   if (module === 'training') {
@@ -853,6 +913,8 @@ const {
   pluginApprove,
   pluginRevoke,
   pluginShowAudit,
+  pluginSavePytorchOptimizerSettings,
+  pluginResetPytorchOptimizerSettings,
 } = createPluginsActions({
   pluginStore,
   toggleDeveloperMode,
@@ -860,15 +922,24 @@ const {
   approvePlugin,
   revokePlugin,
   loadPluginAudit,
+  getPluginSettings: api.getPluginSettings,
+  savePluginSettings: api.savePluginSettings,
   _formatPluginAuditDetail,
   _loadAndRenderPlugins,
   showToast,
 });
-window.pluginToggleDevMode = pluginToggleDevMode;
+window.pluginToggleDevMode = async function(enabled) {
+  await pluginToggleDevMode(enabled);
+  syncDeveloperOnlyChrome();
+};
 window.pluginReloadAll = pluginReloadAll;
 window.pluginApprove = pluginApprove;
 window.pluginRevoke = pluginRevoke;
 window.pluginShowAudit = pluginShowAudit;
+window.pluginSavePytorchOptimizerSettings = pluginSavePytorchOptimizerSettings;
+window.pluginResetPytorchOptimizerSettings = pluginResetPytorchOptimizerSettings;
+window.turboCoreProbeStatus = turboCoreProbeStatus;
+window.turboCoreCopyFlags = turboCoreCopyFlags;
 const { runTool } = createToolsActions({ api, showToast, _renderLogLines });
 window.runTool = runTool;
 
@@ -879,7 +950,7 @@ window.runTool = runTool;
 
 const renderNavigator = createNavigatorRenderer({ state, TRAINING_TYPES, _persistTrainingGroupsCollapsed });
 // settings renderer（updateLayoutWidth 是 window 箭头函数，不在依赖列表中）
-const renderSettings = createSettingsRenderer({ state, ALL_OPTIMIZERS, ALL_SCHEDULERS, t, renderSlot, BUILTIN_LEGACY_UI_PROFILE_ID, api, applyAndPersistLayout, renderView, applyTheme, showToast });
+const renderSettings = createSettingsRenderer({ state, t, renderSlot, applyAndPersistLayout, renderView, applyTheme, showToast });
 // nav actions（依赖 renderNavigator 间接通过 toggleTrainingGroup → 该函数仍在 main.js 内）
 const {
   dismissPreflightReport,

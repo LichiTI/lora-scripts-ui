@@ -17,13 +17,18 @@ export function createStatusDeckRenderer({ state, deps }) {
   }
 
   function renderStatusDeck() {
+    const hasRuntime = !!state.runtime;
+    const cards = Array.isArray(state.runtime?.cards) ? state.runtime.cards : [];
+    const environment = state.runtime?.runtime?.environment || state.runtime?.environment || '';
     const runtimeLabel = state.runtimeError
       ? '离线'
       : state.loading.runtime
         ? '检测中...'
-      : state.runtime?.cards?.length
-        ? `${state.runtime.cards.length} 张显卡`
-        : '检测中';
+      : cards.length
+        ? `${cards.length} 张显卡`
+        : hasRuntime
+          ? '无 CUDA 显卡'
+          : '未检测';
 
     // === 注意力后端检测 ===
     const xf = state.runtime?.xformers;
@@ -57,6 +62,9 @@ export function createStatusDeckRenderer({ state, deps }) {
       attnLabel = (xfSupported || sageInstalled || flashInstalled) ? '可用' : '受限';
       attnDetail = parts.join(' · ');
       if (xf?.reason) attnDetail += ` — ${xf.reason}`;
+    } else if (hasRuntime) {
+      attnLabel = '自动';
+      attnDetail = environment ? `当前运行环境：${environment}` : '未返回注意力包探测信息，将按训练预检/运行时自动选择';
     }
 
     const preflightLabel = state.preflight

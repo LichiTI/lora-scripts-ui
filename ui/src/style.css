@@ -199,6 +199,30 @@ svg.icon {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
+
+.nav-item.developer-only {
+  display: none;
+}
+
+body.developer-mode-enabled .nav-item.developer-only {
+  display: flex;
+}
+
+.nav-item.developer-only svg,
+.nav-item.developer-only span {
+  color: #f97316;
+}
+
+.nav-item.developer-only.active,
+.nav-item.developer-only:hover {
+  color: #fb923c;
+}
+
+.nav-item.developer-only.active::before {
+  background: linear-gradient(180deg, #f97316, #ffd700);
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.55);
+}
+
 .sidebar-footer {
   width: 100%;
   border-top: 1px solid var(--border);
@@ -3757,6 +3781,96 @@ body.compact-layout .config-group.row {
 
 /* ── Topbar search ── */
 .clay-theme .topbar-search-input-wrap {
+
+/* TurboCore developer-only page */
+.turbocore-page .section-title.turbocore-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  background:
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.14), transparent 34%),
+    linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(98, 105, 230, 0.05));
+  border-radius: 18px;
+  padding: 22px;
+}
+
+.turbocore-badge {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(249, 115, 22, 0.45);
+  color: #fb923c;
+  background: rgba(249, 115, 22, 0.1);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.turbocore-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.turbocore-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.turbocore-card-title {
+  color: var(--text-main);
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.turbocore-card-status {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.11);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.turbocore-card p,
+.turbocore-muted {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.turbocore-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.turbocore-status {
+  margin-top: 12px;
+  min-height: 92px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-darker);
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  overflow: auto;
+}
+
+.turbocore-list {
+  color: var(--text-dim);
+  line-height: 1.8;
+  padding-left: 18px;
+}
+
   background: #ffffff;
   border: 1px solid #d8d4ea;
 }

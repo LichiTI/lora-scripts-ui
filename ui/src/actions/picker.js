@@ -51,18 +51,13 @@ export function createPickerActions({ state, api, showToast, renderView, renderB
   async function pickPathForInput(inputId, pickerType) {
     _showPickerOverlay();
     try {
-    // 后端 pick_file 只支持 folder / model-file / text-file
-      // 将 schema 中的扩展 pickerType 映射回后端支持的类型
-      const pickerMap = {
-        'output-folder': 'folder',
-        'output-model-file': 'model-file',
-      };
-      pickerType = pickerMap[pickerType] || pickerType;
-
-      const response = await api.pickFile(pickerType);
+      const response = await api.pickFile(pickerType, inputId);
       _hidePickerOverlay();
       if (response.status !== 'success') {
         showToast(response.message || '选择路径失败。');
+        return;
+      }
+      if (!response?.data?.path) {
         return;
       }
       const input = $(`#${inputId}`);
@@ -79,17 +74,13 @@ export function createPickerActions({ state, api, showToast, renderView, renderB
   async function pickPath(key, pickerType) {
     _showPickerOverlay();
     try {
-      // 后端 pick_file 只支持 folder / model-file / text-file
-      const pickerMap = {
-        'output-folder': 'folder',
-        'output-model-file': 'model-file',
-      };
-      pickerType = pickerMap[pickerType] || pickerType;
-
-      const response = await api.pickFile(pickerType);
+      const response = await api.pickFile(pickerType, key);
       _hidePickerOverlay();
       if (response.status !== 'success') {
         showToast(response.message|| '选择路径失败。');
+        return;
+      }
+      if (!response?.data?.path) {
         return;
       }
       window.updateConfigValue(key, response.data.path);
@@ -135,7 +126,7 @@ export function createPickerActions({ state, api, showToast, renderView, renderB
   function openNativePicker(fieldKey, pickerType) {
     state.builtinPicker = { open: true, fieldKey, pickerType, rootLabel: '', items: [], loading: true };
     renderBuiltinPickerModal();
-    api.getBuiltinPicker(pickerType)
+    api.getBuiltinPicker(pickerType, fieldKey)
       .then((response) => {
         state.builtinPicker = {
           open: true,
@@ -165,7 +156,7 @@ export function createPickerActions({ state, api, showToast, renderView, renderB
     state.builtinPicker.loading = true;
     state.builtinPicker.items = [];
     renderBuiltinPickerModal();
-    api.getBuiltinPicker(pickerType)
+    api.getBuiltinPicker(pickerType, fieldKey)
   .then((response) => {
         state.builtinPicker = {
           open: true, fieldKey, pickerType,
@@ -204,7 +195,7 @@ export function createPickerActions({ state, api, showToast, renderView, renderB
   function openBuiltinPickerForInput(inputId, pickerType) {
     state.builtinPicker = { open: true, fieldKey: '', pickerType, rootLabel: '', items: [], loading: true, _targetInputId: inputId };
     renderBuiltinPickerModal();
-    api.getBuiltinPicker(pickerType)
+    api.getBuiltinPicker(pickerType, inputId)
       .then((response) => {
         state.builtinPicker = { ...state.builtinPicker, rootLabel: response?.data?.rootLabel || '', items: response?.data?.items || [], loading: false };
         renderBuiltinPickerModal();

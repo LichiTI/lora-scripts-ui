@@ -53,11 +53,11 @@ export function createDatasetRenderer({ state, api, showToast, renderView }) {
     if (!content) return;
 
     const allInterrogators = state.interrogators?.interrogators|| [];
-const defaultModel = 'wd-eva02-large-tagger-v3';
+const defaultModel = 'wd-eva02-large-v3';
     const wdModels = allInterrogators.filter((m) => m.kind === 'wd' || m.kind === 'cl');
     const llmModels = allInterrogators.filter((m) => m.kind === 'llm');
     const fallbackModels = [
-      'wd-convnext-v3', 'wd-swinv2-v3', 'wd-vit-v3',
+      'wd-eva02-large-v3', 'wd-convnext-v3', 'wd-swinv2-v3', 'wd-vit-v3',
       'wd14-convnextv2-v2', 'wd14-swinv2-v2', 'wd14-vit-v2', 'wd14-moat-v2',
      'wd-eva02-large-tagger-v3', 'wd-vit-large-tagger-v3',
       'eva02_large_E621_FULL_V1', 'cl_tagger_1_01',
@@ -328,7 +328,7 @@ llm_model: model,
     if (!pathVal) { showToast('请先填写数据集路径。'); return; }
     const params = {
       path: pathVal,
-      interrogator_model: $('#tagger-model')?.value || 'wd14-convnextv2-v2',
+      interrogator_model: $('#tagger-model')?.value || 'wd-eva02-large-v3',
       threshold: parseFloat($('#tagger-threshold')?.value) || 0.5,
       additional_tags: $('#tagger-additional')?.value || '',
       exclude_tags: $('#tagger-exclude')?.value || '',
@@ -355,23 +355,22 @@ llm_model: model,
   function renderTagEditor() {
     const content = $('#dataset-content');
     if (!content) return;
-    const teUrl = `http://${location.hostname}:28001`;
     content.innerHTML = `
       <div id="tageditor-status" style="padding:4px 0 12px;font-size:0.85rem;color:var(--text-dim);"></div>
-      <section class="form-section" style="padding:0;overflow:hidden;">
+      <section class="form-section">
         <header class="section-header">
           <h3>标签编辑器 (Tag Editor)</h3>
-          <div style="display:flex;gap:8px;">
-            <a class="btn btn-outline btn-sm" href="${teUrl}" target="_blank" rel="noopener">新窗口打开</a>
-            <button class="btn btn-outline btn-sm" type="button" onclick="refreshTagEditorIframe()">刷新</button>
-          </div>
         </header>
-        <iframe id="tageditor-iframe" src="${teUrl}" style="width:100%;height:calc(100vh - 340px);min-height:500px;border:none;background:var(--bg-panel);"
-          onload="var r=document.getElementById('tageditor-retry');if(r)r.style.display='none'"
-          onerror="var r=document.getElementById('tageditor-retry');if(r)r.style.display='block'"></iframe>
-        <div id="tageditor-retry" style="display:none;text-align:center;padding:40px;color:var(--text-dim);">
-          <p>标签编辑器加载失败或尚未启动完成。训练期间可能暂时不可用。</p>
-          <button class="btn btn-outline btn-sm" type="button" onclick="refreshTagEditorIframe()">重试连接</button>
+        <div class="section-summary">当前版本使用集成式 Tag Editor，不再依赖外部 28001 iframe。下面是常用入口。</div>
+        <div class="section-content" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+          <button class="btn btn-outline" type="button" onclick="switchDatasetTab('tagger')">WD14 / CL 自动标注</button>
+          <button class="btn btn-outline" type="button" onclick="switchDatasetTab('suggestions')">智能标签建议</button>
+          <button class="btn btn-outline" type="button" onclick="switchDatasetTab('cleanup')">Caption 清洗</button>
+          <button class="btn btn-outline" type="button" onclick="switchDatasetTab('backups')">Caption 备份 / 恢复</button>
+          <button class="btn btn-outline" type="button" onclick="switchDatasetTab('analysis')">数据集分析</button>
+        </div>
+        <div style="margin-top:12px;color:var(--text-muted);font-size:0.82rem;line-height:1.6;">
+          如果你要批量修改标签，请先进入「智能标签建议」或「Caption 清洗」；如果要重新打标，请进入「标签器」。
         </div>
       </section>
  `;
@@ -383,8 +382,10 @@ llm_model: model,
     if (!statusEl) return;
     try {
       const data = await api.getTagEditorStatus();
+      const payload = data?.data || data || {};
       const labels = {
         ready: '✅ 标签编辑器已就绪',
+        cleanroom: '✅ 集成式标签编辑器已就绪',
         starting: '⏳ 标签编辑器正在启动...',
         queued: '⏳ 标签编辑器即将启动...',
         disabled: '⛔ 标签编辑器已禁用（启动时添加了 --disable-tageditor）',
@@ -392,9 +393,10 @@ llm_model: model,
         missing_launcher: '❌ 文件缺失',
         failed: '❌ 启动失败',
    };
-      const text = labels[data.status] || `状态: ${data.status}`;
-      statusEl.textContent = text + (data.detail ? ` — ${data.detail}` : '');
-      if (!['ready','disabled','failed','missing_dependencies','missing_launcher'].includes(data.status)) {
+      const status = payload.status || 'unknown';
+      const text = labels[status] || `状态: ${status}`;
+      statusEl.textContent = text + (payload.detail ? ` — ${payload.detail}` : '');
+      if (!['ready','cleanroom','disabled','failed','missing_dependencies','missing_launcher'].includes(status)) {
         setTimeout(pollTagEditorStatus, 2000);
       }
     } catch (e) {
@@ -403,8 +405,8 @@ llm_model: model,
   }
 
   function refreshTagEditorIframe() {
-    const iframe = $('#tageditor-iframe');
-    if (iframe) iframe.src = `http://${location.hostname}:28001`;
+    // Backward-compatible global hook used by older buttons.
+    pollTagEditorStatus();
   }
 
   function renderImageResize() {
@@ -433,13 +435,14 @@ llm_model: model,
             <p class="field-desc">选择或手动输入 train 目录下的数据集文件夹路径。</p>
           </div>
           <div class="config-group" style="grid-column:1/-1;">
-            <label>输出目录（留空则覆盖原文件）</label>
+            <label>输出目录（留空则生成 resized 子目录）</label>
             <div class="input-picker">
               <button class="picker-icon" type="button" onclick="pickPathForInput('resize-output', 'folder')">
                 <svg class="icon"><use href="#icon-folder"></use></svg>
               </button>
-              <input class="text-input" type="text" id="resize-output" placeholder="留空则在原目录生成">
+              <input class="text-input" type="text" id="resize-output" placeholder="留空则生成 输入目录/resized">
             </div>
+            <p class="field-desc">为避免误覆盖，后端默认输出到 resized 子目录，不会直接覆盖原图。</p>
           </div>
           <div class="config-group">
             <label>输出格式</label>
@@ -478,13 +481,14 @@ llm_model: model,
           <div class="config-group">
             <label>重命名模式</label>
             <select id="resize-rename-mode">
-              <option value="legacy_suffix">原名追加后缀</option>
-              <option value="folder_sequence" selected>文件夹名_序号</option>
+              <option value="legacy_suffix">原名追加 _resized</option>
+              <option value="folder_sequence" selected>文件夹名_00001</option>
             </select>
+            <p class="field-desc">例如：cat.png → cat_resized.jpg，或 dataset_00001.jpg。</p>
           </div>
           <div class="config-group row boolean-card">
-            <div class="label-col"><label>处理后删除原图</label><p class="field-desc">处理成功后删除源文件，建议配合输出目录使用。</p></div>
-            <label class="switch switch-compact"><input type="checkbox" id="resize-delete" checked><span class="slider round"></span></label>
+            <div class="label-col"><label>处理后删除原图</label><p class="field-desc">安全模式下后端会忽略删除请求；建议手动确认输出后再清理源文件。</p></div>
+            <label class="switch switch-compact"><input type="checkbox" id="resize-delete"><span class="slider round"></span></label>
           </div>
           <div class="config-group row boolean-card">
             <div class="label-col"><label>同步处理描述文件</label><p class="field-desc">自动同步 .txt / .npz / .caption 文件。</p></div>

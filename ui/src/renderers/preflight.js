@@ -57,6 +57,21 @@ export function createPreflightRenderer({ state, deps }) {
     return '<div class="preflight-tag"><span class="preflight-tag-label">' + label + '</span><span class="preflight-tag-value" style="color:' + color + ';">' + value + '</span></div>';
   }
 
+  function _formatPreflightIssue(issue) {
+    if (issue == null) return '';
+    if (typeof issue === 'string') return issue;
+    if (typeof issue !== 'object') return String(issue);
+    var msg = String(issue.message || issue.detail || issue.reason || issue.error || '').trim();
+    var code = String(issue.code || '').trim();
+    if (msg && code) return msg + ' [' + code + ']';
+    if (msg) return msg;
+    try {
+      return JSON.stringify(issue);
+    } catch (_e) {
+      return String(issue);
+    }
+  }
+
   function renderPreflightReport() {
     const pf = state.preflight;
     if (!pf) return '';
@@ -92,7 +107,7 @@ export function createPreflightRenderer({ state, deps }) {
       html += '<div class="preflight-group">';
       html += '<div class="preflight-group-title" style="color:#ef4444;">' + _ico('x-circle', 14) + ' 错误 (' + errors.length + ')</div>';
       errors.forEach(function(e) {
-        html += '<div class="preflight-item preflight-error">' + escapeHtml(e) + '</div>';
+        html += '<div class="preflight-item preflight-error">' + escapeHtml(_formatPreflightIssue(e)) + '</div>';
       });
       html += '</div>';
     }
@@ -102,7 +117,7 @@ export function createPreflightRenderer({ state, deps }) {
       html += '<div class="preflight-group">';
       html += '<div class="preflight-group-title" style="color:#f59e0b;">' + _ico('alert-tri', 14) + ' 警告 (' + warnings.length + ')</div>';
       warnings.forEach(function(w) {
-        html += '<div class="preflight-item preflight-warning">' + escapeHtml(w) + '</div>';
+        html += '<div class="preflight-item preflight-warning">' + escapeHtml(_formatPreflightIssue(w)) + '</div>';
       });
       html += '</div>';
     }
@@ -143,7 +158,7 @@ export function createPreflightRenderer({ state, deps }) {
       html += '<details class="preflight-group collapsible-subgroup" style="margin-top:8px;">';
       html += '<summary class="preflight-group-title">' + _ico('check-circle', 14) + ' 提示 (' + notes.length + ')<span class="collapsible-caret" aria-hidden="true">⌄</span></summary>';
       notes.forEach(function(n) {
-        html += '<div class="preflight-item preflight-note">' + escapeHtml(n) + '</div>';
+        html += '<div class="preflight-item preflight-note">' + escapeHtml(_formatPreflightIssue(n)) + '</div>';
       });
       html += '</details>';
     }
@@ -241,7 +256,8 @@ export function createPreflightRenderer({ state, deps }) {
       + '<div class="train-pf-table-hdr"><span class="train-pf-card-hdr"><span>\u6587\u4ef6\u5939\u7ed3\u6784</span></span></div>'
       + '<div class="train-pf-table-head"><div>\u8def\u5f84</div><div>\u6982\u5ff5\u6807\u7b7e</div><div style="text-align:right;">Repeats</div><div style="text-align:right;">\u56fe\u7247\u6570</div></div>';
     tableHtml += folders.map(function(f, idx) {
-      var tag = f.name.replace(/^\d+_/, '');
+      var rawTag = f.first_tag || f.caption_preview || f.name.replace(/^\d+_/, '');
+      var tag = String(rawTag || '').split(',')[0].split('\n')[0].trim();
       var repeats = f.repeats || 0;
       var fPath = f.path || '';
       return '<div class="train-pf-table-row" style="cursor:pointer;" onclick="toggleFolderPreview(' + idx + ',this)">'

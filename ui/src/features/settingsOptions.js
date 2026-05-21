@@ -194,18 +194,6 @@ export const ALL_OPTIMIZERS = dedupeKeepOrder([
     .map((name) => `pytorch_optimizer.${name}`),
 ]);
 
-export const DEFAULT_VISIBLE_OPTIMIZERS = dedupeKeepOrder([
-  ...BASE_OPTIMIZERS,
-  'pytorch_optimizer.Adan',
-  'pytorch_optimizer.RAdam',
-  'pytorch_optimizer.Compass',
-  'pytorch_optimizer.Ranger21',
-  'pytorch_optimizer.AdEMAMix',
-  'pytorch_optimizer.ScheduleFreeAdamW',
-  'pytorch_optimizer.ScheduleFreeRAdam',
-  'pytorch_optimizer.AdaBelief',
-]);
-
 export const BUILTIN_SCHEDULERS = [
   'linear',
   'cosine',
@@ -247,23 +235,6 @@ export const CUSTOM_SCHEDULERS = [
 export const ALL_SCHEDULERS = dedupeKeepOrder([
   ...BUILTIN_SCHEDULERS,
   ...CUSTOM_SCHEDULERS,
-]);
-
-export const DEFAULT_VISIBLE_SCHEDULERS = dedupeKeepOrder([
-  'linear',
-  'cosine',
-  'cosine_with_restarts',
-  'polynomial',
-  'constant',
-  'constant_with_warmup',
-  'inverse_sqrt',
-  'cosine_with_min_lr',
-  'warmup_stable_decay',
-  'torch.optim.lr_scheduler.CosineAnnealingLR',
-  'torch.optim.lr_scheduler.CosineAnnealingWarmRestarts',
-  'torch.optim.lr_scheduler.OneCycleLR',
-  'pytorch_optimizer.CosineAnnealingWarmupRestarts',
-  'pytorch_optimizer.REXScheduler',
 ]);
 
 export const SCHEDULER_VALUE_TO_TYPE = Object.freeze({
