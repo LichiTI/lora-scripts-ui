@@ -8,6 +8,7 @@
 //   因为它们与 renderNavigator 工厂参数锁定顺序。
 
 import { $, $$ } from '../utils/dom.js';
+import { persistNavigatorCollapsed } from '../utils/storage.js';
 
 export function createNavActions({
   state,
@@ -100,12 +101,12 @@ export function createNavActions({
 
     collapseBtn?.addEventListener('click', () => {
       state.navigatorCollapsed = true;
-      localStorage.setItem('sd-rescripts:navigator-collapsed', 'true');
+      persistNavigatorCollapsed(true);
       updateNavUI();
     });
     expandBtn?.addEventListener('click', () => {
       state.navigatorCollapsed = false;
-      localStorage.setItem('sd-rescripts:navigator-collapsed', 'false');
+      persistNavigatorCollapsed(false);
       updateNavUI();
     });
     updateNavUI();

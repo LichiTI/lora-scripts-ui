@@ -2,6 +2,7 @@
 // 依赖（工厂注入）：state, buildRunConfig
 
 import { $ } from '../utils/dom.js';
+import { persistJsonPanelCollapsed } from '../utils/storage.js';
 
 export function createJsonPanelActions({ state, buildRunConfig }) {
   function setupJsonPanel() {
@@ -20,6 +21,7 @@ export function createJsonPanelActions({ state, buildRunConfig }) {
 
     toggleBtn.addEventListener('click', () => {
       state.jsonPanelCollapsed = !state.jsonPanelCollapsed;
+      persistJsonPanelCollapsed(state.jsonPanelCollapsed);
       applyPanelState();
     });
 

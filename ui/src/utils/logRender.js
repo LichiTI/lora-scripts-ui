@@ -10,6 +10,59 @@ const ANSI_COLORS = {
   '94': '#60a5fa', '95': '#c084fc', '96': '#22d3ee', '97': '#f8fafc',
 };
 
+export function createTrainingLogCursor(taskId = '') {
+  return { taskId, total: 0, liveLine: '' };
+}
+
+export function normalizeTrainingLiveLine(liveLine) {
+  if (typeof liveLine !== 'string') return '';
+  return liveLine.replace(/\s+$/, '');
+}
+
+export function mergeTrainingLogLines(lines, liveLine) {
+  const merged = Array.isArray(lines) ? lines.slice() : [];
+  const normalizedLiveLine = normalizeTrainingLiveLine(liveLine);
+  if (normalizedLiveLine && merged[merged.length - 1] !== normalizedLiveLine) {
+    merged.push(normalizedLiveLine);
+  }
+  return merged;
+}
+
+export function collectIncrementalTrainingLogLines(cursor, taskId, lines, total, liveLine) {
+  let nextCursor = cursor && typeof cursor === 'object'
+    ? cursor
+    : createTrainingLogCursor();
+
+  if (nextCursor.taskId !== taskId) {
+    nextCursor = createTrainingLogCursor(taskId);
+  }
+
+  const safeLines = Array.isArray(lines) ? lines : [];
+  const normalizedLiveLine = normalizeTrainingLiveLine(liveLine);
+  const previousTotal = nextCursor.total || 0;
+  let incremental = safeLines;
+
+  if (previousTotal > 0 && total >= previousTotal) {
+    const delta = total - previousTotal;
+    if (delta <= 0) {
+      incremental = [];
+    } else if (delta < safeLines.length) {
+      incremental = safeLines.slice(-delta);
+    }
+  }
+
+  if (normalizedLiveLine && normalizedLiveLine !== nextCursor.liveLine) {
+    if (!incremental.length || incremental[incremental.length - 1] !== normalizedLiveLine) {
+      incremental = incremental.concat(normalizedLiveLine);
+    }
+  }
+
+  return {
+    incremental,
+    cursor: { taskId, total, liveLine: normalizedLiveLine },
+  };
+}
+
 /**
  * 将多行日志渲染为带语义色的 HTML。
  * - 如果行中含 ANSI 转义序列，则解析 \x1b[Nm 处理颜色 / 加粗
@@ -19,7 +72,7 @@ const ANSI_COLORS = {
  */
 export function renderLogLines(lines) {
   return lines.map(function (line) {
-    line = line.replace(/\r/g, '');
+    line = String(line ?? '').replace(/\r/g, '');
     const hasAnsi = line.indexOf('\x1b[') !== -1;
 
     // --- ANSI 解析 ---
