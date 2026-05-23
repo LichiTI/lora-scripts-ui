@@ -9,6 +9,31 @@
 import { $, escapeHtml, _ico } from '../utils/dom.js';
 
 export function createDatasetRenderer({ state, api, showToast, renderView }) {
+  const TAG_MANAGER_PRESETS_STORAGE_KEY = 'sd-rescripts:tag-manager-lite-presets';
+  const bboxState = state.datasetBBoxAnnotator || (state.datasetBBoxAnnotator = {
+    datasetPath: '',
+    recursive: true,
+    images: [],
+    currentIndex: 0,
+    currentImagePath: '',
+    currentDetail: null,
+    boxes: [],
+    selectedIndex: -1,
+    dirty: false,
+    classNamesText: '',
+    drawClassId: 0,
+    predictModel: 'yolo11n.pt',
+    predictConf: 0.25,
+    predictIou: 0.45,
+    predictDevice: '',
+    appendPredictions: false,
+    batchWriteMode: 'skip_existing',
+    batchJobId: '',
+    batchJobSnapshot: null,
+    batchPollTimer: null,
+    drawing: null,
+  });
+
   function renderDataset(container) {
     const activeTab = state.datasetSubTab || 'tagger';
     container.innerHTML = `
@@ -24,6 +49,8 @@ export function createDatasetRenderer({ state, api, showToast, renderView }) {
           <button class="dataset-tab ${activeTab === 'analysis' ? 'active' : ''}" type="button" onclick="switchDatasetTab('analysis')">数据集分析</button>
           <button class="dataset-tab ${activeTab === 'suggestions' ? 'active' : ''}" type="button" onclick="switchDatasetTab('suggestions')">智能建议</button>
           <button class="dataset-tab ${activeTab === 'cleanup' ? 'active' : ''}" type="button" onclick="switchDatasetTab('cleanup')">Caption 清洗</button>
+          <button class="dataset-tab ${activeTab === 'tagmanager' ? 'active' : ''}" type="button" onclick="switchDatasetTab('tagmanager')">标签管理 Lite</button>
+          <button class="dataset-tab ${activeTab === 'bbox' ? 'active' : ''}" type="button" onclick="switchDatasetTab('bbox')">框标注 Lite</button>
           <button class="dataset-tab ${activeTab === 'backups' ? 'active' : ''}" type="button" onclick="switchDatasetTab('backups')">Caption 备份</button>
           <button class="dataset-tab ${activeTab === 'maskedloss' ? 'active' : ''}" type="button" onclick="switchDatasetTab('maskedloss')">蒙版损失审查</button>
         </div>
@@ -37,6 +64,8 @@ export function createDatasetRenderer({ state, api, showToast, renderView }) {
       analysis: renderDatasetAnalysis,
       suggestions: renderTagSuggestions,
       cleanup: renderCaptionCleanup,
+      tagmanager: renderTagManagerLite,
+      bbox: renderBBoxAnnotator,
       backups: renderCaptionBackups,
       maskedloss: renderMaskedLossAudit,
     };
@@ -47,6 +76,1106 @@ export function createDatasetRenderer({ state, api, showToast, renderView }) {
     state.datasetSubTab = tab;
     if (state.activeModule === 'dataset') renderView('dataset');
 }
+
+  function loadTagManagerPresets() {
+    try {
+      const raw = localStorage.getItem(TAG_MANAGER_PRESETS_STORAGE_KEY) || '[]';
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((entry) => entry && typeof entry === 'object' && String(entry.name || '').trim());
+    } catch {
+      return [];
+    }
+  }
+
+  function saveTagManagerPresets(presets) {
+    localStorage.setItem(TAG_MANAGER_PRESETS_STORAGE_KEY, JSON.stringify(Array.isArray(presets) ? presets.slice(0, 50) : []));
+  }
+
+  function refreshTagManagerPresetOptions(selectedName = '') {
+    const select = $('#tagmanager-preset-select');
+    if (!select) return;
+    const presets = loadTagManagerPresets();
+    select.innerHTML = `
+      <option value="">选择已保存预设</option>
+      ${presets.map((preset) => `<option value="${escapeHtml(preset.name || '')}">${escapeHtml(preset.name || '')}</option>`).join('')}
+    `;
+    if (selectedName) select.value = selectedName;
+  }
+
+  function gatherTagManagerPresetSnapshot() {
+    return {
+      caption_extension: $('#tagmanager-ext')?.value || '.txt',
+      recursive: $('#tagmanager-recursive')?.checked ?? true,
+      dedupe_tags: $('#tagmanager-dedupe')?.checked ?? true,
+      sort_tags: $('#tagmanager-sort')?.checked || false,
+      create_backup_before_apply: $('#tagmanager-backup')?.checked ?? true,
+      alias_map: $('#tagmanager-alias')?.value || '',
+      blacklist_tags: $('#tagmanager-blacklist')?.value || '',
+      bulk_replace_rules: $('#tagmanager-replace-rules')?.value || '',
+      stats_top_limit: Number($('#tagmanager-top')?.value || 15) || 15,
+    };
+  }
+
+  function applyTagManagerPresetPayload(payload) {
+    if (!payload || typeof payload !== 'object') return;
+    if ($('#tagmanager-ext')) $('#tagmanager-ext').value = payload.caption_extension || '.txt';
+    if ($('#tagmanager-recursive')) $('#tagmanager-recursive').checked = payload.recursive ?? true;
+    if ($('#tagmanager-dedupe')) $('#tagmanager-dedupe').checked = payload.dedupe_tags ?? true;
+    if ($('#tagmanager-sort')) $('#tagmanager-sort').checked = payload.sort_tags || false;
+    if ($('#tagmanager-backup')) $('#tagmanager-backup').checked = payload.create_backup_before_apply ?? true;
+    if ($('#tagmanager-alias')) $('#tagmanager-alias').value = payload.alias_map || '';
+    if ($('#tagmanager-blacklist')) $('#tagmanager-blacklist').value = payload.blacklist_tags || '';
+    if ($('#tagmanager-replace-rules')) $('#tagmanager-replace-rules').value = payload.bulk_replace_rules || '';
+    if ($('#tagmanager-top')) $('#tagmanager-top').value = String(payload.stats_top_limit || 15);
+  }
+
+  function saveCurrentTagManagerPreset() {
+    const input = $('#tagmanager-preset-name');
+    const name = input?.value?.trim() || '';
+    if (!name) {
+      showToast('请先填写预设名称。');
+      return;
+    }
+    const presets = loadTagManagerPresets();
+    const snapshot = gatherTagManagerPresetSnapshot();
+    const nextPreset = { name, config: snapshot };
+    const next = presets.filter((preset) => String(preset.name || '').trim().toLowerCase() !== name.toLowerCase());
+    next.unshift(nextPreset);
+    saveTagManagerPresets(next);
+    refreshTagManagerPresetOptions(name);
+    showToast(`已保存预设：${name}`);
+  }
+
+  function applySavedTagManagerPreset() {
+    const select = $('#tagmanager-preset-select');
+    const name = select?.value?.trim() || '';
+    if (!name) {
+      showToast('请先选择一个预设。');
+      return;
+    }
+    const preset = loadTagManagerPresets().find((entry) => String(entry.name || '').trim() === name);
+    if (!preset) {
+      showToast('预设不存在或已删除。');
+      refreshTagManagerPresetOptions('');
+      return;
+    }
+    applyTagManagerPresetPayload(preset.config || {});
+    if ($('#tagmanager-preset-name')) $('#tagmanager-preset-name').value = name;
+    showToast(`已载入预设：${name}`);
+  }
+
+  function deleteSavedTagManagerPreset() {
+    const select = $('#tagmanager-preset-select');
+    const name = select?.value?.trim() || '';
+    if (!name) {
+      showToast('请先选择一个预设。');
+      return;
+    }
+    const next = loadTagManagerPresets().filter((entry) => String(entry.name || '').trim() !== name);
+    saveTagManagerPresets(next);
+    refreshTagManagerPresetOptions('');
+    showToast(`已删除预设：${name}`);
+  }
+
+  function decodeTagManagerQuickValue(encodedValue) {
+    try {
+      return decodeURIComponent(String(encodedValue || ''));
+    } catch {
+      return String(encodedValue || '');
+    }
+  }
+
+  function appendUniqueTagManagerLine(textareaId, value) {
+    const textarea = $('#' + textareaId);
+    const text = String(value || '').trim();
+    if (!textarea || !text) return false;
+    const existingLines = textarea.value
+      .replace(/\r/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const seen = new Set(existingLines.map((line) => line.toLowerCase()));
+    if (seen.has(text.toLowerCase())) {
+      return false;
+    }
+    existingLines.push(text);
+    textarea.value = existingLines.join('\n');
+    return true;
+  }
+
+  function appendTagManagerBlacklistFromStats(encodedValue) {
+    const tag = decodeTagManagerQuickValue(encodedValue);
+    if (!tag) return;
+    const added = appendUniqueTagManagerLine('tagmanager-blacklist', tag);
+    showToast(added ? `已加入黑名单候选：${tag}` : `黑名单里已经有：${tag}`);
+  }
+
+  function appendTagManagerAliasSourceFromStats(encodedValue) {
+    const tag = decodeTagManagerQuickValue(encodedValue);
+    const textarea = $('#tagmanager-alias');
+    if (!tag || !textarea) return;
+    const existingLines = textarea.value
+      .replace(/\r/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const hasSource = existingLines.some((line) => {
+      const source = line.split(/=>|->|=/)[0]?.trim()?.toLowerCase();
+      return source === tag.toLowerCase();
+    });
+    if (hasSource) {
+      showToast(`Alias 规则里已经有：${tag}`);
+      return;
+    }
+    existingLines.push(`${tag} => `);
+    textarea.value = existingLines.join('\n');
+    textarea.focus();
+    showToast(`已加入 Alias 源标签：${tag}`);
+  }
+
+  function clampBBoxValue(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 0;
+    if (num < 0) return 0;
+    if (num > 1) return 1;
+    return num;
+  }
+
+  function parseBBoxClassNames(text = bboxState.classNamesText || '') {
+    return String(text || '')
+      .replace(/\r/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  function getBBoxClassOptions() {
+    const names = parseBBoxClassNames();
+    return names.length ? names : ['class0'];
+  }
+
+  function getBBoxClassLabel(classId, fallbackName = '') {
+    const options = getBBoxClassOptions();
+    const idx = Number(classId);
+    if (Number.isInteger(idx) && idx >= 0 && idx < options.length) return options[idx];
+    return fallbackName || `class${Number.isFinite(idx) ? idx : 0}`;
+  }
+
+  function cloneBBoxBox(box) {
+    return box ? { ...box } : null;
+  }
+
+  function normalizeBBoxBox(box, overrides = {}) {
+    const next = { ...(box || {}), ...overrides };
+    const x1 = clampBBoxValue(Math.min(next.x1, next.x2));
+    const y1 = clampBBoxValue(Math.min(next.y1, next.y2));
+    const x2 = clampBBoxValue(Math.max(next.x1, next.x2));
+    const y2 = clampBBoxValue(Math.max(next.y1, next.y2));
+    const classId = Math.max(0, Number(next.class_id || 0));
+    return {
+      ...next,
+      class_id: classId,
+      class_name: getBBoxClassLabel(classId, next.class_name || ''),
+      x1,
+      y1,
+      x2,
+      y2,
+      x_center: clampBBoxValue((x1 + x2) / 2),
+      y_center: clampBBoxValue((y1 + y2) / 2),
+      width: clampBBoxValue(x2 - x1),
+      height: clampBBoxValue(y2 - y1),
+    };
+  }
+
+  function hasBBoxBoxChanged(a, b, epsilon = 1e-5) {
+    if (!a || !b) return true;
+    return (
+      Math.abs((a.x1 || 0) - (b.x1 || 0)) > epsilon ||
+      Math.abs((a.y1 || 0) - (b.y1 || 0)) > epsilon ||
+      Math.abs((a.x2 || 0) - (b.x2 || 0)) > epsilon ||
+      Math.abs((a.y2 || 0) - (b.y2 || 0)) > epsilon ||
+      Number(a.class_id || 0) !== Number(b.class_id || 0)
+    );
+  }
+
+  function isBBoxBoxLargeEnough(box, minSize = 0.01) {
+    if (!box) return false;
+    return (box.x2 - box.x1) >= minSize && (box.y2 - box.y1) >= minSize;
+  }
+
+  function buildBBoxHandleSpecs(box, displayWidth, displayHeight) {
+    const left = Math.min(box.x1, box.x2) * displayWidth;
+    const top = Math.min(box.y1, box.y2) * displayHeight;
+    const right = Math.max(box.x1, box.x2) * displayWidth;
+    const bottom = Math.max(box.y1, box.y2) * displayHeight;
+    const centerX = (left + right) / 2;
+    const centerY = (top + bottom) / 2;
+    return [
+      { name: 'nw', x: left, y: top, cursor: 'nwse-resize' },
+      { name: 'n', x: centerX, y: top, cursor: 'ns-resize' },
+      { name: 'ne', x: right, y: top, cursor: 'nesw-resize' },
+      { name: 'e', x: right, y: centerY, cursor: 'ew-resize' },
+      { name: 'se', x: right, y: bottom, cursor: 'nwse-resize' },
+      { name: 's', x: centerX, y: bottom, cursor: 'ns-resize' },
+      { name: 'sw', x: left, y: bottom, cursor: 'nesw-resize' },
+      { name: 'w', x: left, y: centerY, cursor: 'ew-resize' },
+    ];
+  }
+
+  function syncBBoxInputsToState() {
+    bboxState.datasetPath = $('#bbox-path')?.value?.trim() || bboxState.datasetPath || '';
+    bboxState.recursive = $('#bbox-recursive')?.checked ?? bboxState.recursive ?? true;
+    bboxState.classNamesText = $('#bbox-class-names')?.value ?? bboxState.classNamesText ?? '';
+    bboxState.predictModel = $('#bbox-predict-model')?.value?.trim() || bboxState.predictModel || 'yolo11n.pt';
+    bboxState.predictConf = Number($('#bbox-predict-conf')?.value || bboxState.predictConf || 0.25);
+    bboxState.predictIou = Number($('#bbox-predict-iou')?.value || bboxState.predictIou || 0.45);
+    bboxState.predictDevice = $('#bbox-predict-device')?.value?.trim() || bboxState.predictDevice || '';
+    bboxState.appendPredictions = $('#bbox-predict-append')?.checked ?? bboxState.appendPredictions ?? false;
+    bboxState.batchWriteMode = $('#bbox-batch-write-mode')?.value || bboxState.batchWriteMode || 'skip_existing';
+  }
+
+  function renderBBoxClassSelectOptions(selectId, selectedValue = 0) {
+    const select = $('#' + selectId);
+    if (!select) return;
+    const options = getBBoxClassOptions();
+    const desired = Math.max(0, Number(selectedValue) || 0);
+    select.innerHTML = options.map((label, index) => (
+      `<option value="${index}" ${index === desired ? 'selected' : ''}>${index}: ${escapeHtml(label)}</option>`
+    )).join('');
+    if (desired >= options.length && options.length) {
+      select.value = String(options.length - 1);
+    }
+  }
+
+  function setBBoxStatus(message, isError = false) {
+    const node = $('#bbox-status');
+    if (!node) return;
+    if (!message) {
+      node.innerHTML = '';
+      return;
+    }
+    node.innerHTML = `<span style="color:${isError ? '#ef4444' : 'var(--text-dim)'};">${escapeHtml(message)}</span>`;
+  }
+
+  function clearBBoxBatchPollTimer() {
+    if (bboxState.batchPollTimer) {
+      clearInterval(bboxState.batchPollTimer);
+      bboxState.batchPollTimer = null;
+    }
+  }
+
+  function renderBBoxBatchJobPanel() {
+    const node = $('#bbox-batch-job');
+    if (!node) return;
+    const job = bboxState.batchJobSnapshot;
+    if (!job || !bboxState.batchJobId) {
+      node.innerHTML = '';
+      return;
+    }
+    const metadata = job.metadata || {};
+    const total = Number(metadata.total_images || job.total_items || 0);
+    const completed = Number(metadata.completed_count || job.completed_items || 0);
+    const saved = Number(metadata.saved_count || 0);
+    const skipped = Number(metadata.skipped_existing_count || 0);
+    const failed = Number(metadata.failed_count || 0);
+    const percent = Math.max(0, Math.min(100, Math.round((Number(job.progress || 0) || 0) * 100)));
+    const currentImage = String(metadata.current_image || '').trim();
+    const canCancel = job.status === 'running' || job.status === 'pending';
+    node.innerHTML = `
+      <div style="margin-top:12px;padding:12px;border:1px solid var(--border-color, rgba(255,255,255,0.08));border-radius:8px;">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+          <strong>批量预标注任务 ${escapeHtml(job.id || bboxState.batchJobId || '')}</strong>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span class="module-list-meta">${escapeHtml(job.status || 'pending')} · ${percent}%</span>
+            ${canCancel ? `<button class="btn btn-outline btn-sm" type="button" onclick="cancelBBoxBatchPredict('${escapeHtml(job.id || bboxState.batchJobId || '')}')">取消</button>` : ''}
+          </div>
+        </div>
+        <div class="module-list-meta" style="margin-top:8px;">
+          ${completed}/${total || '?'} 张 | 写入 ${saved} 张 | 跳过 ${skipped} 张 | 失败 ${failed} 张
+        </div>
+        ${currentImage ? `<div class="module-list-meta" style="margin-top:6px;">当前：${escapeHtml(currentImage)}</div>` : ''}
+        ${job.error ? `<div class="module-list-meta" style="margin-top:6px;color:#ef4444;">${escapeHtml(job.error)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function renderBBoxImageList() {
+    const list = $('#bbox-image-list');
+    if (!list) return;
+    if (!bboxState.images.length) {
+      list.innerHTML = '<div class="builtin-picker-empty"><span>还没有载入图片列表。</span></div>';
+      return;
+    }
+    list.innerHTML = bboxState.images.map((entry, index) => {
+      const active = index === bboxState.currentIndex;
+      const label = entry.annotated ? `已标 ${entry.box_count ?? 0}` : '未标注';
+      return `
+        <button
+          class="module-list-item module-list-item-static"
+          type="button"
+          onclick="openBBoxImageByIndex(${index})"
+          style="width:100%;text-align:left;border:${active ? '1px solid var(--accent)' : '1px solid var(--border-color, rgba(255,255,255,0.08))'};background:${active ? 'rgba(99,102,241,0.12)' : 'transparent'};margin-bottom:8px;cursor:pointer;"
+        >
+          <div class="module-list-main">
+            <strong>${escapeHtml(entry.relative_path || entry.image_path || `image_${index}`)}</strong>
+            <span class="module-list-meta">${entry.width} x ${entry.height} | ${escapeHtml(label)}</span>
+          </div>
+        </button>
+      `;
+    }).join('');
+  }
+
+  function renderBBoxBoxList() {
+    const list = $('#bbox-box-list');
+    if (!list) return;
+    if (!bboxState.boxes.length) {
+      list.innerHTML = '<div class="builtin-picker-empty"><span>当前图片还没有框。拖动画布即可新增。</span></div>';
+      return;
+    }
+    list.innerHTML = bboxState.boxes.map((box, index) => {
+      const active = index === bboxState.selectedIndex;
+      const width = Math.max(0, (box.x2 - box.x1) * 100).toFixed(1);
+      const height = Math.max(0, (box.y2 - box.y1) * 100).toFixed(1);
+      const conf = box.confidence != null ? ` | conf ${(Number(box.confidence) || 0).toFixed(2)}` : '';
+      return `
+        <button
+          class="module-list-item module-list-item-static"
+          type="button"
+          onclick="selectBBoxIndex(${index})"
+          style="width:100%;text-align:left;border:${active ? '1px solid var(--accent)' : '1px solid var(--border-color, rgba(255,255,255,0.08))'};background:${active ? 'rgba(99,102,241,0.12)' : 'transparent'};margin-bottom:8px;cursor:pointer;"
+        >
+          <div class="module-list-main">
+            <strong>#${index + 1} · ${escapeHtml(getBBoxClassLabel(box.class_id, box.class_name))}</strong>
+            <span class="module-list-meta">${width}% x ${height}%${conf}</span>
+          </div>
+        </button>
+      `;
+    }).join('');
+  }
+
+  function renderBBoxInspector() {
+    const inspector = $('#bbox-inspector');
+    if (!inspector) return;
+    const detail = bboxState.currentDetail;
+    const imageLabel = detail?.image_name || '未选择图片';
+    const labelPath = detail?.label_path || '-';
+    const selected = bboxState.boxes[bboxState.selectedIndex] || null;
+    inspector.innerHTML = `
+      <div class="module-list">
+        <div class="module-list-item module-list-item-static">
+          <div class="module-list-main">
+            <strong>${escapeHtml(imageLabel)}</strong>
+            <span class="module-list-meta">${detail ? `${detail.width} x ${detail.height}` : '请选择左侧图片'}</span>
+            <span class="module-list-meta">标注文件: ${escapeHtml(labelPath)}</span>
+            <span class="module-list-meta">当前框数: ${bboxState.boxes.length}${bboxState.dirty ? ' | 有未保存修改' : ''}</span>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding:12px;border:1px solid var(--border-color, rgba(255,255,255,0.08));border-radius:8px;">
+        <strong style="display:block;margin-bottom:8px;">当前绘制类别</strong>
+        <select id="bbox-class-select" onchange="syncBBoxClassControls()" style="width:100%;"></select>
+      </div>
+      <div style="margin-top:12px;padding:12px;border:1px solid var(--border-color, rgba(255,255,255,0.08));border-radius:8px;">
+        <strong style="display:block;margin-bottom:8px;">选中框编辑</strong>
+        ${selected ? `
+          <div class="config-group" style="margin:0;">
+            <label>类别</label>
+            <select id="bbox-selected-class" onchange="updateBBoxSelectedClass()" style="width:100%;"></select>
+          </div>
+          <div class="module-list-meta" style="margin-top:8px;">
+            x1=${(selected.x1 || 0).toFixed(3)} | y1=${(selected.y1 || 0).toFixed(3)} | x2=${(selected.x2 || 0).toFixed(3)} | y2=${(selected.y2 || 0).toFixed(3)}
+          </div>
+        ` : '<div class="module-list-meta">先在右侧框列表或画布中选中一个框。</div>'}
+      </div>
+      <div style="margin-top:12px;">
+        <strong style="display:block;margin-bottom:8px;">框列表</strong>
+        <div id="bbox-box-list" style="max-height:38vh;overflow:auto;"></div>
+      </div>
+    `;
+    renderBBoxClassSelectOptions('bbox-class-select', bboxState.drawClassId);
+    if (selected) renderBBoxClassSelectOptions('bbox-selected-class', selected.class_id);
+    renderBBoxBoxList();
+  }
+
+  function renderBBoxOverlay() {
+    const overlay = $('#bbox-overlay');
+    const image = $('#bbox-image');
+    if (!overlay || !image) return;
+    const displayWidth = Math.max(1, image.clientWidth || image.naturalWidth || 1);
+    const displayHeight = Math.max(1, image.clientHeight || image.naturalHeight || 1);
+    overlay.setAttribute('viewBox', `0 0 ${displayWidth} ${displayHeight}`);
+    overlay.setAttribute('preserveAspectRatio', 'none');
+    const draft = bboxState.drawing?.draftBox ? [bboxState.drawing.draftBox] : [];
+    overlay.innerHTML = [...bboxState.boxes, ...draft].map((box, rawIndex) => {
+      const isDraft = rawIndex >= bboxState.boxes.length;
+      const index = isDraft ? -1 : rawIndex;
+      const x = Math.min(box.x1, box.x2) * displayWidth;
+      const y = Math.min(box.y1, box.y2) * displayHeight;
+      const w = Math.abs((box.x2 - box.x1) * displayWidth);
+      const h = Math.abs((box.y2 - box.y1) * displayHeight);
+      const isSelected = index === bboxState.selectedIndex;
+      const color = isDraft ? '#f59e0b' : (isSelected ? '#22c55e' : '#60a5fa');
+      const label = isDraft ? '绘制中' : getBBoxClassLabel(box.class_id, box.class_name);
+      const handles = !isDraft && isSelected
+        ? buildBBoxHandleSpecs(box, displayWidth, displayHeight).map((handle) => `
+            <circle
+              data-box-index="${index}"
+              data-handle="${handle.name}"
+              cx="${handle.x}"
+              cy="${handle.y}"
+              r="6"
+              fill="#ffffff"
+              stroke="${color}"
+              stroke-width="2"
+              style="cursor:${handle.cursor};"
+            ></circle>
+          `).join('')
+        : '';
+      return `
+        <g data-box-index="${index}">
+          <rect
+            data-box-index="${index}"
+            x="${x}"
+            y="${y}"
+            width="${w}"
+            height="${h}"
+            fill="rgba(96,165,250,0.10)"
+            stroke="${color}"
+            stroke-width="${isDraft ? 2.5 : 2}"
+            style="cursor:${isDraft ? 'crosshair' : (isSelected ? 'move' : 'pointer')};"
+          ></rect>
+          <text data-box-index="${index}" x="${x + 6}" y="${Math.max(14, y + 16)}" fill="${color}" font-size="13" font-weight="700">${escapeHtml(label)}</text>
+          ${handles}
+        </g>
+      `;
+    }).join('');
+  }
+
+  function bindBBoxCanvasInteractions() {
+    const overlay = $('#bbox-overlay');
+    const image = $('#bbox-image');
+    if (!overlay || !image || overlay.dataset.bound === '1') return;
+    overlay.dataset.bound = '1';
+
+    const pointerToNorm = (event) => {
+      const rect = overlay.getBoundingClientRect();
+      return {
+        x: clampBBoxValue((event.clientX - rect.left) / Math.max(rect.width, 1)),
+        y: clampBBoxValue((event.clientY - rect.top) / Math.max(rect.height, 1)),
+      };
+    };
+
+    const beginDraw = (event, start) => {
+      bboxState.drawing = {
+        mode: 'draw',
+        pointerId: event.pointerId,
+        start,
+        draftBox: {
+          class_id: Number($('#bbox-class-select')?.value || bboxState.drawClassId || 0),
+          class_name: getBBoxClassLabel(Number($('#bbox-class-select')?.value || bboxState.drawClassId || 0)),
+          x1: start.x,
+          y1: start.y,
+          x2: start.x,
+          y2: start.y,
+          source: 'manual',
+        },
+      };
+      try { overlay.setPointerCapture(event.pointerId); } catch {}
+      renderBBoxOverlay();
+    };
+
+    const beginMove = (event, boxIndex, start) => {
+      const selected = cloneBBoxBox(bboxState.boxes[boxIndex]);
+      if (!selected) return;
+      bboxState.selectedIndex = boxIndex;
+      bboxState.drawing = {
+        mode: 'move',
+        pointerId: event.pointerId,
+        start,
+        boxIndex,
+        originalBox: selected,
+      };
+      renderBBoxInspector();
+      try { overlay.setPointerCapture(event.pointerId); } catch {}
+      renderBBoxOverlay();
+    };
+
+    const beginResize = (event, boxIndex, handle, start) => {
+      const selected = cloneBBoxBox(bboxState.boxes[boxIndex]);
+      if (!selected) return;
+      bboxState.selectedIndex = boxIndex;
+      bboxState.drawing = {
+        mode: 'resize',
+        pointerId: event.pointerId,
+        start,
+        boxIndex,
+        handle,
+        originalBox: selected,
+      };
+      renderBBoxInspector();
+      try { overlay.setPointerCapture(event.pointerId); } catch {}
+      renderBBoxOverlay();
+    };
+
+    overlay.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      const start = pointerToNorm(event);
+      const boxIndexAttr = event.target?.dataset?.boxIndex ?? '';
+      const handle = String(event.target?.dataset?.handle || '');
+      const boxIndex = Number(boxIndexAttr);
+      if (boxIndexAttr !== '' && Number.isInteger(boxIndex) && boxIndex >= 0 && bboxState.boxes[boxIndex]) {
+        event.preventDefault();
+        if (handle) {
+          beginResize(event, boxIndex, handle, start);
+          return;
+        }
+        beginMove(event, boxIndex, start);
+        return;
+      }
+      event.preventDefault();
+      beginDraw(event, start);
+    });
+
+    overlay.addEventListener('pointermove', (event) => {
+      if (!bboxState.drawing || bboxState.drawing.pointerId !== event.pointerId) return;
+      const point = pointerToNorm(event);
+      if (bboxState.drawing.mode === 'draw') {
+        bboxState.drawing.draftBox.x2 = point.x;
+        bboxState.drawing.draftBox.y2 = point.y;
+      } else if (bboxState.drawing.mode === 'move') {
+        const original = bboxState.drawing.originalBox;
+        const dx = point.x - bboxState.drawing.start.x;
+        const dy = point.y - bboxState.drawing.start.y;
+        const shiftX = Math.min(Math.max(dx, -original.x1), 1 - original.x2);
+        const shiftY = Math.min(Math.max(dy, -original.y1), 1 - original.y2);
+        bboxState.boxes[bboxState.drawing.boxIndex] = normalizeBBoxBox(original, {
+          x1: original.x1 + shiftX,
+          y1: original.y1 + shiftY,
+          x2: original.x2 + shiftX,
+          y2: original.y2 + shiftY,
+        });
+      } else if (bboxState.drawing.mode === 'resize') {
+        const original = bboxState.drawing.originalBox;
+        const handle = String(bboxState.drawing.handle || '');
+        const next = {
+          x1: original.x1,
+          y1: original.y1,
+          x2: original.x2,
+          y2: original.y2,
+        };
+        if (handle.includes('w')) next.x1 = point.x;
+        if (handle.includes('e')) next.x2 = point.x;
+        if (handle.includes('n')) next.y1 = point.y;
+        if (handle.includes('s')) next.y2 = point.y;
+        bboxState.boxes[bboxState.drawing.boxIndex] = normalizeBBoxBox(original, next);
+      }
+      renderBBoxOverlay();
+    });
+
+    const finalizeInteraction = (event) => {
+      if (!bboxState.drawing || bboxState.drawing.pointerId !== event.pointerId) return;
+      const drawing = bboxState.drawing;
+      bboxState.drawing = null;
+      if (drawing.mode === 'draw') {
+        const normalized = normalizeBBoxBox(drawing.draftBox, { source: 'manual' });
+        if (isBBoxBoxLargeEnough(normalized)) {
+          bboxState.boxes.push(normalized);
+          bboxState.selectedIndex = bboxState.boxes.length - 1;
+          bboxState.dirty = true;
+          renderBBoxInspector();
+        }
+      } else if (drawing.mode === 'move' || drawing.mode === 'resize') {
+        const index = Number(drawing.boxIndex);
+        const current = bboxState.boxes[index];
+        if (current) {
+          const normalized = normalizeBBoxBox(current);
+          if (!isBBoxBoxLargeEnough(normalized, 0.005)) {
+            bboxState.boxes[index] = drawing.originalBox;
+          } else {
+            bboxState.boxes[index] = normalized;
+            if (hasBBoxBoxChanged(normalized, drawing.originalBox)) {
+              bboxState.dirty = true;
+            }
+          }
+          bboxState.selectedIndex = index;
+          renderBBoxInspector();
+        }
+      }
+      try { overlay.releasePointerCapture(event.pointerId); } catch {}
+      renderBBoxOverlay();
+    };
+
+    overlay.addEventListener('pointerup', finalizeInteraction);
+    overlay.addEventListener('pointercancel', (event) => {
+      if (!bboxState.drawing || bboxState.drawing.pointerId !== event.pointerId) return;
+      const drawing = bboxState.drawing;
+      bboxState.drawing = null;
+      if ((drawing.mode === 'move' || drawing.mode === 'resize') && bboxState.boxes[drawing.boxIndex]) {
+        bboxState.boxes[drawing.boxIndex] = drawing.originalBox;
+        bboxState.selectedIndex = drawing.boxIndex;
+        renderBBoxInspector();
+      }
+      renderBBoxOverlay();
+    });
+  }
+
+  function renderBBoxViewer() {
+    const viewer = $('#bbox-viewer');
+    if (!viewer) return;
+    if (!bboxState.currentDetail) {
+      viewer.innerHTML = '<div class="builtin-picker-empty" style="min-height:420px;"><span>先载入左侧图片列表，再选择一张图片开始标注。</span></div>';
+      return;
+    }
+    viewer.innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+        <div class="module-list-meta">${escapeHtml(bboxState.currentDetail.image_path || '')}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" type="button" onclick="openBBoxPrev()">上一张</button>
+          <button class="btn btn-outline btn-sm" type="button" onclick="openBBoxNext()">下一张</button>
+          <button class="btn btn-outline btn-sm" type="button" onclick="undoBBoxLast()">撤销最后一个框</button>
+          <button class="btn btn-outline btn-sm" type="button" onclick="deleteBBoxSelected()">删除选中框</button>
+          <button class="btn btn-outline btn-sm" type="button" onclick="clearBBoxBoxes()">清空当前框</button>
+          <button class="btn btn-primary btn-sm" type="button" onclick="saveBBoxCurrent()">保存 YOLO 标注</button>
+        </div>
+      </div>
+      <div class="module-list-meta" style="margin-bottom:12px;">空白处拖动可新建框；拖动已有框可移动；拖拽四角或边中点可拉伸。</div>
+      <div style="background:rgba(0,0,0,0.18);border:1px solid var(--border-color, rgba(255,255,255,0.08));border-radius:8px;padding:12px;text-align:center;min-height:420px;">
+        <div style="position:relative;display:inline-block;max-width:100%;">
+          <img id="bbox-image" alt="bbox-annotator" style="display:block;max-width:100%;height:auto;max-height:72vh;border-radius:6px;" />
+          <svg id="bbox-overlay" style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;"></svg>
+        </div>
+      </div>
+    `;
+    const img = $('#bbox-image');
+    if (!img) return;
+    img.onload = () => {
+      renderBBoxOverlay();
+      bindBBoxCanvasInteractions();
+    };
+    img.src = api.getBBoxImageUrl(bboxState.currentDetail.image_path) + `&ts=${Date.now()}`;
+  }
+
+  function renderBBoxClassControls() {
+    syncBBoxInputsToState();
+    const classSelect = $('#bbox-class-select');
+    if (classSelect) {
+      const current = Math.max(0, Number(classSelect.value || bboxState.drawClassId || 0));
+      bboxState.drawClassId = current;
+      renderBBoxClassSelectOptions('bbox-class-select', current);
+      bboxState.drawClassId = Number($('#bbox-class-select')?.value || current || 0);
+    }
+    if (bboxState.selectedIndex >= 0 && bboxState.boxes[bboxState.selectedIndex]) {
+      renderBBoxClassSelectOptions('bbox-selected-class', bboxState.boxes[bboxState.selectedIndex].class_id);
+    }
+    if (state.datasetSubTab === 'bbox') {
+      renderBBoxBoxList();
+      renderBBoxOverlay();
+    }
+  }
+
+  async function loadBBoxImageByIndex(index, { bypassDirty = false } = {}) {
+    syncBBoxInputsToState();
+    if (index < 0 || index >= bboxState.images.length) return;
+    if (!bypassDirty && bboxState.dirty && bboxState.currentImagePath && !window.confirm('当前图片有未保存修改，确定切换图片吗？')) {
+      return;
+    }
+    const entry = bboxState.images[index];
+    setBBoxStatus(`读取图片：${entry.relative_path || entry.image_path}`);
+    try {
+      const response = await api.readBBoxAnnotation({ image_path: entry.image_path });
+      const detail = response?.data || {};
+      bboxState.currentIndex = index;
+      bboxState.currentImagePath = entry.image_path;
+      bboxState.currentDetail = detail;
+      bboxState.boxes = Array.isArray(detail.boxes) ? detail.boxes.map((box) => normalizeBBoxBox(box)) : [];
+      bboxState.selectedIndex = bboxState.boxes.length ? 0 : -1;
+      bboxState.dirty = false;
+      bboxState.drawing = null;
+      renderBBoxImageList();
+      renderBBoxInspector();
+      renderBBoxViewer();
+      renderBBoxClassControls();
+      setBBoxStatus(`已载入 ${entry.relative_path || entry.image_path}`);
+    } catch (error) {
+      setBBoxStatus(error.message || '读取图片失败。', true);
+      showToast(error.message || '读取图片失败。');
+    }
+  }
+
+  async function refreshBBoxDataset() {
+    syncBBoxInputsToState();
+    if (!bboxState.datasetPath) {
+      showToast('请先填写图片目录或数据集目录。');
+      return;
+    }
+    setBBoxStatus('正在扫描图片列表...');
+    const list = $('#bbox-image-list');
+    if (list) list.innerHTML = '<div class="builtin-picker-empty"><span>扫描中...</span></div>';
+    try {
+      const response = await api.listBBoxImages({
+        path: bboxState.datasetPath,
+        recursive: bboxState.recursive,
+      });
+      const images = response?.data?.images || [];
+      bboxState.images = images;
+      const existingIndex = images.findIndex((entry) => entry.image_path === bboxState.currentImagePath);
+      if (!images.length) {
+        bboxState.currentIndex = 0;
+        bboxState.currentImagePath = '';
+        bboxState.currentDetail = null;
+        bboxState.boxes = [];
+        bboxState.selectedIndex = -1;
+        bboxState.dirty = false;
+        renderBBoxImageList();
+        renderBBoxInspector();
+        renderBBoxViewer();
+        setBBoxStatus('没有找到图片。');
+        return;
+      }
+      const targetIndex = existingIndex >= 0 ? existingIndex : 0;
+      await loadBBoxImageByIndex(targetIndex, { bypassDirty: true });
+      setBBoxStatus(`已载入 ${images.length} 张图片。`);
+    } catch (error) {
+      if (list) list.innerHTML = `<div class="builtin-picker-empty"><span>${escapeHtml(error.message || '扫描失败')}</span></div>`;
+      setBBoxStatus(error.message || '扫描失败。', true);
+      showToast(error.message || '扫描图片失败。');
+    }
+  }
+
+  function remapPredictedBBoxClasses(boxes) {
+    const classNames = parseBBoxClassNames();
+    if (!classNames.length) return boxes;
+    const lookup = new Map(classNames.map((name, index) => [name.toLowerCase(), index]));
+    return boxes.map((box) => {
+      const className = String(box.class_name || '').trim();
+      if (className && lookup.has(className.toLowerCase())) {
+        return {
+          ...box,
+          class_id: lookup.get(className.toLowerCase()),
+          class_name: classNames[lookup.get(className.toLowerCase())] || className,
+        };
+      }
+      return box;
+    });
+  }
+
+  async function predictBBoxCurrent() {
+    syncBBoxInputsToState();
+    if (!bboxState.currentImagePath) {
+      showToast('请先选择一张图片。');
+      return;
+    }
+    setBBoxStatus('正在执行 YOLO 预标注...');
+    try {
+      const response = await api.predictBBoxAnnotation({
+        image_path: bboxState.currentImagePath,
+        model: bboxState.predictModel || 'yolo11n.pt',
+        conf: bboxState.predictConf,
+        iou: bboxState.predictIou,
+        device: bboxState.predictDevice || '',
+      });
+      const predicted = remapPredictedBBoxClasses((response?.data?.boxes || []).map((box) => ({
+        ...box,
+        class_id: Number(box.class_id || 0),
+        x1: clampBBoxValue(box.x1),
+        y1: clampBBoxValue(box.y1),
+        x2: clampBBoxValue(box.x2),
+        y2: clampBBoxValue(box.y2),
+      }))).map((box) => normalizeBBoxBox(box));
+      bboxState.boxes = bboxState.appendPredictions ? [...bboxState.boxes, ...predicted] : predicted;
+      bboxState.selectedIndex = bboxState.boxes.length ? 0 : -1;
+      bboxState.dirty = true;
+      renderBBoxInspector();
+      renderBBoxOverlay();
+      setBBoxStatus(`模型预标注完成，得到 ${predicted.length} 个框。`);
+      showToast(`预标注完成：${predicted.length} 个框`);
+    } catch (error) {
+      setBBoxStatus(error.message || 'YOLO 预标注失败。', true);
+      showToast(error.message || 'YOLO 预标注失败。');
+    }
+  }
+
+  async function pollBBoxBatchJob(jobId) {
+    clearBBoxBatchPollTimer();
+    const tick = async () => {
+      try {
+        const data = await api.getJob(jobId);
+        bboxState.batchJobId = jobId;
+        bboxState.batchJobSnapshot = data || null;
+        renderBBoxBatchJobPanel();
+        if (data.status === 'completed') {
+          clearBBoxBatchPollTimer();
+          const metadata = data.metadata || {};
+          const summary = `批量预标注完成：写入 ${Number(metadata.saved_count || 0)} 张，跳过 ${Number(metadata.skipped_existing_count || 0)} 张，失败 ${Number(metadata.failed_count || 0)} 张。`;
+          if (!bboxState.dirty && bboxState.datasetPath) {
+            await refreshBBoxDataset();
+          }
+          setBBoxStatus(summary, false);
+          renderBBoxBatchJobPanel();
+          showToast('批量 YOLO 预标注完成。');
+        } else if (data.status === 'failed' || data.status === 'cancelled') {
+          clearBBoxBatchPollTimer();
+          const message = data.error || (data.status === 'cancelled' ? '批量任务已取消。' : '批量任务失败。');
+          setBBoxStatus(message, data.status === 'failed');
+          renderBBoxBatchJobPanel();
+          showToast(message);
+        }
+      } catch (error) {
+        clearBBoxBatchPollTimer();
+        bboxState.batchJobSnapshot = {
+          id: jobId,
+          status: 'failed',
+          error: error.message || '批量任务轮询失败。',
+          progress: 0,
+          metadata: bboxState.batchJobSnapshot?.metadata || {},
+        };
+        renderBBoxBatchJobPanel();
+        setBBoxStatus(error.message || '批量任务轮询失败。', true);
+      }
+    };
+    await tick();
+    if (!bboxState.batchJobSnapshot || !['completed', 'failed', 'cancelled'].includes(String(bboxState.batchJobSnapshot.status || ''))) {
+      bboxState.batchPollTimer = setInterval(tick, 1200);
+    }
+  }
+
+  async function startBBoxBatchPredict() {
+    syncBBoxInputsToState();
+    if (bboxState.batchJobId && ['pending', 'running'].includes(String(bboxState.batchJobSnapshot?.status || ''))) {
+      showToast('已有批量预标注任务在运行，请先等它完成或手动取消。');
+      return;
+    }
+    if (!bboxState.datasetPath) {
+      showToast('请先填写图片目录或数据集目录。');
+      return;
+    }
+    setBBoxStatus('正在提交批量 YOLO 预标注任务...');
+    try {
+      const response = await api.startBBoxBatchPredict({
+        path: bboxState.datasetPath,
+        recursive: bboxState.recursive,
+        model: bboxState.predictModel || 'yolo11n.pt',
+        conf: bboxState.predictConf,
+        iou: bboxState.predictIou,
+        device: bboxState.predictDevice || '',
+        write_mode: bboxState.batchWriteMode || 'skip_existing',
+      });
+      const jobId = response?.data?.job_id || '';
+      if (!jobId) throw new Error('未返回 job_id');
+      bboxState.batchJobId = jobId;
+      bboxState.batchJobSnapshot = {
+        id: jobId,
+        status: 'pending',
+        progress: 0,
+        metadata: {
+          total_images: Number(response?.data?.total_images || 0),
+          completed_count: 0,
+          saved_count: 0,
+          skipped_existing_count: 0,
+          failed_count: 0,
+          write_mode: bboxState.batchWriteMode || 'skip_existing',
+        },
+      };
+      renderBBoxBatchJobPanel();
+      setBBoxStatus(`批量任务已提交，共 ${Number(response?.data?.total_images || 0)} 张图片。`);
+      showToast('批量 YOLO 预标注任务已提交。');
+      await pollBBoxBatchJob(jobId);
+    } catch (error) {
+      setBBoxStatus(error.message || '批量 YOLO 预标注提交失败。', true);
+      showToast(error.message || '批量 YOLO 预标注提交失败。');
+    }
+  }
+
+  async function cancelBBoxBatchPredict(jobId = bboxState.batchJobId) {
+    if (!jobId) {
+      showToast('当前没有运行中的批量任务。');
+      return;
+    }
+    try {
+      await api.cancelJob(jobId);
+      showToast('已请求取消批量预标注任务。');
+    } catch (error) {
+      showToast(error.message || '取消失败。');
+    }
+  }
+
+  async function saveBBoxCurrent() {
+    if (!bboxState.currentImagePath) {
+      showToast('请先选择一张图片。');
+      return;
+    }
+    setBBoxStatus('正在保存 YOLO 标注...');
+    try {
+      const response = await api.saveBBoxAnnotation({
+        image_path: bboxState.currentImagePath,
+        boxes: bboxState.boxes,
+      });
+      bboxState.dirty = false;
+      if (bboxState.images[bboxState.currentIndex]) {
+        bboxState.images[bboxState.currentIndex].annotated = true;
+        bboxState.images[bboxState.currentIndex].box_count = response?.data?.box_count ?? bboxState.boxes.length;
+      }
+      if (bboxState.currentDetail) bboxState.currentDetail.label_path = response?.data?.label_path || bboxState.currentDetail.label_path;
+      renderBBoxImageList();
+      renderBBoxInspector();
+      setBBoxStatus(`已保存 ${response?.data?.box_count ?? bboxState.boxes.length} 个框。`);
+      showToast('YOLO 标注已保存。');
+    } catch (error) {
+      setBBoxStatus(error.message || '保存失败。', true);
+      showToast(error.message || '保存失败。');
+    }
+  }
+
+  function deleteBBoxSelected() {
+    if (bboxState.selectedIndex < 0 || !bboxState.boxes[bboxState.selectedIndex]) {
+      showToast('请先选择一个框。');
+      return;
+    }
+    bboxState.boxes.splice(bboxState.selectedIndex, 1);
+    bboxState.selectedIndex = bboxState.boxes.length ? Math.min(bboxState.selectedIndex, bboxState.boxes.length - 1) : -1;
+    bboxState.dirty = true;
+    renderBBoxInspector();
+    renderBBoxOverlay();
+  }
+
+  function undoBBoxLast() {
+    if (!bboxState.boxes.length) return;
+    bboxState.boxes.pop();
+    bboxState.selectedIndex = bboxState.boxes.length - 1;
+    bboxState.dirty = true;
+    renderBBoxInspector();
+    renderBBoxOverlay();
+  }
+
+  function clearBBoxBoxes() {
+    if (!bboxState.boxes.length) return;
+    if (!window.confirm('确定清空当前图片的所有框吗？')) return;
+    bboxState.boxes = [];
+    bboxState.selectedIndex = -1;
+    bboxState.dirty = true;
+    renderBBoxInspector();
+    renderBBoxOverlay();
+  }
+
+  function selectBBoxIndex(index) {
+    bboxState.selectedIndex = Number(index);
+    renderBBoxInspector();
+    renderBBoxOverlay();
+  }
+
+  function updateBBoxSelectedClass() {
+    const selected = bboxState.boxes[bboxState.selectedIndex];
+    if (!selected) return;
+    const nextClassId = Number($('#bbox-selected-class')?.value || selected.class_id || 0);
+    selected.class_id = nextClassId;
+    selected.class_name = getBBoxClassLabel(nextClassId, selected.class_name || '');
+    bboxState.dirty = true;
+    renderBBoxInspector();
+    renderBBoxOverlay();
+  }
+
+  async function openBBoxPrev() {
+    if (!bboxState.images.length) return;
+    const nextIndex = Math.max(0, bboxState.currentIndex - 1);
+    await loadBBoxImageByIndex(nextIndex);
+  }
+
+  async function openBBoxNext() {
+    if (!bboxState.images.length) return;
+    const nextIndex = Math.min(bboxState.images.length - 1, bboxState.currentIndex + 1);
+    await loadBBoxImageByIndex(nextIndex);
+  }
+
+  function renderBBoxAnnotator() {
+    const content = $('#dataset-content');
+    if (!content) return;
+    content.innerHTML = `
+      <section class="form-section">
+        <header class="section-header"><h3>框标注 Lite</h3></header>
+        <div class="section-summary">做 YOLO 检测框数据集。支持手动画框、读写 YOLO txt，以及用 YOLO 模型给当前图片做预标注后再人工修正。</div>
+        <div class="section-content tool-fields">
+          <div class="config-group" style="grid-column:1/-1;">
+            <label>数据集 / 图片目录</label>
+            <div class="input-picker">
+              <button class="picker-icon" type="button" onclick="pickPathForInput('bbox-path', 'folder')">
+                <svg class="icon"><use href="#icon-folder"></use></svg>
+              </button>
+              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（train 目录）" onclick="openBuiltinPickerForInput('bbox-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+              <input class="text-input" type="text" id="bbox-path" placeholder="./datasets/yolo/images/train" value="${escapeHtml(bboxState.datasetPath || '')}">
+            </div>
+          </div>
+          <div class="config-group row boolean-card">
+            <div class="label-col"><label>递归扫描子目录</label></div>
+            <label class="switch switch-compact"><input type="checkbox" id="bbox-recursive" ${bboxState.recursive ? 'checked' : ''}><span class="slider round"></span></label>
+          </div>
+          <div class="config-group">
+            <label>类别名称</label>
+            <p class="field-desc">一行一个。顺序就是 YOLO 的 class id 顺序。手动画框和模型预标注后的类别映射都会用这里。</p>
+            <textarea class="text-input" id="bbox-class-names" style="min-height:120px;width:100%;" oninput="syncBBoxClassControls()" placeholder="person&#10;cat&#10;dog">${escapeHtml(bboxState.classNamesText || '')}</textarea>
+          </div>
+          <div class="config-group">
+            <label>YOLO 预标注模型</label>
+            <input class="text-input" type="text" id="bbox-predict-model" value="${escapeHtml(bboxState.predictModel || 'yolo11n.pt')}" placeholder="yolo11n.pt / 自定义权重路径">
+          </div>
+          <div class="config-group">
+            <label>预标注阈值</label>
+            <input class="text-input" type="number" id="bbox-predict-conf" value="${Number(bboxState.predictConf || 0.25)}" min="0" max="1" step="0.01">
+          </div>
+          <div class="config-group">
+            <label>IoU 阈值</label>
+            <input class="text-input" type="number" id="bbox-predict-iou" value="${Number(bboxState.predictIou || 0.45)}" min="0" max="1" step="0.01">
+          </div>
+          <div class="config-group">
+            <label>设备（可选）</label>
+            <input class="text-input" type="text" id="bbox-predict-device" value="${escapeHtml(bboxState.predictDevice || '')}" placeholder="0 / cpu / 留空自动">
+          </div>
+          <div class="config-group row boolean-card">
+            <div class="label-col"><label>预标注后保留现有框</label></div>
+            <label class="switch switch-compact"><input type="checkbox" id="bbox-predict-append" ${bboxState.appendPredictions ? 'checked' : ''}><span class="slider round"></span></label>
+          </div>
+          <div class="config-group">
+            <label>批量预标注写回策略</label>
+            <select id="bbox-batch-write-mode">
+              <option value="skip_existing" ${bboxState.batchWriteMode === 'skip_existing' ? 'selected' : ''}>跳过已有标注</option>
+              <option value="overwrite" ${bboxState.batchWriteMode === 'overwrite' ? 'selected' : ''}>覆盖已有标注</option>
+              <option value="append" ${bboxState.batchWriteMode === 'append' ? 'selected' : ''}>追加到已有标注</option>
+            </select>
+            <p class="field-desc">只在你手动点击批量按钮后生效。默认只处理未标注图片。</p>
+          </div>
+        </div>
+        <div class="tool-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" type="button" onclick="refreshBBoxDataset()">载入图片列表</button>
+          <button class="btn btn-outline btn-sm" type="button" onclick="predictBBoxCurrent()">YOLO 预标注当前图</button>
+          <button class="btn btn-outline btn-sm" type="button" onclick="startBBoxBatchPredict()">YOLO 批量预标注整个目录</button>
+          <button class="btn btn-outline btn-sm" type="button" onclick="cancelBBoxBatchPredict()">取消批量任务</button>
+          <span id="bbox-status" style="font-size:0.9rem;color:var(--text-dim);"></span>
+        </div>
+        <div id="bbox-batch-job" style="margin-top:12px;"></div>
+      </section>
+      <section class="form-section">
+        <div style="display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr) minmax(260px,320px);gap:16px;align-items:start;">
+          <div>
+            <header class="section-header"><h3>图片列表</h3></header>
+            <div id="bbox-image-list" style="max-height:72vh;overflow:auto;"></div>
+          </div>
+          <div>
+            <header class="section-header"><h3>标注画布</h3></header>
+            <div id="bbox-viewer"></div>
+          </div>
+          <div>
+            <header class="section-header"><h3>检查与修正</h3></header>
+            <div id="bbox-inspector"></div>
+          </div>
+        </div>
+      </section>
+    `;
+    renderBBoxImageList();
+    renderBBoxInspector();
+    renderBBoxViewer();
+    renderBBoxClassControls();
+    renderBBoxBatchJobPanel();
+  }
 
   function renderTagger() {
     const content = $('#dataset-content');
@@ -1234,6 +2363,285 @@ llm_model: model,
       }
     }
 
+  // ========== Tag Manager Lite ==========
+  function renderTagManagerLite() {
+    const content = $('#dataset-content');
+    if (!content) return;
+    content.innerHTML = `
+      <section class="form-section">
+        <header class="section-header"><h3>Tag Manager Lite</h3></header>
+        <div class="section-summary">对整套 caption 做 alias、黑名单、批量替换，并预览 tag / caption 频率变化。只有点击应用后才会写回磁盘。</div>
+        <div class="section-content tool-fields">
+          <div class="config-group" style="grid-column:1/-1;">
+            <label>规则预设</label>
+            <p class="field-desc">预设保存在当前浏览器，只用于快速复用 Tag Manager Lite 规则。</p>
+            <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto auto auto;gap:8px;align-items:end;">
+              <input class="text-input" type="text" id="tagmanager-preset-name" placeholder="例如：统一风格清洗">
+              <select id="tagmanager-preset-select"></select>
+              <button class="btn btn-outline btn-sm" type="button" onclick="saveCurrentTagManagerPreset()">保存当前</button>
+              <button class="btn btn-outline btn-sm" type="button" onclick="applySavedTagManagerPreset()">载入预设</button>
+              <button class="btn btn-outline btn-sm" type="button" onclick="deleteSavedTagManagerPreset()">删除预设</button>
+            </div>
+          </div>
+          <div class="config-group" style="grid-column:1/-1;">
+            <label>数据集路径</label>
+            <div class="input-picker">
+              <button class="picker-icon" type="button" onclick="pickPathForInput('tagmanager-path', 'folder')">
+                <svg class="icon"><use href="#icon-folder"></use></svg>
+              </button>
+              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（train 目录）" onclick="openBuiltinPickerForInput('tagmanager-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+              <input class="text-input" type="text" id="tagmanager-path" placeholder="./train/your_dataset">
+            </div>
+          </div>
+          <div class="config-group">
+            <label>Caption 扩展名</label>
+            <input class="text-input" type="text" id="tagmanager-ext" value=".txt">
+          </div>
+          <div class="config-group">
+            <label>统计 Top 数量</label>
+            <input class="text-input" type="number" id="tagmanager-top" value="15" min="1" max="100">
+          </div>
+          <div class="config-group row boolean-card">
+            <div class="label-col"><label>递归处理子目录</label></div>
+            <label class="switch switch-compact"><input type="checkbox" id="tagmanager-recursive" checked><span class="slider round"></span></label>
+          </div>
+          <div class="config-group row boolean-card">
+            <div class="label-col"><label>去除重复标签</label></div>
+            <label class="switch switch-compact"><input type="checkbox" id="tagmanager-dedupe" checked><span class="slider round"></span></label>
+          </div>
+          <div class="config-group row boolean-card">
+            <div class="label-col"><label>标签排序</label></div>
+            <label class="switch switch-compact"><input type="checkbox" id="tagmanager-sort"><span class="slider round"></span></label>
+          </div>
+          <div class="config-group row boolean-card">
+            <div class="label-col"><label>应用前自动备份</label></div>
+            <label class="switch switch-compact"><input type="checkbox" id="tagmanager-backup" checked><span class="slider round"></span></label>
+          </div>
+          <div class="config-group">
+            <label>Alias 规则</label>
+            <p class="field-desc">一行一条，格式 <code>旧标签 =&gt; 新标签</code>，按完整标签精确匹配。</p>
+            <textarea class="text-input" id="tagmanager-alias" style="min-height:124px;width:100%;" placeholder="1girl => girl&#10;blue_hair => aqua hair"></textarea>
+          </div>
+          <div class="config-group">
+            <label>黑名单标签</label>
+            <p class="field-desc">一行一个，或使用逗号分隔。命中的完整标签会被移除。</p>
+            <textarea class="text-input" id="tagmanager-blacklist" style="min-height:124px;width:100%;" placeholder="signature&#10;watermark"></textarea>
+          </div>
+          <div class="config-group">
+            <label>批量替换</label>
+            <p class="field-desc">一行一条，格式 <code>搜索文本 =&gt; 替换文本</code>，会按顺序作用在整条 caption 文本上。</p>
+            <textarea class="text-input" id="tagmanager-replace-rules" style="min-height:124px;width:100%;" placeholder="blue hair => aqua hair&#10;low quality =>"></textarea>
+          </div>
+        </div>
+        <div class="tool-actions" style="display:flex;gap:8px;">
+          <button class="btn btn-outline btn-sm" type="button" onclick="runTagManagerPreview()">统计 / 预览</button>
+          <button class="btn btn-primary btn-sm" type="button" onclick="runTagManagerApply()">提交异步应用</button>
+        </div>
+        <div id="tagmanager-job" style="margin-top:12px;"></div>
+        <div id="tagmanager-result" style="margin-top:16px;"></div>
+      </section>
+    `;
+    refreshTagManagerPresetOptions();
+  }
+
+  function gatherTagManagerParams() {
+    return {
+      path: $('#tagmanager-path')?.value?.trim() || '',
+      caption_extension: $('#tagmanager-ext')?.value || '.txt',
+      recursive: $('#tagmanager-recursive')?.checked ?? true,
+      dedupe_tags: $('#tagmanager-dedupe')?.checked ?? true,
+      sort_tags: $('#tagmanager-sort')?.checked || false,
+      create_backup_before_apply: $('#tagmanager-backup')?.checked ?? true,
+      alias_map: $('#tagmanager-alias')?.value || '',
+      blacklist_tags: $('#tagmanager-blacklist')?.value || '',
+      bulk_replace_rules: $('#tagmanager-replace-rules')?.value || '',
+      stats_top_limit: Number($('#tagmanager-top')?.value || 15) || 15,
+      remove_parens: false,
+      collapse_whitespace: false,
+      replace_underscore: false,
+      max_tag_len: 0,
+    };
+  }
+
+  function renderTagManagerFrequencyRows(entries, fieldName) {
+    const rows = Array.isArray(entries) ? entries : [];
+    if (!rows.length) {
+      return '<span class="module-list-meta">暂无数据</span>';
+    }
+    return rows.map((entry) => {
+      const rawLabel = fieldName === 'caption' ? (entry.caption || '(空 caption)') : (entry.tag || '-');
+      const label = String(rawLabel || '');
+      const shortLabel = label.length > 96 ? `${label.slice(0, 96)}...` : label;
+      if (fieldName === 'tag') {
+        const encoded = encodeURIComponent(label);
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <span class="module-list-meta" title="${escapeHtml(label)}">${escapeHtml(shortLabel)} x ${entry.count ?? 0}</span>
+            <span style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-outline btn-sm btn-picker-action" type="button" onclick="appendTagManagerBlacklistFromStats('${encoded}')">黑名单</button>
+              <button class="btn btn-outline btn-sm btn-picker-action" type="button" onclick="appendTagManagerAliasSourceFromStats('${encoded}')">Alias</button>
+            </span>
+          </div>
+        `;
+      }
+      return `<span class="module-list-meta" title="${escapeHtml(label)}">${escapeHtml(shortLabel)} x ${entry.count ?? 0}</span>`;
+    }).join('');
+  }
+
+  function renderTagManagerPreviewResult(data) {
+    const result = $('#tagmanager-result');
+    if (!result) return;
+    const summary = data?.summary || {};
+    const rules = data?.rules || {};
+    const stats = data?.stats || {};
+    const beforeStats = stats.before || {};
+    const afterStats = stats.after || {};
+    const samples = data?.samples || [];
+    result.innerHTML = `
+      <div class="module-list">
+        <div class="module-list-item module-list-item-static">
+          <div class="module-list-main">
+            <strong>扫描文件: ${summary.total_file_count ?? '-'}</strong>
+            <span class="module-list-meta">将变更: ${summary.changed_file_count ?? '-'} | 无变化: ${summary.unchanged_file_count ?? '-'}</span>
+            <span class="module-list-meta">Alias: ${rules.alias_count ?? 0} | 黑名单: ${rules.blacklist_count ?? 0} | 批量替换: ${rules.bulk_replace_count ?? 0}</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:16px;">
+        <div class="module-list-item module-list-item-static" style="align-items:flex-start;">
+          <div class="module-list-main">
+            <strong>变更前统计</strong>
+            <span class="module-list-meta">有 caption: ${beforeStats.captioned_count ?? 0} | 空 caption: ${beforeStats.empty_count ?? 0}</span>
+            <span class="module-list-meta">唯一标签: ${beforeStats.unique_tag_count ?? 0} | 总标签量: ${beforeStats.total_tag_count ?? 0}</span>
+            <span class="module-list-meta">平均标签数: ${beforeStats.avg_tags_per_caption ?? 0} | 重复 caption: ${beforeStats.repeated_caption_count ?? 0}</span>
+          </div>
+        </div>
+        <div class="module-list-item module-list-item-static" style="align-items:flex-start;">
+          <div class="module-list-main">
+            <strong>变更后统计</strong>
+            <span class="module-list-meta">有 caption: ${afterStats.captioned_count ?? 0} | 空 caption: ${afterStats.empty_count ?? 0}</span>
+            <span class="module-list-meta">唯一标签: ${afterStats.unique_tag_count ?? 0} | 总标签量: ${afterStats.total_tag_count ?? 0}</span>
+            <span class="module-list-meta">平均标签数: ${afterStats.avg_tags_per_caption ?? 0} | 重复 caption: ${afterStats.repeated_caption_count ?? 0}</span>
+          </div>
+        </div>
+        <div class="module-list-item module-list-item-static" style="align-items:flex-start;">
+          <div class="module-list-main">
+            <strong>变更前 Top Tags</strong>
+            ${renderTagManagerFrequencyRows(beforeStats.top_tags || [], 'tag')}
+          </div>
+        </div>
+        <div class="module-list-item module-list-item-static" style="align-items:flex-start;">
+          <div class="module-list-main">
+            <strong>变更后 Top Tags</strong>
+            ${renderTagManagerFrequencyRows(afterStats.top_tags || [], 'tag')}
+          </div>
+        </div>
+        <div class="module-list-item module-list-item-static" style="align-items:flex-start;">
+          <div class="module-list-main">
+            <strong>变更前 Top Captions</strong>
+            ${renderTagManagerFrequencyRows(beforeStats.top_captions || [], 'caption')}
+          </div>
+        </div>
+        <div class="module-list-item module-list-item-static" style="align-items:flex-start;">
+          <div class="module-list-main">
+            <strong>变更后 Top Captions</strong>
+            ${renderTagManagerFrequencyRows(afterStats.top_captions || [], 'caption')}
+          </div>
+        </div>
+      </div>
+      <div class="module-list" style="margin-top:16px;">
+        ${samples.length
+          ? samples.map((sample) => `
+            <div class="module-list-item module-list-item-static">
+              <div class="module-list-main">
+                <strong>${escapeHtml(sample.file || '-')}</strong>
+                <span class="module-list-meta">前: ${escapeHtml(sample.before || '')}</span>
+                <span class="module-list-meta" style="color:var(--accent);">后: ${escapeHtml(sample.after || '')}</span>
+              </div>
+            </div>
+          `).join('')
+          : `
+            <div class="module-list-item module-list-item-static">
+              <div class="module-list-main">
+                <strong>没有发现需要改写的文件</strong>
+                <span class="module-list-meta">当前规则组合不会改动现有 caption。</span>
+              </div>
+            </div>
+          `}
+      </div>
+    `;
+  }
+
+  async function runTagManagerPreview() {
+    const params = gatherTagManagerParams();
+    if (!params.path) { showToast('请先填写数据集路径。'); return; }
+    const result = $('#tagmanager-result');
+    if (result) result.innerHTML = '<div class="builtin-picker-empty"><span>统计中...</span></div>';
+    try {
+      const response = await api.tagManagerLitePreview(params);
+      renderTagManagerPreviewResult(response?.data || {});
+    } catch (error) {
+      if (result) result.innerHTML = `<div class="builtin-picker-empty"><span>${escapeHtml(error.message || '预览失败')}</span></div>`;
+    }
+  }
+
+  async function runTagManagerApply() {
+    const params = gatherTagManagerParams();
+    if (!params.path) { showToast('请先填写数据集路径。'); return; }
+    const jobEl = $('#tagmanager-job');
+    if (jobEl) jobEl.innerHTML = '提交中...';
+    try {
+      const response = await api.tagManagerLiteStart(params);
+      const jobId = response?.data?.job_id;
+      const preview = response?.data?.preview;
+      if (preview) renderTagManagerPreviewResult(preview);
+      if (!jobId) throw new Error('未返回 job_id');
+      if (jobEl) jobEl.innerHTML = `标签管理任务已提交：${escapeHtml(jobId)}`;
+      showToast('Tag Manager Lite 任务已提交。');
+      pollTagManagerJob(jobId);
+    } catch (error) {
+      if (jobEl) jobEl.innerHTML = `<span style="color:#ef4444;">${escapeHtml(error.message || '提交失败')}</span>`;
+      showToast(error.message || 'Tag Manager Lite 提交失败。');
+    }
+  }
+
+  async function pollTagManagerJob(jobId) {
+    const jobEl = $('#tagmanager-job');
+    const result = $('#tagmanager-result');
+    const timer = setInterval(async () => {
+      try {
+        const data = await api.getJob(jobId);
+        if (jobEl) {
+          jobEl.innerHTML = `任务 ${escapeHtml(jobId)}: ${escapeHtml(data.status || 'pending')} ${(Math.round((data.progress || 0) * 100))}% <button class="btn btn-outline btn-sm" type="button" onclick="cancelTagManagerJob('${escapeHtml(jobId)}')">取消</button>`;
+        }
+        if (data.status === 'completed') {
+          clearInterval(timer);
+          const changed = data.metadata?.preview?.summary?.changed_file_count;
+          if (result && (!result.innerHTML || !result.innerHTML.trim())) {
+            result.innerHTML = `<div class="builtin-picker-empty"><span>批量改写完成${changed != null ? `，预估改动 ${changed} 个文件` : ''}。</span></div>`;
+          }
+          showToast('Tag Manager Lite 处理完成。');
+          runTagManagerPreview();
+        } else if (data.status === 'failed' || data.status === 'cancelled') {
+          clearInterval(timer);
+          if (result) result.innerHTML = `<div class="builtin-picker-empty"><span>${escapeHtml(data.error || data.status || '任务未完成')}</span></div>`;
+        }
+      } catch (error) {
+        clearInterval(timer);
+        if (jobEl) jobEl.innerHTML = `<span style="color:#ef4444;">${escapeHtml(error.message || '轮询失败')}</span>`;
+      }
+    }, 1200);
+  }
+
+  async function cancelTagManagerJob(jobId) {
+    try {
+      await api.cancelJob(jobId);
+      showToast('已请求取消标签管理任务。');
+    } catch (error) {
+      showToast(error.message || '取消失败。');
+    }
+  }
+
   // ========== Caption 备份==========
   function renderCaptionBackups() {
     const content = $('#dataset-content');
@@ -1405,6 +2813,20 @@ const result = $('#maskedloss-result');
     renderDataset,
     // actions（main.js 把它们挂到 window）
     switchDatasetTab,
+    refreshBBoxDataset,
+    openBBoxImageByIndex: (index) => loadBBoxImageByIndex(Number(index)),
+    saveBBoxCurrent,
+    predictBBoxCurrent,
+    startBBoxBatchPredict,
+    cancelBBoxBatchPredict,
+    deleteBBoxSelected,
+    undoBBoxLast,
+    clearBBoxBoxes,
+    selectBBoxIndex,
+    updateBBoxSelectedClass,
+    syncBBoxClassControls: renderBBoxClassControls,
+    openBBoxPrev,
+    openBBoxNext,
     runTagger,
     runLlmTagger,
     refreshTagEditorIframe,
@@ -1412,6 +2834,14 @@ const result = $('#maskedloss-result');
     runDatasetAnalysis,
     runCaptionCleanupPreview,
     runCaptionCleanupApply,
+    runTagManagerPreview,
+    runTagManagerApply,
+    cancelTagManagerJob,
+    saveCurrentTagManagerPreset,
+    applySavedTagManagerPreset,
+    deleteSavedTagManagerPreset,
+    appendTagManagerBlacklistFromStats,
+    appendTagManagerAliasSourceFromStats,
     createCaptionBackup,
     listCaptionBackups,
     restoreCaptionBackup,

@@ -1,9 +1,9 @@
 // actions/runtimeActions.js — 训练预检 + 运行环境刷新 actions
-//   runPreflight / refreshRuntime
+//   runPreflight / refreshRuntime / applyTrainingAdvisorPatch
 //
-// 依赖（工厂注入）：state, api, showToast, renderView, updateJSONPreview, buildRunConfig
+// 依赖（工厂注入）：state, api, showToast, renderView, updateJSONPreview, buildRunConfig, mergeConfigPatch, saveDraft
 
-export function createRuntimeActions({ state, api, showToast, renderView, updateJSONPreview, buildRunConfig }) {
+export function createRuntimeActions({ state, api, showToast, renderView, updateJSONPreview, buildRunConfig, mergeConfigPatch, saveDraft }) {
 async function runPreflight() {
     state.loading.preflight = true;
     updateJSONPreview();
@@ -51,6 +51,41 @@ async function runPreflight() {
     }
   }
 
+  function _collectAdvisorPatch() {
+    const advisor = state.preflight?.training_advisor || {};
+    const vramPatch = advisor.vram?.recommended_config_patch || {};
+    const aTierPatch = advisor.a_tier?.recommended_config_patch || {};
+    const patch = { ...vramPatch, ...aTierPatch };
+    Object.keys(patch).forEach((key) => {
+      if (key.startsWith('__') || patch[key] === undefined) delete patch[key];
+    });
+    return patch;
+  }
+
+  function applyTrainingAdvisorPatch() {
+    const patch = _collectAdvisorPatch();
+    const keys = Object.keys(patch);
+    if (!keys.length) {
+      showToast('当前 Advisor 没有可应用的配置建议。');
+      return;
+    }
+    const preview = keys.slice(0, 8).join(', ') + (keys.length > 8 ? '...' : '');
+    const ok = window.confirm('应用 Advisor 建议到当前配置草稿？\n\n将修改: ' + preview + '\n\n不会自动开始训练，建议应用后重新运行预检。');
+    if (!ok) return;
+    mergeConfigPatch(patch);
+    state.hasLocalDraft = true;
+    saveDraft();
+    state.preflight = null;
+    updateJSONPreview();
+    showToast('已应用 Advisor 建议，请重新运行训练预检。');
+    if (state.activeModule === 'config') {
+      renderView('config');
+    } else if (state.activeModule === 'training') {
+      state.trainSubTab = 'preflight';
+      renderView('training');
+    }
+  }
+
   async function refreshRuntime() {
     state.loading.runtime = true;
     updateJSONPreview();
@@ -71,5 +106,5 @@ async function runPreflight() {
     }
   }
 
-  return { runPreflight, refreshRuntime};
+  return { runPreflight, refreshRuntime, applyTrainingAdvisorPatch};
 }

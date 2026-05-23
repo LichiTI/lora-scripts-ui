@@ -51,6 +51,14 @@ export function createPickerActions({ state, api, showToast, renderView, renderB
   async function pickPathForInput(inputId, pickerType) {
     _showPickerOverlay();
     try {
+    // 后端 pick_file 只支持 folder / model-file / text-file
+      // 将 schema 中的扩展 pickerType 映射回后端支持的类型
+      const pickerMap = {
+        'output-folder': 'folder',
+        'output-model-file': 'model-file',
+      };
+      pickerType = pickerMap[pickerType] || pickerType;
+
       const response = await api.pickFile(pickerType, inputId);
       _hidePickerOverlay();
       if (response.status !== 'success') {
@@ -74,6 +82,13 @@ export function createPickerActions({ state, api, showToast, renderView, renderB
   async function pickPath(key, pickerType) {
     _showPickerOverlay();
     try {
+      // 后端 pick_file 只支持 folder / model-file / text-file
+      const pickerMap = {
+        'output-folder': 'folder',
+        'output-model-file': 'model-file',
+      };
+      pickerType = pickerMap[pickerType] || pickerType;
+
       const response = await api.pickFile(pickerType, key);
       _hidePickerOverlay();
       if (response.status !== 'success') {

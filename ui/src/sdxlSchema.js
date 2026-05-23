@@ -132,11 +132,11 @@ const S_LR = [
   { key: 'lr_scheduler_num_cycles', type: 'number', label: '重启次数（lr_scheduler_num_cycles）', desc: '重启次数', defaultValue: 1, min: 1, visibleWhen: when('lr_scheduler', 'cosine_with_restarts') },
   { key: 'optimizer_type', type: 'select', label: '优化器（optimizer_type）', desc: '优化器设置。pytorch_optimizer.* / bitsandbytes.optim.* 会按完整类路径传给后端', defaultValue: 'AdamW8bit', options: ALL_OPTIMIZERS },
   { key: 'min_snr_gamma', type: 'number', label: 'Min-SNR Gamma', desc: '最小信噪比伽马值, 如果启用推荐为 5', defaultValue: '', min: 0, step: 0.1 },
-  { key: 'prodigy_d0', type: 'string', label: 'Prodigy d0', desc: 'Prodigy 初始步长估计。留空使用默认值', defaultValue: '', visibleWhen: optimizerIs('prodigy') },
-  { key: 'prodigy_d_coef', type: 'string', label: 'Prodigy d_coef', desc: 'Prodigy d 系数，影响自适应学习率大小', defaultValue: '2.0', visibleWhen: optimizerIs('prodigy') },
+  { key: 'prodigy_d0', type: 'string', label: 'Prodigy d0', desc: 'Prodigy / ProdigyPlus 初始步长估计。留空使用默认值', defaultValue: '', visibleWhen: (cfg) => ['prodigy', 'prodigyplus.prodigyplusschedulefree'].includes(String(cfg.optimizer_type || '').trim().toLowerCase()) },
+  { key: 'prodigy_d_coef', type: 'string', label: 'Prodigy d_coef', desc: 'Prodigy / ProdigyPlus d 系数，影响自适应学习率大小', defaultValue: '2.0', visibleWhen: (cfg) => ['prodigy', 'prodigyplus.prodigyplusschedulefree'].includes(String(cfg.optimizer_type || '').trim().toLowerCase()) },
   { key: 'lr_scheduler_type', type: 'string', label: '自定义调度器类（lr_scheduler_type）', desc: '自定义学习率调度器类路径。填写后优先于上方调度器，如 torch.optim.lr_scheduler.CosineAnnealingLR', defaultValue: '' },
   { key: 'lr_scheduler_args', type: 'textarea', label: '自定义调度器参数（lr_scheduler_args）', desc: '自定义学习率调度器参数，一行一个 key=value', defaultValue: '' },
-  { key: 'optimizer_args_custom', type: 'textarea', label: '自定义 optimizer_args（optimizer_args_custom）', desc: '自定义优化器参数，每行一个 key=value（如 decouple=True）。Prodigy 默认已自动填充标准参数', defaultValue: '' },
+  { key: 'optimizer_args_custom', type: 'textarea', label: '自定义 optimizer_args（optimizer_args_custom）', desc: '自定义优化器参数，每行一个 key=value。Prodigy / ProdigyPlus 会自动填充常用参数，手填同名项会覆盖自动值', defaultValue: '' },
 ];
 const S_TRAIN = (epochs = 10) => [
   { key: 'train_length_mode', type: 'select', label: '训练长度模式（train_length_mode）', desc: '选择按最大轮数或最大步数控制训练结束', defaultValue: '最大轮数', options: ['最大轮数', '最大步数'] },
@@ -1723,7 +1723,7 @@ export function buildRunConfig(config, typeId) {
     payload.lr_scheduler = 'constant';
   }
 
-  // ── Prodigy / 自适应优化器 optimizer_args 自动组装 ──
+  // ── Prodigy / ProdigyPlus / 自适应优化器 optimizer_args 自动组装 ──
   // 旧前端会自动生成 optimizer_args = ["decouple=True", "weight_decay=0.01", ...]
   // 新前端需要在这里复现相同逻辑，否则 Prodigy 训练结果全是噪点
   const rawOptimizerType = String(payload.optimizer_type || '').trim();
@@ -1743,12 +1743,16 @@ export function buildRunConfig(config, typeId) {
   }
 
   const optimizerKey = String(payload.optimizer_type || '').trim().toLowerCase();
+  const isProdigy = optimizerKey === 'prodigy';
+  const isProdigyPlus = optimizerKey === 'prodigyplus.prodigyplusschedulefree';
   if (pluginOptimizerMatch) {
     // handled above
-  } else if (optimizerKey === 'prodigy') {
+  } else if (isProdigy || isProdigyPlus) {
     const optimArgs = [];
-    optimArgs.push('decouple=True');
-    optimArgs.push('weight_decay=0.01');
+    if (isProdigy) {
+      optimArgs.push('decouple=True');
+      optimArgs.push('weight_decay=0.01');
+    }
     optimArgs.push('use_bias_correction=True');
     const dCoef = String(payload.prodigy_d_coef || '2.0').trim();
     if (dCoef && dCoef !== '0') {

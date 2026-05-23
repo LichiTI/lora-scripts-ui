@@ -1,8 +1,4 @@
 // renderers/plugins.js — 插件中心渲染（运行时概览 + 列表 + Slot 注册表）
-// 依赖 pluginStore / loadPluginRuntime / getRegisteredSlots（来自 pluginHost.js）
-// 注意：渲染层只产出 HTML 与读取数据，actions（pluginToggleDevMode/pluginReloadAll/
-// pluginApprove/pluginRevoke/pluginShowAudit）仍挂在 main.js 的 window.* 上，模板字符串
-// 中的 onclick="pluginXxx(...)" 由 main.js 注入。
 
 import { escapeHtml, _ico } from '../utils/dom.js';
 
@@ -39,7 +35,7 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
     if (pluginStore.error) {
       el.innerHTML = '<section class="form-section">'
         + '<div class="section-content" style="display:block;">'
-+ '<div class="plugin-offline-banner">'
+        + '<div class="plugin-offline-banner">'
         + _ico('alert-tri', 16) + ' 插件服务不可用'
         + '<p style="margin:8px 0 0;font-size:0.78rem;color:var(--text-muted);">' + escapeHtml(pluginStore.error) + '</p>'
         + '<p style="margin:4px 0 0;font-size:0.72rem;color:var(--text-dim);">后端可能尚未启用插件系统，或接口未就绪。这不影响正常训练功能。</p>'
@@ -57,8 +53,6 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
     }
 
     var html = '';
-
-    //── 全局状态概览 ──
     var devMode = rt.developer_mode;
     var orch = (rt.orchestrator && typeof rt.orchestrator === 'object') ? rt.orchestrator : {};
     var plugins = [];
@@ -102,25 +96,21 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
       + '</div>'
       + '</div></section>';
 
-    // ── 插件列表 ──
     html += '<section class="form-section">'
       + '<header class="section-header"><h3>' + _ico('package', 16) + ' 插件列表 (' + plugins.length + ')</h3></header>'
       + '<div class="section-content" style="display:block;">';
 
-    if (plugins.length ===0) {
+    if (plugins.length === 0) {
       html += '<p style="color:var(--text-muted);padding:12px 0;">暂无已安装的插件</p>';
     } else {
       html += '<div class="plugin-list">';
       for (var i = 0; i < plugins.length; i++) {
-        var p = plugins[i];
-        html += _renderPluginCard(p, pytorchOptimizerSettings);
+        html += _renderPluginCard(plugins[i], pytorchOptimizerSettings);
       }
       html += '</div>';
     }
-
     html += '</div></section>';
 
-    // ── Slot 注册表 ──
     var slots = getRegisteredSlots();
     html += '<section class="form-section">'
       + '<header class="section-header"><h3>' + _ico('layout', 16) + ' UI 扩展挂载点</h3></header>'
@@ -132,13 +122,10 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
         + '<code>' + escapeHtml(sl.id) + '</code>'
         + '<span class="plugin-slot-label">' + escapeHtml(sl.label) + '</span>'
         + '<span class="plugin-slot-count">' + sl.contributionCount + ' 个贡献</span>'
-+ '</div>';
+        + '</div>';
     }
     html += '</div></div></section>';
-
-    // ── 审计日志面板（默认隐藏）──
     html += '<div id="plugin-audit-panel" style="display:none;"></div>';
-
     el.innerHTML = html;
   }
 
@@ -176,39 +163,31 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
   function _formatPluginHook(hook) {
     if (typeof hook === 'string') return hook;
     if (!hook || typeof hook !== 'object') return '';
-
     var eventName = String(hook.event || hook.name || hook.id || '').trim();
     var handlerName = String(hook.handler || '').trim();
     var trainingTypes = Array.isArray(hook.training_types)
       ? hook.training_types.map(function(item) { return String(item || '').trim();}).filter(Boolean)
       : [];
     var details = [];
-
     if (handlerName) details.push(handlerName);
     if (trainingTypes.length > 0) details.push(trainingTypes.join('/'));
-    if (hook.mutable === true ||hook.runtime_mutable === true) details.push('mutable');
-
+    if (hook.mutable === true || hook.runtime_mutable === true) details.push('mutable');
     if (!eventName) {
       if (details.length > 0) return details.join(' · ');
-      try {
-        return JSON.stringify(hook);
-      } catch (err) {
-        return String(hook);
-      }
+      try { return JSON.stringify(hook); } catch (err) { return String(hook); }
     }
-
     return eventName + (details.length > 0 ? ' · ' + details.join(' · ') : '');
   }
 
   function _collectPluginTrustTags(p) {
-    var policy =(p && p.policy && typeof p.policy === 'object') ? p.policy : {};
+    var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
     var signature = (p && p.signature && typeof p.signature === 'object') ? p.signature : {};
     var approval = (p && p.approval && typeof p.approval === 'object') ? p.approval : {};
     var trust = (p && p.trust && typeof p.trust === 'object') ? p.trust : {};
-  var tags = [];
+    var tags = [];
 
     var signatureScheme = String(signature.scheme || '').trim().toLowerCase();
-  var signatureSigner = String(signature.signer || '').trim();
+    var signatureSigner = String(signature.signer || '').trim();
     if (signature.ok === true && signatureScheme && signatureScheme !== 'none') {
       tags.push(_ico('shield', 10) + ' 签名通过' + (signatureSigner ? ' · ' + escapeHtml(signatureSigner) : ''));
     } else if (signature.ok === false) {
@@ -234,7 +213,6 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
         tags.push(_ico('alert-tri', 10) + ' 社区核验未通过' + (trust.reason ? ' · ' + escapeHtml(_pluginReasonLabel(trust.reason)) : ''));
       }
     }
-
     return tags;
   }
 
@@ -243,16 +221,14 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
     var payload = entry.payload && typeof entry.payload === 'object' ? entry.payload : null;
     var parts = [];
     var pluginId = String(entry.plugin_id || '').trim();
-
     if (pluginId) parts.push(pluginId);
     if (!payload) return parts.join(' — ');
-
     var payloadMessage = '';
     if (typeof payload.message === 'string' && payload.message.trim()) {
       payloadMessage = payload.message.trim();
     } else if (typeof payload.reason === 'string' && payload.reason.trim()) {
       payloadMessage = _pluginReasonLabel(payload.reason);
-    } else if (typeof payload.error=== 'string' && payload.error.trim()) {
+    } else if (typeof payload.error === 'string' && payload.error.trim()) {
       payloadMessage = payload.error.trim();
     } else if (Array.isArray(payload.missing_capabilities) && payload.missing_capabilities.length > 0) {
       payloadMessage = '缺少能力: ' + payload.missing_capabilities.join(', ');
@@ -260,13 +236,12 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
       payloadMessage = '能力: ' + payload.capabilities.join(', ');
     } else {
       try {
-    var serialized = JSON.stringify(payload);
+        var serialized = JSON.stringify(payload);
         if (serialized && serialized !== '{}') payloadMessage = serialized;
       } catch (err) {
         payloadMessage = String(payload);
       }
     }
-
     if (payloadMessage) parts.push(payloadMessage);
     return parts.join(' — ');
   }
@@ -274,10 +249,10 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
   function _renderPluginCard(p, pytorchOptimizerSettings) {
     var isLoaded = p.loaded === true || p.active === true;
     var loadError = p.load_error || p.error || '';
-    var statusColor = isLoaded ? '#22c55e' : (loadError ? '#ef4444': 'var(--text-muted)');
+    var statusColor = isLoaded ? '#22c55e' : (loadError ? '#ef4444' : 'var(--text-muted)');
     var statusText = isLoaded ? '已加载' : (loadError ? '加载失败' : '未加载');
     var statusDot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + statusColor + ';"></span>';
-var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
+    var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
     var approval = (p && p.approval && typeof p.approval === 'object') ? p.approval : {};
     var requiresApproval = policy.requires_user_approval === true;
     var approvalRecord = approval.record && typeof approval.record === 'object' ? approval.record : null;
@@ -285,7 +260,6 @@ var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
     var canApprove = requiresApproval && !approvalGranted;
     var canRevoke = approvalGranted;
     var actionPluginId = _pluginOnClickArg(p.plugin_id);
-
     var tierBadge = '';
     if (p.tier != null) {
       var tierColors = { 0: '#22c55e', 1: '#3b82f6', 2: '#f59e0b', 3: '#ef4444' };
@@ -308,15 +282,12 @@ var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
     if (canRevoke) {
       html += '<button class="btn btn-outline btn-sm" style="font-size:0.7rem;padding:2px 8px;" type="button" onclick="pluginRevoke(' + actionPluginId + ')">撤销审批</button>';
     }
-
     html += '</div></div>';
 
-    // 描述
     if (p.description) {
-      html += '<div class="plugin-card-desc">' + escapeHtml(p.description) +'</div>';
+      html += '<div class="plugin-card-desc">' + escapeHtml(p.description) + '</div>';
     }
 
-    // 详情
     html += '<div class="plugin-card-meta">';
     html += '<span>ID: <code>' + escapeHtml(p.plugin_id) + '</code></span>';
     html += '<span>状态: <span style="color:' + statusColor + ';font-weight:600;">' + statusText + '</span></span>';
@@ -324,12 +295,10 @@ var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
     if (p.execution_allowed != null) html += '<span>' + (p.execution_allowed ? '✓ 已授权执行' : '✗ 未授权') + '</span>';
     html += '</div>';
 
-    // 加载错误
-    if (loadError){
+    if (loadError) {
       html += '<div class="plugin-card-error">' + _ico('x-circle', 12) + ' ' + escapeHtml(loadError) + '</div>';
     }
 
-    // Capabilities
     if (p.capabilities && p.capabilities.length > 0) {
       html += '<div class="plugin-card-tags"><span class="plugin-tag-label">能力:</span>';
       for (var c = 0; c < p.capabilities.length; c++) {
@@ -338,7 +307,6 @@ var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
       html += '</div>';
     }
 
-    // Hooks
     var hooks = Array.isArray(p.registered_hooks) && p.registered_hooks.length > 0
       ? p.registered_hooks
       : (Array.isArray(p.hooks) ? p.hooks : []);
@@ -352,7 +320,6 @@ var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
       html += '</div>';
     }
 
-    // Trust / Approval
     var trustTags = _collectPluginTrustTags(p);
     if (trustTags.length > 0) {
       html += '<div class="plugin-card-tags"><span class="plugin-tag-label">信任:</span>';

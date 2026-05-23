@@ -24,3 +24,7 @@ venv/
 # Project specific
 /ui/saved_params
 ui/task_history.json
+/.repowise
+/.claude
+.mcp.json
+

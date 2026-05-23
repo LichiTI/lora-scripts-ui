@@ -18,7 +18,7 @@ export function renderTurboCore(container) {
         <header class="section-header"><h3>${_ico('activity', 16)} 路线状态</h3></header>
         <div class="section-content" style="display:block;">
           <div class="turbocore-grid">
-            ${_card('CUDA-Rust Bridge', '先期支持', '为后续老黄 CUDA-Rust 生态推进预留接入层。')}
+            ${_card('CUDA-Rust Bridge', '先期支持', '为后续 CUDA-Rust 生态推进预留接入层。')}
             ${_card('Attention Kernels', '规划迁移', '后续可将部分 attention 算子切到 Rust/CUDA 后端。')}
             ${_card('Manager Rewrite', '预留入口', '现存训练/资源管理器未来可逐步迁移到自研 Rust 实现。')}
             ${_card('PyTorch Fallback', '保持兼容', '后端未接入时 UI 仍可打开，仅显示占位和探测信息。')}
