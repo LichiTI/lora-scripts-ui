@@ -72,6 +72,86 @@ export function createPreflightRenderer({ state, deps }) {
     }
   }
 
+
+  function _advisorModuleTag(label, moduleState) {
+    var enabled = !!(moduleState && (moduleState.enabled || moduleState.status === 'covered_by_module_offload'));
+    return _pfTag(label, enabled ? '已配置' : '未启用', enabled ? 'ok' : '');
+  }
+
+  function _advisorResearchTag(label, moduleState) {
+    if (!moduleState) return _pfTag(label, '未知', 'warn');
+    var requested = !!(moduleState.requested || moduleState.enabled);
+    var status = String(moduleState.status || '');
+    var value = '未启用';
+    var tone = '';
+    if (requested && status === 'manual_experimental') {
+      value = '实验启用';
+      tone = 'warn';
+    } else if (requested && status === 'partial_experimental') {
+      value = '实验请求';
+      tone = 'warn';
+    } else if (requested) {
+      value = '研究请求';
+      tone = 'warn';
+    } else if (status === 'available_manual') {
+      value = '可手动启用';
+    } else if (status === 'partial_experimental') {
+      value = '部分接线';
+      tone = 'warn';
+    }
+    return _pfTag(label, value, tone);
+  }
+
+  function _renderAdvisorSummary(advisor) {
+    if (!advisor || !advisor.available) return '';
+    var summary = advisor.summary || {};
+    var aTier = advisor.a_tier || {};
+    var bTier = advisor.b_tier || {};
+    var modules = aTier.modules || {};
+    var bModules = bTier.modules || {};
+    var findings = advisor.findings || [];
+    var vram = advisor.vram || {};
+    var dataset = advisor.dataset || {};
+    var patch = { ...(vram.recommended_config_patch || {}), ...(aTier.recommended_config_patch || {}) };
+    var patchKeys = Object.keys(patch).filter(function(k) { return !k.startsWith('__') && patch[k] !== undefined; });
+    var html = '<details class="preflight-group collapsible-subgroup" style="margin-top:8px;">';
+    html += '<summary class="preflight-group-title">' + _ico('activity', 14) + ' 训练 Advisor（S/A/B 级）<span class="collapsible-caret" aria-hidden="true">⌄</span></summary>';
+    html += '<div class="preflight-dataset-grid">';
+    html += _pfTag('状态', summary.status || 'ok', summary.status === 'error' ? 'err' : (summary.status === 'warning' ? 'warn' : 'ok'));
+    html += _pfTag('发现项', findings.length || summary.finding_count || 0);
+    if (vram.estimated_gb != null) html += _pfTag('估算显存', vram.estimated_gb + ' GB', vram.safety === 'danger' ? 'err' : (vram.safety === 'tight' ? 'warn' : ''));
+    if (dataset.image_count != null) html += _pfTag('Advisor图片', dataset.image_count || 0);
+    html += _advisorModuleTag('Vortex融合', modules.memory_vortex_fusion);
+    html += _advisorModuleTag('Block Weight', modules.block_weight);
+    html += _advisorModuleTag('Smart Rank', modules.smart_rank);
+    html += _advisorModuleTag('Auto Controller', modules.auto_controller);
+    html += _advisorModuleTag('EMA', modules.ema);
+    html += _advisorModuleTag('Masked Loss', modules.masked_loss);
+    html += _advisorModuleTag('Smart Caption', modules.smart_caption);
+    html += _advisorModuleTag('Bucket', modules.dataset_bucket);
+    html += _advisorResearchTag('Hutchinson', bModules.hutchinson_scan);
+    html += _advisorResearchTag('PCGrad', bModules.pcgrad);
+    html += _advisorResearchTag('Ghost Replay', bModules.ghost_replay);
+    html += _advisorResearchTag('Geometric Lock', bModules.manifold_constraint);
+    html += '</div>';
+    if (patchKeys.length) {
+      html += '<div class="preflight-item preflight-note">建议修改: ' + escapeHtml(patchKeys.slice(0, 8).join(', ') + (patchKeys.length > 8 ? '...' : '')) + '</div>';
+      html += '<button class="btn btn-outline btn-sm" type="button" onclick="applyTrainingAdvisorPatch()" style="margin-top:8px;">' + _ico('check-circle', 14) + ' 手动应用 Advisor 建议</button>';
+    }
+    if (aTier.notes && aTier.notes.length) {
+      aTier.notes.slice(0, 4).forEach(function(n) {
+        html += '<div class="preflight-item preflight-note">' + escapeHtml(n) + '</div>';
+      });
+    }
+    if (bTier.notes && bTier.notes.length) {
+      bTier.notes.slice(0, 4).forEach(function(n) {
+        html += '<div class="preflight-item preflight-note">' + escapeHtml(n) + '</div>';
+      });
+    }
+    html += '<div class="preflight-item preflight-note">Advisor 只生成报告；只有点击上方按钮才会写入当前配置草稿，不会自动开始训练。</div>';
+    html += '</details>';
+    return html;
+  }
   function renderPreflightReport() {
     const pf = state.preflight;
     if (!pf) return '';
@@ -81,8 +161,9 @@ export function createPreflightRenderer({ state, deps }) {
     const notes = pf.notes || [];
     const ds = pf.dataset;
     const deps = pf.dependencies;
+    const advisor = pf.training_advisor;
 
-    if (errors.length === 0 && warnings.length === 0 && notes.length === 0 && !ds) {
+    if (errors.length === 0 && warnings.length === 0 && notes.length === 0 && !ds && !advisor) {
       return '';
     }
 
@@ -152,6 +233,8 @@ export function createPreflightRenderer({ state, deps }) {
         html += '</div>';
       }
     }
+
+    html += _renderAdvisorSummary(advisor);
 
     // 提示信息（保留可折叠）
     if (notes.length > 0) {

@@ -53,7 +53,7 @@ export function createWizardRenderer({ state, updateConfigValue, getFieldDefinit
     var lokrVisible = (c.network_module === 'lycoris.kohya' && c.lycoris_algo === 'lokr') ? '' :'display:none;';
 
     //优化器选项
-    var optimizers = getFieldDefinition?.('optimizer_type', state.activeTrainingType)?.options || ['AdamW8bit', 'prodigy', 'AdamW'];
+    var optimizers = getFieldDefinition?.('optimizer_type', state.activeTrainingType)?.options || ['AdamW8bit', 'Prodigy', 'prodigyplus.ProdigyPlusScheduleFree', 'AdamW'];
     var optSelect = optimizers.map(function(o) {
       return '<option value="' + o + '"' + (c.optimizer_type === o ? ' selected' : '') + '>' + o + '</option>';
     }).join('');

@@ -15,6 +15,31 @@
 import { escapeHtml } from '../utils/dom.js';
 
 export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVisible, COLLAPSIBLE_FIELD_KEYS }) {
+  function renderGhostReplayHelperCard() {
+    if (!state.config.lulynx_ghost_replay) {
+      return '';
+    }
+    const recorderState = state.ghostReplayRecorder || {};
+    const statusText = recorderState.running
+      ? `后台预蒸馏进行中${recorderState.jobProgressText ? ` · ${recorderState.jobProgressText}` : ''}`
+      : recorderState.lastOutputPath
+        ? `最近输出：${escapeHtml(recorderState.lastOutputPath)}`
+        : '生成后的 .lulynx 指纹会自动回填到 Ghost 指纹路径。';
+    return `
+      <div class="ghost-replay-helper-card">
+        <div class="ghost-replay-helper-copy">
+          <strong>预蒸馏</strong>
+          <span>${escapeHtml(statusText)}</span>
+        </div>
+        <div class="ghost-replay-helper-actions">
+          <button class="btn btn-outline btn-sm" type="button" onclick="openGhostReplayRecorderModal()">
+            ${recorderState.running ? '查看进度' : '打开预蒸馏窗口'}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   function renderFieldDescription(field) {
     const normal = field.desc ? `<p class="field-desc">${escapeHtml(field.desc || '')}</p>` : '';
     const important = field.importantDesc ? `<p class="field-desc field-desc-strong">${escapeHtml(field.importantDesc || '')}</p>` : '';
@@ -546,6 +571,11 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
             : section.id === 'training-settings'
               ? renderTrainingSettingsContent(fields)
         : fields.map((field) => renderField(field)).join('');
+    const showGhostReplayHelper = !!(
+      state.config.lulynx_ghost_replay
+      && fields.some((field) => String(field.key || '').startsWith('lulynx_ghost_'))
+    );
+    const contentWithHelpers = content + (showGhostReplayHelper ? renderGhostReplayHelperCard() : '');
 
     if (section.id === 'data-aug-settings' || section.id === 'noise-settings' || section.id === 'validation-settings') {
       const panelClass = section.id === 'noise-settings'
@@ -576,7 +606,7 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
             </span>
           </summary>
           <div class="section-summary">${escapeHtml(sectionDescription)}</div>
-          <div class="section-content">${content}</div>
+          <div class="section-content">${contentWithHelpers}</div>
         </details>
       `;
     }
@@ -588,7 +618,7 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
           <span class="section-meta">${realFieldCount} 项参数</span>
         </header>
         <div class="section-summary">${escapeHtml(sectionDescription)}</div>
-        <div class="section-content">${content}</div>
+        <div class="section-content">${contentWithHelpers}</div>
       </section>
     `;
   }

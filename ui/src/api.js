@@ -24,7 +24,7 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(payload?.message || `请求失败：${response.status}`);
+    throw new Error(payload?.detail || payload?.message || `请求失败：${response.status}`);
   }
 
   return payload;
@@ -116,15 +116,15 @@ export const api = {
   },
 
   pickFile(type, context = '') {
-    let url = `/api/pick_file?picker_type=${encodeURIComponent(type || '')}`;
-    if (context) url += `&context=${encodeURIComponent(context)}`;
-    return request(url);
+    const params = [`picker_type=${encodeURIComponent(type)}`];
+    if (context) params.push(`context=${encodeURIComponent(context)}`);
+    return request(`/api/pick_file?${params.join('&')}`);
   },
 
   getBuiltinPicker(type, context = '') {
-    var url = '/api/builtin_picker?picker_type=' + encodeURIComponent(type || '');
-    if (context) url += '&context=' + encodeURIComponent(context);
-    return request(url);
+    const params = [`picker_type=${encodeURIComponent(type)}`];
+    if (context) params.push(`context=${encodeURIComponent(context)}`);
+    return request(`/api/builtin_picker?${params.join('&')}`);
   },
 
 
@@ -141,7 +141,7 @@ export const api = {
   },
 
   deleteSavedConfig(name) {
-    return request(`/api/saved_configs/delete?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
+    return request(`/api/saved_configs/delete?name=${encodeURIComponent(name)}`);
   },
 
   renameSavedConfig(oldName, newName) {
@@ -151,6 +151,14 @@ export const api = {
 
   runScript(params) {
     return postJson('/api/run_script', params);
+  },
+
+  runCoreTool(endpoint, params) {
+    return postJson(endpoint, params);
+  },
+
+  startGhostReplayRecord(params) {
+    return postJson('/api/tools/ghost-replay/record', params);
   },
 
   runPreflight(config) {
@@ -167,18 +175,6 @@ export const api = {
 
   getLogDetail(dir) {
     return request(`/api/log_detail?dir=${encodeURIComponent(dir)}`);
-  },
-
-  getTensorBoardStatus(logdir = '') {
-    return request('/api/tensorboard/status' + (logdir ? '?logdir=' + encodeURIComponent(logdir) : ''));
-  },
-
-  startTensorBoard(logdir = '', port = 6006) {
-    return postJson('/api/tensorboard/start', { log_dir: logdir, port });
-  },
-
-  stopTensorBoard() {
-    return postJson('/api/tensorboard/stop', {});
   },
 
   runInterrogate(params) {
@@ -216,6 +212,22 @@ export const api = {
   },
   runTraining(config) {
     return postJson('/api/run', config);
+  },
+
+  getTensorBoardStatus(logdir = '') {
+    const q = logdir ? `?logdir=${encodeURIComponent(logdir)}` : '';
+    return request(`/api/tensorboard/status${q}`);
+  },
+
+  startTensorBoard(logdir, port = 6006) {
+    return postJson('/api/tensorboard/start', {
+      logdir,
+      port,
+    });
+  },
+
+  stopTensorBoard() {
+    return postJson('/api/tensorboard/stop', {});
   },
 
   // === 新增接口 ===
@@ -310,6 +322,36 @@ export const api = {
     return postJson('/api/dataset/masked_loss_audit', params);
   },
 
+  /** BBox 标注 - 图片列表 */
+  listBBoxImages(params) {
+    return postJson('/api/dataset/bbox/list', params);
+  },
+
+  /** BBox 标注 - 读取单张图片标注 */
+  readBBoxAnnotation(params) {
+    return postJson('/api/dataset/bbox/read', params);
+  },
+
+  /** BBox 标注 - 保存单张图片标注 */
+  saveBBoxAnnotation(params) {
+    return postJson('/api/dataset/bbox/save', params);
+  },
+
+  /** BBox 标注 - 当前图模型预标注 */
+  predictBBoxAnnotation(params) {
+    return postJson('/api/dataset/bbox/predict', params);
+  },
+
+  /** BBox 标注 - 整目录批量预标注 */
+  startBBoxBatchPredict(params) {
+    return postJson('/api/dataset/bbox/predict_batch/start', params);
+  },
+
+  /** BBox 标注 - 图片预览地址 */
+  getBBoxImageUrl(path) {
+    return `/api/dataset/bbox/image?path=${encodeURIComponent(path || '')}`;
+  },
+
   /** Caption 清洗 - 预览 */
   captionCleanupPreview(params) {
     return postJson('/api/captions/cleanup/preview', params);
@@ -323,6 +365,16 @@ export const api = {
   /** Caption 清洗 - 提交异步任务 */
   captionCleanupStart(params) {
     return postJson('/api/captions/cleanup/start', params);
+  },
+
+  /** Tag Manager Lite - 预览与统计 */
+  tagManagerLitePreview(params) {
+    return postJson('/api/captions/tag_manager/preview', params);
+  },
+
+  /** Tag Manager Lite - 提交异步任务 */
+  tagManagerLiteStart(params) {
+    return postJson('/api/captions/tag_manager/start', params);
   },
 
   /** Caption 备份 - 创建 */
@@ -360,11 +412,6 @@ export const api = {
     return request('/api/config/summary');
   },
 
-  /** 获取当前后端实际支持的配置选项 */
-  getConfigOptions() {
-    return request('/api/config/options');
-  },
-
   /** 获取训练任务输出日志 */
   getTaskOutput(taskId, tail = 100) {
     return request(`/api/task_output/${taskId}?tail=${tail}`);
@@ -378,6 +425,11 @@ export const api = {
   /** 系统资源监控 (GPU VRAM + CPU + RAM) */
   getSystemMonitor() {
     return request('/api/system_monitor');
+  },
+
+  /** 切换当前启用的 UI */
+  activateUiProfile(profileId) {
+    return postJson('/api/ui_profiles/activate', { profile_id: profileId });
   },
 
   /** 列出数据集文件夹中的图片 */
@@ -428,14 +480,15 @@ export const api = {
     return request('/api/plugins/audit' + (limit ? '?limit=' + limit : ''));
   },
 
-  /** 获取单个插件的可编辑设置 */
   getPluginSettings(pluginId) {
     return request(`/api/plugins/${encodeURIComponent(pluginId)}/settings`);
   },
 
-  /** 保存单个插件的可编辑设置 */
-  savePluginSettings(pluginId, settings) {
-    return postJson(`/api/plugins/${encodeURIComponent(pluginId)}/settings`, { settings, updated_by: 'ui_user' });
+  savePluginSettings(pluginId, settings, updatedBy = 'ui-user') {
+    return postJson(`/api/plugins/${encodeURIComponent(pluginId)}/settings`, {
+      settings,
+      updated_by: updatedBy,
+    });
   },
 
 };

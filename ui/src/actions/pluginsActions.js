@@ -114,14 +114,18 @@ export function createPluginsActions({
     const visible = Array.from(document.querySelectorAll('.po-visible-optimizer:checked'))
       .map((el) => String(el.value || '').trim())
       .filter(Boolean);
-    var result = await savePluginSettings(pluginId, {
+
+    const result = await savePluginSettings(pluginId, {
       expose_all_optimizers: exposeAll,
       visible_optimizers: visible,
     });
-    if (result.ok === false) {
-      showToast('⚠ 保存插件设置失败: ' + (result.error || '未知错误'));
+    if (result?.success === false || result?.ok === false) {
+      showToast('⚠ 保存插件设置失败: ' + (result?.error || '未知错误'));
       return;
     }
+
+    const nextVisible = exposeAll ? [] : visible.map((name) => `pytorch_optimizer.${name}`);
+    localStorage.setItem('sd-rescripts:visible-optimizers', JSON.stringify(nextVisible));
     showToast('✓ PyTorch Optimizer 插件设置已保存');
     await window.refreshBackendConfigOptions?.();
     _loadAndRenderPlugins();
@@ -129,14 +133,21 @@ export function createPluginsActions({
 
   async function pluginResetPytorchOptimizerSettings() {
     const pluginId = 'lulynx.optimizer.pytorch_optimizer';
-    var resp = await getPluginSettings(pluginId);
-    var payload = resp?.data || resp || {};
-    var defaults = payload.defaults || {};
-    var result = await savePluginSettings(pluginId, defaults);
-    if (result.ok === false) {
-      showToast('⚠ 重置插件设置失败: ' + (result.error || '未知错误'));
+    const resp = await getPluginSettings(pluginId);
+    const payload = resp?.data || resp || {};
+    const defaults = payload.defaults || {};
+    const result = await savePluginSettings(pluginId, defaults);
+    if (result?.success === false || result?.ok === false) {
+      showToast('⚠ 重置插件设置失败: ' + (result?.error || '未知错误'));
       return;
     }
+
+    const defaultVisible = defaults.expose_all_optimizers === true
+      ? []
+      : Array.isArray(defaults.visible_optimizers)
+      ? defaults.visible_optimizers.map((name) => `pytorch_optimizer.${name}`)
+      : [];
+    localStorage.setItem('sd-rescripts:visible-optimizers', JSON.stringify(defaultVisible));
     showToast('✓ 已恢复 PyTorch Optimizer 插件默认设置');
     await window.refreshBackendConfigOptions?.();
     _loadAndRenderPlugins();

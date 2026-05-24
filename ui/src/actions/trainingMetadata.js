@@ -77,6 +77,7 @@ export function createTrainingMetadataActions({
     state.trainingMetrics ={
       speeds: [], losses: [], epochs: [],
       startTime: null, lastStep: 0, totalSteps: 0,
+      bTier: null, ghostReplay: null,
     };
     _resetTrainingLogCursor();
     state.trainingSummary = null;

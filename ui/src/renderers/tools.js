@@ -5,8 +5,176 @@
 import { $, escapeHtml } from '../utils/dom.js';
 
 export function createToolsRenderer({ state, renderSlot }) {
+  const PRUNER_BLOCKS = ['TE1', 'TE2', 'IN00', 'IN01', 'IN02', 'IN03', 'IN04', 'IN05', 'IN06', 'IN07', 'IN08', 'M00', 'OUT00', 'OUT01', 'OUT02', 'OUT03', 'OUT04', 'OUT05', 'OUT06', 'OUT07', 'OUT08'];
+  const PRUNER_GROUPS = [
+    { label: 'TE', blocks: ['TE1', 'TE2'] },
+    { label: 'IN', blocks: ['IN00', 'IN01', 'IN02', 'IN03', 'IN04', 'IN05', 'IN06', 'IN07', 'IN08'] },
+    { label: 'MID', blocks: ['M00'] },
+    { label: 'OUT', blocks: ['OUT00', 'OUT01', 'OUT02', 'OUT03', 'OUT04', 'OUT05', 'OUT06', 'OUT07', 'OUT08'] },
+  ];
+
   function renderTools(container) {
     const tools = [
+      {
+        id: 'core_lora_analyze',
+        title: 'LoRA Analyzer / XRay',
+        desc: '读取 LoRA 权重结构、rank、RMS、稀疏度、异常层和 block 分布。',
+        group: 'LoRA XRay',
+        icon: '🔎',
+        endpoint: '/api/tools/lora/analyze',
+        fields: [
+          { key: 'file_path', label: 'LoRA 文件路径', type: 'text', placeholder: './output/my_lora.safetensors' },
+        ],
+      },
+      {
+        id: 'core_lora_block_analyze',
+        title: 'LoRA Block XRay',
+        desc: '按 IN/MID/OUT/TE 区块统计 LoRA 作用强度，适合做剪枝和 block weight 判断。',
+        group: 'LoRA XRay',
+        icon: '📊',
+        endpoint: '/api/tools/lora/block-analyze',
+        fields: [
+          { key: 'path', label: 'LoRA 文件路径', type: 'text', placeholder: './output/my_lora.safetensors' },
+        ],
+      },
+      {
+        id: 'core_lora_prune',
+        title: 'LoRA Pruner',
+        desc: '按区块保留或移除 LoRA 张量，生成新的 safetensors。默认不覆盖源文件。',
+        group: 'LoRA XRay',
+        icon: '✂',
+        endpoint: '/api/tools/lora/prune',
+        fields: [
+          { key: 'path', label: 'LoRA 文件路径', type: 'text', placeholder: './output/my_lora.safetensors' },
+          { key: 'output_path', label: '输出路径', type: 'text', placeholder: './output/my_lora_pruned.safetensors' },
+          { key: 'keep_blocks', label: '保留区块（逗号分隔）', type: 'text', placeholder: 'IN00,IN01,M00,OUT08' },
+          { key: 'drop_blocks', label: '移除区块（逗号分隔）', type: 'text', placeholder: 'TE1,TE2' },
+        ],
+        presets: [
+          { name: '保留角色', keep: 'TE1,TE2,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,M00,OUT00,OUT01,OUT02', drop: '' },
+          { name: '保留风格', keep: 'M00,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08', drop: '' },
+          { name: '只留输出', keep: 'OUT04,OUT05,OUT06,OUT07,OUT08', drop: '' },
+          { name: '全保留', keep: 'TE1,TE2,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08', drop: '' },
+          { name: '清空', keep: '', drop: '' },
+        ],
+      },
+      {
+        id: 'core_lora_svd_merge',
+        title: 'LoRA SVD Merger',
+        desc: '把两个 LoRA 重建到 dense delta 后按比例融合，再 SVD 回目标 rank。',
+        group: 'LoRA Surgery',
+        icon: '🧬',
+        endpoint: '/api/merger/merge-lora',
+        fields: [
+          { key: 'model_a', label: 'LoRA A 路径', type: 'text', placeholder: './output/a.safetensors' },
+          { key: 'model_b', label: 'LoRA B 路径', type: 'text', placeholder: './output/b.safetensors' },
+          { key: 'output_path', label: '输出路径', type: 'text', placeholder: './output/merged_svd.safetensors' },
+          { key: 'ratio', label: 'A 权重比例', type: 'number', placeholder: '0.5' },
+          { key: 'rank', label: '目标 Rank', type: 'number', placeholder: '128' },
+        ],
+      },
+      {
+        id: 'core_lora_extract',
+        title: 'LoRA Extractor',
+        desc: '从底模和微调模型的差分中提取 LoRA。大模型会比较慢，建议先小 rank 测试。',
+        group: 'LoRA Surgery',
+        icon: '🧲',
+        endpoint: '/api/merger/extract',
+        fields: [
+          { key: 'base_model', label: '底模路径', type: 'text', placeholder: './models/base.safetensors' },
+          { key: 'finetuned_model', label: '微调模型路径', type: 'text', placeholder: './models/tuned.safetensors' },
+          { key: 'output_path', label: '输出路径', type: 'text', placeholder: './output/extracted.safetensors' },
+          { key: 'rank', label: 'Rank', type: 'number', placeholder: '32' },
+        ],
+      },
+      {
+        id: 'core_diagnostic_card',
+        title: 'Diagnostic Card',
+        desc: '生成训练/LoRA 诊断分享卡。可先用 Analyzer 得到指标，再填入这里。',
+        group: 'Reports',
+        icon: '▣',
+        endpoint: '/api/tools/diagnostic-card',
+        fields: [
+          { key: 'model_name', label: '模型/LoRA 名称', type: 'text', placeholder: 'my_lora_v1' },
+          { key: 'health_score', label: '健康分数 0-100', type: 'number', placeholder: '85' },
+          { key: 'issues', label: '问题列表（逗号分隔）', type: 'text', placeholder: 'OUT08 RMS偏高,TE1 很弱' },
+        ],
+      },
+      {
+        id: 'core_qpissa_convert',
+        title: 'QPiSSA Converter',
+        desc: '手动把模型中的 2D 主体权重拆成 residual checkpoint + PiSSA/LoRA 初始化文件。',
+        group: 'Advanced',
+        icon: 'Σ',
+        endpoint: '/api/tools/qpissa/convert',
+        fields: [
+          { key: 'model_path', label: '模型路径', type: 'text', placeholder: './models/model.safetensors' },
+          { key: 'output_dir', label: '输出目录', type: 'text', placeholder: './output/qpissa' },
+          { key: 'rank', label: 'Rank', type: 'number', placeholder: '16' },
+          { key: 'layers_pattern', label: '层名正则（可选）', type: 'text', placeholder: 'attn|mlp|proj' },
+          { key: 'precision', label: '保存精度', type: 'text', placeholder: 'fp16' },
+        ],
+      },
+      {
+        id: 'core_model_merge',
+        title: 'Model Merger',
+        desc: '手动合并 safetensors 模型：weighted_sum 或 add_difference，不进入训练链路。',
+        group: 'Model Tools',
+        icon: '⇄',
+        endpoint: '/api/tools/model/merge',
+        fields: [
+          { key: 'model_a', label: '模型 A 路径', type: 'text', placeholder: './models/a.safetensors' },
+          { key: 'model_b', label: '模型 B 路径', type: 'text', placeholder: './models/b.safetensors' },
+          { key: 'model_c', label: '模型 C 路径（add_difference 用）', type: 'text', placeholder: './models/base.safetensors' },
+          { key: 'output_path', label: '输出路径', type: 'text', placeholder: './output/merged_model.safetensors' },
+          { key: 'alpha', label: 'Alpha', type: 'number', placeholder: '0.5' },
+          { key: 'method', label: '方法', type: 'text', placeholder: 'weighted_sum' },
+          { key: 'precision', label: '保存精度', type: 'text', placeholder: 'fp16' },
+        ],
+      },
+      {
+        id: 'core_model_tensor_convert',
+        title: 'Model Converter',
+        desc: '在 safetensors 与 PyTorch pt/pth tensor 容器之间转换。',
+        group: 'Model Tools',
+        icon: '⇆',
+        endpoint: '/api/tools/model/convert-tensors',
+        fields: [
+          { key: 'input_path', label: '输入路径', type: 'text', placeholder: './models/model.safetensors' },
+          { key: 'output_path', label: '输出路径', type: 'text', placeholder: './output/model.pt' },
+          { key: 'output_format', label: '输出格式', type: 'text', placeholder: 'pt' },
+        ],
+      },
+      {
+        id: 'core_diffusers_convert',
+        title: 'Checkpoint 转 Diffusers',
+        desc: '手动把单文件 checkpoint/safetensors 转成 Diffusers 目录，依赖 diffusers 环境。',
+        group: 'Model Tools',
+        icon: '◫',
+        endpoint: '/api/tools/model/convert-diffusers',
+        fields: [
+          { key: 'checkpoint_path', label: 'Checkpoint 路径', type: 'text', placeholder: './models/model.safetensors' },
+          { key: 'output_dir', label: '输出目录', type: 'text', placeholder: './output/diffusers_model' },
+          { key: 'model_type', label: '模型类型', type: 'text', placeholder: 'sdxl' },
+          { key: 'half', label: '半精度 true/false', type: 'text', placeholder: 'true' },
+        ],
+      },
+      {
+        id: 'core_xyz_plot',
+        title: 'XYZ Plot',
+        desc: '手动生成推理参数网格图。会加载模型，建议先用小尺寸和少步数测试。',
+        group: 'Reports',
+        icon: '▦',
+        endpoint: '/api/tools/xyz-plot/generate',
+        fields: [
+          { key: 'model_path', label: '模型路径/目录', type: 'text', placeholder: './models/model.safetensors' },
+          { key: 'output_path', label: '输出图片路径', type: 'text', placeholder: './output/xyz_plot.png' },
+          { key: 'model_type', label: '模型类型', type: 'text', placeholder: 'sdxl' },
+          { key: 'base_params', label: '基础参数 JSON', type: 'text', placeholder: '{"prompt":"1girl","steps":8,"cfg":7,"width":512,"height":512,"seed":42}' },
+          { key: 'x_axis', label: 'X 轴 JSON', type: 'text', placeholder: '{"name":"cfg","values":[5,7,9]}' },
+          { key: 'y_axis', label: 'Y 轴 JSON（可选）', type: 'text', placeholder: '{"name":"steps","values":[8,12]}' },
+        ],
+      },
       {
         id: 'extract_lora',
         title: '从模型提取 LoRA',
@@ -198,22 +366,47 @@ export function createToolsRenderer({ state, renderSlot }) {
 
     const selectedId = state.selectedTool || '';
     const selectedTool = tools.find((t) => t.id === selectedId);
+    const coreTools = tools.filter((t) => t.endpoint);
+    const legacyTools = tools.filter((t) => !t.endpoint);
+    const groups = Array.from(new Set(coreTools.map((t) => t.group || 'Tools')));
 
     container.innerHTML = `
-      <div class="form-container">
-        <header class="section-title">
-          <h2>工具箱</h2>
-          <p>LoRA 提取、合并等实用工具。选择工具后填写参数并运行。</p>
+      <div class="form-container toolbox-shell">
+        <header class="toolbox-hero">
+          <div>
+            <span class="toolbox-kicker">Lulynx Toolbox</span>
+            <h2>LoRA / 模型工具箱</h2>
+            <p>从 REapp 工具台迁入的分析、剪枝、合并、转换和诊断工具。所有动作都需要手动运行，不会自动进入训练主链。</p>
+          </div>
+          <div class="toolbox-hero-stats">
+            <div><strong>${coreTools.length}</strong><span>核心工具</span></div>
+            <div><strong>${groups.length}</strong><span>工具分组</span></div>
+          </div>
         </header>
-        <div class="config-group">
-          <label>选择工具</label>
-          <select id="tool-selector">
-            <option value="">—— 请选择工具 ——</option>
-         ${tools.map((t) => `<option value="${t.id}" ${t.id === selectedId ? 'selected' : ''}>${escapeHtml(t.title)}</option>`).join('')}
-          </select>
-        </div>
-        <div id="tool-detail">
-          ${selectedTool ? renderToolDetail(selectedTool) : '<div class="empty-state" style="margin-top:12px;"><strong>请在上方下拉菜单中选择一个工具</strong></div>'}
+
+        <div class="toolbox-layout">
+          <aside class="toolbox-sidebar">
+            ${groups.map((group) => `
+              <section class="toolbox-group">
+                <h3>${escapeHtml(group)}</h3>
+                <div class="toolbox-card-grid">
+                  ${coreTools.filter((t) => (t.group || 'Tools') === group).map((t) => renderToolCard(t, t.id === selectedId)).join('')}
+                </div>
+              </section>
+            `).join('')}
+
+            <details class="toolbox-legacy">
+              <summary>旧脚本工具</summary>
+              <select id="tool-selector">
+                <option value="">选择旧脚本工具</option>
+                ${legacyTools.map((t) => `<option value="${t.id}" ${t.id === selectedId ? 'selected' : ''}>${escapeHtml(t.title)}</option>`).join('')}
+              </select>
+            </details>
+          </aside>
+
+          <main id="tool-detail" class="toolbox-main">
+            ${selectedTool ? renderToolDetail(selectedTool) : renderToolWelcome(coreTools)}
+          </main>
         </div>
         ${renderSlot('tools.entry')}
       </div>
@@ -224,19 +417,184 @@ export function createToolsRenderer({ state, renderSlot }) {
       const detail =$('#tool-detail');
       const tool = tools.find((t) => t.id === e.target.value);
       if (detail) {
-        detail.innerHTML = tool ? renderToolDetail(tool) : '<div class="empty-state"><strong>请在上方下拉菜单中选择一个工具</strong></div>';
+        detail.innerHTML = tool ? renderToolDetail(tool) : renderToolWelcome(coreTools);
+        if (tool) bindDetailInteractions(tool.id);
       }
     });
+
+    document.querySelectorAll('.toolbox-card[data-tool-id], .toolbox-chip[data-tool-id]').forEach((card) => {
+      card.addEventListener('click', () => {
+        const toolId = card.getAttribute('data-tool-id');
+        state.selectedTool = toolId;
+        document.querySelectorAll('.toolbox-card[data-tool-id]').forEach((el) => el.classList.toggle('active', el.getAttribute('data-tool-id') === toolId));
+        const detail = $('#tool-detail');
+        const tool = tools.find((t) => t.id === toolId);
+        if (detail && tool) {
+          detail.innerHTML = renderToolDetail(tool);
+          bindDetailInteractions(toolId);
+        }
+      });
+    });
+
+    if (selectedTool) bindDetailInteractions(selectedTool.id);
+  }
+
+  function bindDetailInteractions(toolId) {
+    if (toolId !== 'core_lora_prune') return;
+    const keepEl = $(`#tool-${toolId}-keep_blocks`);
+    const dropEl = $(`#tool-${toolId}-drop_blocks`);
+    const hintEl = $(`#tool-${toolId}-pruner-hint`);
+    if (!keepEl || !dropEl) return;
+
+    const parseCsv = (text) => String(text || '').split(',').map((part) => part.trim()).filter(Boolean);
+    const setHint = (text) => {
+      if (hintEl) hintEl.textContent = text;
+    };
+    const complementBlocks = (blocks) => PRUNER_BLOCKS.filter((block) => !blocks.includes(block));
+    const syncActive = () => {
+      const keepSet = new Set(parseCsv(keepEl.value));
+      const dropSet = new Set(parseCsv(dropEl.value));
+      document.querySelectorAll('[data-pruner-block]').forEach((chip) => {
+        const block = chip.getAttribute('data-pruner-block');
+        chip.classList.toggle('active', keepSet.has(block));
+        chip.classList.toggle('dropped', !keepSet.has(block) && dropSet.has(block));
+      });
+    };
+    const setKeep = (blocks, syncDrop = true) => {
+      keepEl.value = blocks.join(',');
+      if (syncDrop) {
+        dropEl.value = complementBlocks(blocks).join(',');
+      } else {
+        dropEl.value = '';
+      }
+      syncActive();
+    };
+    const getCachedResults = () => window.__lulynxToolboxStore?.results || {};
+    const suggestFromAnalyzer = () => {
+      const report = getCachedResults().core_lora_analyze;
+      const items = Array.isArray(report?.position_analysis) ? report.position_analysis : [];
+      if (!items.length) return [];
+      const sorted = [...items].filter((item) => PRUNER_BLOCKS.includes(item.key)).sort((a, b) => Number(b.avg_rms || 0) - Number(a.avg_rms || 0));
+      const max = Number(sorted[0]?.avg_rms || 0);
+      let selected = sorted
+        .filter((item) => String(item.status || 'good') !== 'critical' && Number(item.avg_rms || 0) >= max * 0.35)
+        .map((item) => item.key);
+      if (!selected.length) {
+        selected = sorted
+          .filter((item) => String(item.status || 'good') !== 'critical')
+          .slice(0, 8)
+          .map((item) => item.key);
+      }
+      return selected;
+    };
+    const suggestFromXray = () => {
+      const report = getCachedResults().core_lora_block_analyze;
+      const items = Array.isArray(report?.blocks) ? report.blocks : [];
+      if (!items.length) return [];
+      const sorted = [...items].filter((item) => PRUNER_BLOCKS.includes(item.id)).sort((a, b) => Number((b.normalized_magnitude ?? b.magnitude) || 0) - Number((a.normalized_magnitude ?? a.magnitude) || 0));
+      let selected = sorted
+        .filter((item) => Number(item.normalized_magnitude ?? 0) >= 35)
+        .map((item) => item.id);
+      if (!selected.length) {
+        selected = sorted.slice(0, 8).map((item) => item.id);
+      }
+      return selected;
+    };
+
+    keepEl.addEventListener('input', syncActive);
+    dropEl.addEventListener('input', syncActive);
+    document.querySelectorAll('[data-pruner-preset]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const keepBlocks = parseCsv(btn.getAttribute('data-keep') || '');
+        const dropBlocks = parseCsv(btn.getAttribute('data-drop') || '');
+        if (keepBlocks.length || (!keepBlocks.length && !dropBlocks.length)) {
+          setKeep(keepBlocks, true);
+        } else {
+          keepEl.value = '';
+          dropEl.value = dropBlocks.length ? dropBlocks.join(',') : '';
+          syncActive();
+        }
+      });
+    });
+    document.querySelectorAll('[data-pruner-block]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const current = new Set(parseCsv(keepEl.value));
+        const block = chip.getAttribute('data-pruner-block');
+        if (current.has(block)) current.delete(block);
+        else current.add(block);
+        setKeep(Array.from(current), true);
+      });
+    });
+    document.querySelectorAll('[data-pruner-select]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-pruner-select');
+        if (mode === 'all') return setKeep(PRUNER_BLOCKS);
+        if (mode === 'style') return setKeep(['M00', 'OUT03', 'OUT04', 'OUT05', 'OUT06', 'OUT07', 'OUT08']);
+        if (mode === 'character') return setKeep(['TE1', 'TE2', 'IN00', 'IN01', 'IN02', 'IN03', 'IN04', 'IN05', 'IN06', 'IN07', 'IN08', 'M00', 'OUT00', 'OUT01', 'OUT02']);
+        if (mode === 'clear') return setKeep([]);
+      });
+    });
+    document.querySelectorAll('[data-pruner-source]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const source = btn.getAttribute('data-pruner-source');
+        const selected = source === 'analyzer' ? suggestFromAnalyzer() : suggestFromXray();
+        if (!selected.length) {
+          setHint(source === 'analyzer' ? '未找到 Analyzer 缓存，请先运行 Analyzer。' : '未找到 Block XRay 缓存，请先运行 Block XRay。');
+          return;
+        }
+        setKeep(selected);
+        setHint(source === 'analyzer'
+          ? `已载入 Analyzer 建议：${selected.length} 个 keep，${complementBlocks(selected).length} 个 drop`
+          : `已载入 Block XRay 热区：${selected.length} 个 keep，${complementBlocks(selected).length} 个 drop`);
+      });
+    });
+    setHint('可从最近一次 Analyzer / Block XRay 结果一键带入 block 建议。');
+    syncActive();
+  }
+
+  function renderToolCard(tool, active) {
+    return `
+      <button class="toolbox-card${active ? ' active' : ''}" type="button" data-tool-id="${escapeHtml(tool.id)}">
+        <span class="toolbox-card-icon">${escapeHtml(tool.icon || '•')}</span>
+        <span class="toolbox-card-body"><strong>${escapeHtml(tool.title)}</strong><em>${escapeHtml(tool.desc)}</em></span>
+      </button>
+    `;
+  }
+
+  function renderToolChip(tool) {
+    return `<button class="toolbox-chip" type="button" data-tool-id="${escapeHtml(tool.id)}">${escapeHtml(tool.title)}</button>`;
+  }
+
+  function renderToolWelcome(coreTools) {
+    return `
+      <section class="toolbox-welcome">
+        <div class="toolbox-welcome-icon">🔬</div>
+        <h3>选择一个工具开始</h3>
+        <p>推荐先从 LoRA Analyzer 或 Block XRay 开始，确认层强度和异常后再做剪枝、SVD 合并或诊断卡。</p>
+        <div class="toolbox-quick-row">
+          ${coreTools.slice(0, 3).map((t) => renderToolChip(t)).join('')}
+        </div>
+      </section>
+    `;
   }
 
   function renderToolDetail(tool) {
     const isPathField = (f) => /model|path|save_to|file|src_|dst_/.test(f.key);
+    const pickerTypeForField = (field) => {
+      const key = field.key || '';
+      if (/output_dir/i.test(key)) return 'output-folder';
+      if (/output_path|save_to|dst_path/i.test(key)) return 'output-model-file';
+      if (/model_path|base_model|finetuned_model|checkpoint_path|src_path|path|file/i.test(key)) return 'model-file';
+      return 'model-file';
+    };
     return `
-      <section class="form-section tool-section" id="tool-${tool.id}" style="margin-top:16px;">
-        <header class="section-header">
-  <h3>${escapeHtml(tool.title)}</h3>
+      <section class="form-section tool-section toolbox-detail-card" id="tool-${tool.id}">
+        <header class="section-header toolbox-detail-head">
+          <div class="toolbox-detail-title"><span>${escapeHtml(tool.icon || '•')}</span><h3>${escapeHtml(tool.title)}</h3></div>
+          ${tool.group ? `<small>${escapeHtml(tool.group)}</small>` : ''}
         </header>
         <div class="section-summary">${escapeHtml(tool.desc)}</div>
+        ${tool.id === 'core_lora_prune' ? renderPrunerAssist(tool) : ''}
         <div class="section-content tool-fields">
           ${tool.fields.map((f) => {
             const inputId =`tool-${tool.id}-${f.key}`;
@@ -245,7 +603,7 @@ export function createToolsRenderer({ state, renderSlot }) {
             <div class="config-group">
               <label>${escapeHtml(f.label)}</label>
               <div class="input-picker">
-                <button class="picker-icon" type="button" onclick="pickPathForInput('${inputId}', '${f.key.includes('save') || f.key.includes('dst') ? 'folder' : 'model-file'}')">
+                <button class="picker-icon" type="button" onclick="pickPathForInput('${inputId}', '${pickerTypeForField(f)}')">
                   <svg class="icon"><use href="#icon-folder"></use></svg>
                 </button>
                 <input class="text-input" type="${f.type}" id="${inputId}" placeholder="${escapeHtml(f.placeholder || '')}">
@@ -261,10 +619,43 @@ export function createToolsRenderer({ state, renderSlot }) {
         </div>
         <div class="tool-actions" style="display:flex;align-items:center;gap:12px;">
           <button class="btn btn-primary btn-sm" type="button" id="btn-tool-${tool.id}"
-            onclick="runTool('${tool.id}', '${escapeHtml(tool.script)}', ${JSON.stringify(tool.fields.map((f) => f.key)).replaceAll('"', '&quot;')})">运行</button>
+            onclick="runTool('${tool.id}', '${escapeHtml(tool.endpoint || tool.script)}', ${JSON.stringify(tool.fields.map((f) => f.key)).replaceAll('"', '&quot;')})">运行</button>
           <span id="tool-status-${tool.id}" style="font-size:0.82rem;"></span>
         </div>
         <div id="tool-result-${tool.id}" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:0.82rem;white-space:pre-wrap;font-family:monospace;max-height:300px;overflow:auto;"></div>
+      </section>
+    `;
+  }
+
+  function renderPrunerAssist(tool) {
+    return `
+      <section class="toolbox-subpanel">
+        <div class="toolbox-subpanel-head">
+          <strong>Block Presets</strong>
+          <span>先选预置，再按需微调 keep / drop。</span>
+        </div>
+        <div class="toolbox-preset-row">
+          ${(tool.presets || []).map((preset) => `<button class="toolbox-preset-btn" type="button" data-pruner-preset="${escapeHtml(preset.name)}" data-keep="${escapeHtml(preset.keep || '')}" data-drop="${escapeHtml(preset.drop || '')}">${escapeHtml(preset.name)}</button>`).join('')}
+        </div>
+        <div class="toolbox-block-actions">
+          <button class="toolbox-mini-btn" type="button" data-pruner-select="all">全选到 keep</button>
+          <button class="toolbox-mini-btn" type="button" data-pruner-select="style">风格块</button>
+          <button class="toolbox-mini-btn" type="button" data-pruner-select="character">角色块</button>
+          <button class="toolbox-mini-btn" type="button" data-pruner-select="clear">清空</button>
+        </div>
+        <div class="toolbox-block-actions">
+          <button class="toolbox-mini-btn" type="button" data-pruner-source="analyzer">载入 Analyzer 建议</button>
+          <button class="toolbox-mini-btn" type="button" data-pruner-source="xray">载入 Block XRay 热区</button>
+          <span class="toolbox-inline-hint" id="tool-${tool.id}-pruner-hint"></span>
+        </div>
+        ${PRUNER_GROUPS.map((group) => `
+          <div class="toolbox-block-group">
+            <span>${escapeHtml(group.label)}</span>
+            <div class="toolbox-block-grid">
+              ${group.blocks.map((block) => `<button class="toolbox-block-chip" type="button" data-pruner-block="${block}">${block}</button>`).join('')}
+            </div>
+          </div>
+        `).join('')}
       </section>
     `;
   }

@@ -17,7 +17,56 @@ import { _ico } from './dom.js';
  * 创建一个空的 metrics 对象。用于初始化 state.trainingMetrics 或 reset。
  */
 function createEmptyMetrics() {
-  return { speeds: [], losses: [], epochs: [], startTime: null, lastStep: 0, totalSteps: 0 };
+  return {
+    speeds: [],
+    losses: [],
+    epochs: [],
+    startTime: null,
+    lastStep: 0,
+    totalSteps: 0,
+    bTier: null,
+    ghostReplay: null,
+  };
+}
+
+function appendLossPoint(metrics, now, curStep, curLoss) {
+  const prevLoss = metrics.losses.length > 0 ? metrics.losses[metrics.losses.length - 1].loss : -1;
+  if (curStep > metrics.lastStep || metrics.losses.length === 0 || Math.abs(curLoss - prevLoss) > 0.0001) {
+    metrics.losses.push({ time: now, step: curStep, loss: curLoss });
+    metrics.lastStep = Math.max(metrics.lastStep, curStep);
+  }
+}
+
+function applyProgressJson(metrics, data, now) {
+  if (!data || typeof data !== 'object') return false;
+  const curStep = Number(data.step || 0) || 0;
+  const totalSteps = Number(data.total_steps || 0) || 0;
+  const curEpoch = Number(data.epoch || 0) || 0;
+  const totalEpochs = Number(data.total_epochs || 0) || 0;
+  const curLoss = Number(data.loss);
+
+  if (curStep > 0) {
+    metrics.lastStep = Math.max(metrics.lastStep, curStep);
+  }
+  if (totalSteps > 0) {
+    metrics.totalSteps = totalSteps;
+  }
+  if (Number.isFinite(curLoss)) {
+    appendLossPoint(metrics, now, curStep || metrics.lastStep, curLoss);
+  }
+  if (curEpoch > 0) {
+    const prevEpoch = metrics.epochs.length > 0 ? metrics.epochs[metrics.epochs.length - 1] : null;
+    if (!prevEpoch || prevEpoch.epoch < curEpoch || prevEpoch.total !== totalEpochs) {
+      metrics.epochs.push({ epoch: curEpoch, total: totalEpochs || (prevEpoch ? prevEpoch.total : 0) });
+    }
+  }
+  if (data.b_tier && typeof data.b_tier === 'object') {
+    metrics.bTier = data.b_tier;
+    if (data.b_tier.ghost_replay && typeof data.b_tier.ghost_replay === 'object') {
+      metrics.ghostReplay = data.b_tier.ghost_replay;
+    }
+  }
+  return true;
 }
 
 /**
@@ -33,10 +82,20 @@ export function collectTrainingMetrics(metrics, lines) {
   // 扫描所有行（不仅仅是最后一次匹配），以便在整个 tail 窗口中累积多个采样点
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    const now = Date.now();
+    if (line.includes('PROGRESS_JSON:')) {
+      try {
+        const data = JSON.parse(line.split('PROGRESS_JSON:', 1)[1].trim());
+        if (applyProgressJson(m, data, now)) {
+          continue;
+        }
+      } catch (_err) {
+        // Fallback to legacy regex parsing below.
+      }
+    }
     const speedMatch = line.match(/(\d+\.?\d*)\s*(it\/s|s\/it)/);
     const lossMatch = line.match(/avr_loss[=:]\s*(\d+\.?\d*)/);
     const stepMatch = line.match(/\|\s*(\d+)\/(\d+)\s*\[/);
-    const now = Date.now();
     if (speedMatch) {
       let itPerSec = parseFloat(speedMatch[1]);
       if (speedMatch[2] === 's/it') itPerSec = itPerSec > 0 ? 1 / itPerSec : 0;
@@ -45,11 +104,7 @@ export function collectTrainingMetrics(metrics, lines) {
     if (lossMatch) {
       const curLoss = parseFloat(lossMatch[1]);
       const curStep = stepMatch ? parseInt(stepMatch[1]) : m.lastStep;
-      const prevLoss = m.losses.length > 0 ? m.losses[m.losses.length - 1].loss : -1;
-      if (curStep > m.lastStep || m.losses.length === 0 || Math.abs(curLoss - prevLoss) > 0.0001) {
-        m.losses.push({ time: now, step: curStep, loss: curLoss });
-        m.lastStep = curStep;
-      }
+      appendLossPoint(m, now, curStep, curLoss);
     }
     if (stepMatch) {
       m.totalSteps = parseInt(stepMatch[2]);
@@ -76,6 +131,17 @@ export function parseLinesIntoMetrics(lines) {
   let prevStep = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (line.includes('PROGRESS_JSON:')) {
+      try {
+        const data = JSON.parse(line.split('PROGRESS_JSON:', 1)[1].trim());
+        if (applyProgressJson(m, data, 0)) {
+          prevStep = m.lastStep;
+          continue;
+        }
+      } catch (_err) {
+        // Ignore and continue with regex fallback.
+      }
+    }
     const speedMatch = line.match(/(\d+\.?\d*)\s*(it\/s|s\/it)/);
     const lossMatch = line.match(/avr_loss[=:]\s*(\d+\.?\d*)/);
     const stepMatch = line.match(/\|\s*(\d+)\/(\d+)\s*\[/);
@@ -87,11 +153,8 @@ export function parseLinesIntoMetrics(lines) {
     if (lossMatch) {
       const curLoss = parseFloat(lossMatch[1]);
       const curStep = stepMatch ? parseInt(stepMatch[1]) : prevStep;
-      const prevLossVal = m.losses.length > 0 ? m.losses[m.losses.length - 1].loss : -1;
-      if (curStep > prevStep || m.losses.length === 0 || Math.abs(curLoss - prevLossVal) > 0.0001) {
-        m.losses.push({ time: 0, step: curStep, loss: curLoss });
-        prevStep = curStep;
-      }
+      appendLossPoint(m, 0, curStep, curLoss);
+      prevStep = m.lastStep;
     }
     if (stepMatch) {
       m.totalSteps = parseInt(stepMatch[2]);

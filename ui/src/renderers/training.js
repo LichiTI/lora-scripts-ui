@@ -75,6 +75,48 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
     var lossDeltaPct =prevLoss > 0 ? ((curLoss - prevLoss) / prevLoss * 100) : 0;
     var lossArrow = lossDeltaPct < 0 ? _ico('trending-down', 12) : (lossDeltaPct > 0 ? _ico('trending-up', 12) : '');
     var lossArrowColor = lossDeltaPct < 0 ? '#22c55e' : (lossDeltaPct > 0 ? '#ef4444' : 'var(--text-dim)');
+    var ghost = m.ghostReplay || (m.bTier && m.bTier.ghost_replay) || null;
+    var showGhostCard = !!(state.config.lulynx_ghost_replay || ghost);
+    var ghostStatus = ghost && ghost.last_status ? String(ghost.last_status) : 'idle';
+    var ghostStatusMap = {
+      idle: '\u5f85\u673a',
+      matched: '\u547d\u4e2d',
+      matched_zero_loss: '\u547d\u4e2d (0 Loss)',
+      no_match: '\u672a\u547d\u4e2d',
+      interval_skip: '\u95f4\u9694\u8df3\u8fc7',
+      no_features: '\u65e0\u7279\u5f81',
+      capture_unavailable: '\u672a\u5b89\u88c5 Capture',
+      compute_error: '\u8ba1\u7b97\u9519\u8bef',
+      non_finite: '\u975e\u6709\u9650\u503c',
+    };
+    var ghostStatusColor = (
+      ghostStatus === 'matched' || ghostStatus === 'matched_zero_loss' ? '#22c55e' :
+      ghostStatus === 'compute_error' || ghostStatus === 'non_finite' ? '#ef4444' :
+      ghostStatus === 'no_match' ? '#f59e0b' :
+      'var(--text-dim)'
+    );
+    var ghostStatusLabel = ghostStatusMap[ghostStatus] || ghostStatus;
+    var ghostLastLoss = ghost && ghost.last_loss != null ? Number(ghost.last_loss).toFixed(4) : '\u2014';
+    var ghostAvgLoss = ghost && ghost.loss_events > 0 ? Number(ghost.avg_loss || 0).toFixed(4) : '\u2014';
+    var ghostAttemptText = ghost ? (String(ghost.matches || 0) + ' / ' + String(ghost.attempts || 0)) : '\u2014';
+    var ghostLayerText = ghost ? (String(ghost.last_matched_layers || 0) + ' / ' + String(ghost.model_matched_layer_count || 0)) : '\u2014';
+    var ghostCompatText = ghost ? String(ghost.compatibility_status || 'unknown') : '\u672a\u52a0\u8f7d';
+    var ghostWarnings = ghost && Array.isArray(ghost.warnings) ? ghost.warnings.filter(Boolean).slice(0, 2) : [];
+    var ghostCardHtml = showGhostCard ? (
+      '<div class="train-side-section" id="train-ghost-card">'
+      + '<div class="train-panel-title">Ghost Replay</div>'
+      + '<div class="train-hw-card">'
+      +   '<div class="train-hw-row"><span class="hw-label">\u72b6\u6001</span><span id="train-ghost-status" class="hw-value" style="color:' + ghostStatusColor + ';">' + escapeHtml(ghostStatusLabel) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">\u547d\u4e2d / \u5c1d\u8bd5</span><span id="train-ghost-attempts" class="hw-value">' + escapeHtml(ghostAttemptText) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">\u672c\u6b21\u5c42\u547d\u4e2d</span><span id="train-ghost-layers" class="hw-value">' + escapeHtml(ghostLayerText) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">\u672c\u6b21 / \u5747\u503c Loss</span><span id="train-ghost-loss" class="hw-value">' + escapeHtml(ghostLastLoss + ' / ' + ghostAvgLoss) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">\u517c\u5bb9\u6027</span><span id="train-ghost-compat" class="hw-value">' + escapeHtml(ghostCompatText) + '</span></div>'
+      + '</div>'
+      + '<div id="train-ghost-warnings" style="margin-top:8px;font-size:0.68rem;color:var(--text-muted);line-height:1.45;">'
+      +   (ghostWarnings.length > 0 ? ghostWarnings.map(function(item) { return '<div>' + escapeHtml(item) + '</div>'; }).join('') : '')
+      + '</div>'
+      + '</div>'
+    ) : '';
 
     // Status indicator
 var statusDot = '', statusText = '';
@@ -242,6 +284,8 @@ var statusDot = '', statusText = '';
     +     '</div>'
     +       (m.losses.length > 0 ? '<div class="train-chart-axis"><span>Step 0</span><span>Step ' + curStep + '</span></div>' : '')
     +     '</div>'
+
+    +     ghostCardHtml
 
     // Hardware
     +'<div class="train-side-section">'

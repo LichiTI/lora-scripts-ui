@@ -76,7 +76,7 @@
                     </svg>
                     <span>插件中心</span>
                 </a>
-                <a href="#" class="nav-item developer-only" data-module="turbocore" title="TurboCore">
+                <a href="#" class="nav-item developer-only hidden" data-module="turbocore" title="TurboCore">
                     <svg class="icon">
                         <use href="#icon-zap"></use>
                     </svg>
@@ -283,6 +283,125 @@
             <div class="builtin-picker-list" id="builtin-picker-list"></div>
             <div class="builtin-picker-footer">
                 <button class="btn btn-outline btn-sm" type="button" id="builtin-picker-cancel">取消</button>
+            </div>
+        </div>
+    </div>
+    <div class="ghost-recorder-modal" id="ghost-replay-recorder-modal" onclick="if(event.target && event.target.id==='ghost-replay-recorder-modal'){ closeGhostReplayRecorderModal(); }">
+        <div class="ghost-recorder-dialog">
+            <div class="ghost-recorder-header">
+                <div>
+                    <h3>Ghost Replay 预蒸馏</h3>
+                    <p>录制完成后会自动把生成的 .lulynx 指纹路径写回当前训练配置。</p>
+                </div>
+                <button class="collapse-btn" type="button" onclick="closeGhostReplayRecorderModal()" title="关闭预蒸馏窗口">
+                    <svg class="icon">
+                        <use href="#icon-close"></use>
+                    </svg>
+                </button>
+            </div>
+            <div class="ghost-recorder-body">
+                <div class="ghost-recorder-statusbar">
+                    <div class="ghost-recorder-status" id="ghost-recorder-status">会基于当前教师模型录制 .lulynx 指纹。</div>
+                    <div class="ghost-recorder-progress" id="ghost-recorder-progress">尚未启动</div>
+                </div>
+                <div class="ghost-recorder-grid">
+                    <div class="config-group">
+                        <label>模型族</label>
+                        <select id="ghost-recorder-model-arch">
+                            <option value="sdxl">SDXL</option>
+                            <option value="sd15">SD 1.5</option>
+                            <option value="anima">Anima</option>
+                            <option value="newbie">Newbie</option>
+                        </select>
+                    </div>
+                    <div class="config-group">
+                        <label>运行设备</label>
+                        <input class="text-input" id="ghost-recorder-device" type="text" placeholder="cuda / cpu / auto">
+                    </div>
+                    <div class="config-group">
+                        <label>精度</label>
+                        <select id="ghost-recorder-dtype">
+                            <option value="auto">auto</option>
+                            <option value="bf16">bf16</option>
+                            <option value="fp16">fp16</option>
+                            <option value="fp32">fp32</option>
+                        </select>
+                    </div>
+                    <div class="config-group">
+                        <label>随机种子</label>
+                        <input class="text-input" id="ghost-recorder-seed" type="number" min="0" step="1" placeholder="1337">
+                    </div>
+                    <div class="config-group ghost-recorder-span-2">
+                        <label>教师模型路径</label>
+                        <div class="input-picker">
+                            <button class="picker-icon" type="button" data-ghost-recorder-picker onclick="pickGhostReplayRecorderPath('model')">
+                                <svg class="icon"><use href="#icon-folder"></use></svg>
+                            </button>
+                            <input id="ghost-recorder-model-path" type="text" placeholder="可填模型文件或目录">
+                        </div>
+                    </div>
+                    <div class="config-group ghost-recorder-span-2">
+                        <label>VAE 路径（可选）</label>
+                        <div class="input-picker">
+                            <button class="picker-icon" type="button" data-ghost-recorder-picker onclick="pickGhostReplayRecorderPath('vae')">
+                                <svg class="icon"><use href="#icon-folder"></use></svg>
+                            </button>
+                            <input id="ghost-recorder-vae-path" type="text" placeholder="可填模型文件或目录">
+                        </div>
+                    </div>
+                    <div class="config-group ghost-recorder-span-2">
+                        <label>Anima Qwen3 路径（仅 Anima）</label>
+                        <div class="input-picker">
+                            <button class="picker-icon" type="button" data-ghost-recorder-picker onclick="pickGhostReplayRecorderPath('qwen3')">
+                                <svg class="icon"><use href="#icon-folder"></use></svg>
+                            </button>
+                            <input id="ghost-recorder-anima-qwen3-path" type="text" placeholder="Anima 二级文本编码器路径">
+                        </div>
+                    </div>
+                    <div class="config-group ghost-recorder-span-2">
+                        <label>Anima T5 Tokenizer（仅 Anima）</label>
+                        <div class="input-picker">
+                            <button class="picker-icon" type="button" data-ghost-recorder-picker onclick="pickGhostReplayRecorderPath('t5')">
+                                <svg class="icon"><use href="#icon-folder"></use></svg>
+                            </button>
+                            <input id="ghost-recorder-anima-t5-tokenizer-path" type="text" placeholder="Tokenizer 目录">
+                        </div>
+                    </div>
+                    <div class="config-group">
+                        <label>分辨率</label>
+                        <input class="text-input" id="ghost-recorder-resolution" type="text" placeholder="1024,1024">
+                    </div>
+                    <div class="config-group">
+                        <label>时间步</label>
+                        <input class="text-input" id="ghost-recorder-timesteps" type="text" placeholder="200,800">
+                    </div>
+                    <div class="config-group">
+                        <label>投影维度</label>
+                        <input class="text-input" id="ghost-recorder-proj-dim" type="number" min="1" step="1" placeholder="128">
+                    </div>
+                    <div class="config-group">
+                        <label>目标层过滤</label>
+                        <input class="text-input" id="ghost-recorder-target-layers" type="text" placeholder="留空自动选层">
+                    </div>
+                    <div class="config-group ghost-recorder-span-2">
+                        <label>输出位置</label>
+                        <div class="input-picker">
+                            <button class="picker-icon" type="button" data-ghost-recorder-picker onclick="pickGhostReplayRecorderPath('output')">
+                                <svg class="icon"><use href="#icon-folder"></use></svg>
+                            </button>
+                            <input id="ghost-recorder-output-path" type="text" placeholder="可填目录，或完整 .lulynx 文件路径">
+                        </div>
+                    </div>
+                    <div class="config-group ghost-recorder-span-2">
+                        <label>提示词</label>
+                        <textarea class="text-area ghost-recorder-prompt-area" id="ghost-recorder-prompt" placeholder="一行一个 prompt；每行会录制成一个 sample。"></textarea>
+                    </div>
+                </div>
+                <div class="ghost-recorder-result" id="ghost-recorder-result"></div>
+            </div>
+            <div class="ghost-recorder-footer">
+                <button class="btn btn-outline btn-sm" type="button" onclick="closeGhostReplayRecorderModal()">关闭</button>
+                <button class="btn btn-primary btn-sm" type="button" data-ghost-recorder-action="start" onclick="startGhostReplayRecorder()">开始预蒸馏</button>
             </div>
         </div>
     </div>
