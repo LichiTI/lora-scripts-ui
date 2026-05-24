@@ -114,6 +114,7 @@ const ANIMA_SECTIONS = [
       { key: 'prefer_json_caption', type: 'boolean', label: '优先 JSON 标签', desc: '优先读取同名 JSON 标签文件；若不存在回退 TXT。', defaultValue: true },
       { key: 'caption_extension', type: 'string', label: 'Tag 文件扩展名', defaultValue: '.txt' },
       { key: 'shuffle_caption', type: 'boolean', label: '随机打乱标签', desc: 'JSON 模式下分组打乱。', defaultValue: false },
+      { key: 'shuffle_caption_tags_only', type: 'boolean', label: '仅打乱 Tag 部分', desc: '结构化 JSON 标注时只打乱 tags，保留自然语言描述顺序', defaultValue: false },
       { key: 'keep_tokens', type: 'number', label: '保留前 N 个 token', defaultValue: 0, min: 0, max: 255 },
       { key: 'caption_tag_dropout_rate', type: 'number', label: '标签丢弃概率', defaultValue: '', min: 0, step: 0.01 },
     ],

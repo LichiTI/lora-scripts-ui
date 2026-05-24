@@ -112,6 +112,7 @@ const S_SAVE = [
 const S_CAPTION = [
   { key: 'caption_extension', type: 'string', label: 'Tag 文件扩展名（caption_extension）', desc: 'Tag 文件扩展名', defaultValue: '.txt' },
   { key: 'shuffle_caption', type: 'boolean', label: '随机打乱标签（shuffle_caption）', desc: '训练时随机打乱 tokens', defaultValue: false },
+  { key: 'shuffle_caption_tags_only', type: 'boolean', label: '仅打乱 Tag 部分（shuffle_caption_tags_only）', desc: '结构化 JSON 标注时只打乱 tags，保持自然语言描述顺序不变', defaultValue: false },
   { key: 'weighted_captions', type: 'boolean', label: '使用带权重 token（weighted_captions）', desc: '使用带权重的 token，不推荐与 shuffle_caption 一同开启', defaultValue: false },
   { key: 'keep_tokens', type: 'number', label: '保留前 N 个 token（keep_tokens）', desc: '在随机打乱 tokens 时，保留前 N 个不变', defaultValue: 0, min: 0, max: 255 },
   { key: 'max_token_length', type: 'number', label: '最大 token 长度（max_token_length）', desc: '最大 token 长度', defaultValue: 255, min: 1 },
