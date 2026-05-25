@@ -207,6 +207,27 @@ export function createPickerActions({ state, api, showToast, renderView, renderB
     }
   }
 
+  function selectBuiltinPickerCurrentRoot() {
+    const fullPath = String(state.builtinPicker.rootLabel || '').replaceAll('\\', '/');
+    if (!fullPath) {
+      closeBuiltinPicker();
+      return;
+    }
+    state.builtinPicker.open = false;
+    renderBuiltinPickerModal();
+    if (state.builtinPicker._targetInputId) {
+      const input = $(`#${state.builtinPicker._targetInputId}`);
+      if (input) {
+        input.value = fullPath;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      state.builtinPicker._targetInputId = null;
+      return;
+    }
+    window.updateConfigValue(state.builtinPicker.fieldKey, fullPath);
+    if (state.activeModule === 'config') renderView('config');
+  }
+
   function openBuiltinPickerForInput(inputId, pickerType) {
     state.builtinPicker = { open: true, fieldKey: '', pickerType, rootLabel: '', items: [], loading: true, _targetInputId: inputId };
     renderBuiltinPickerModal();
@@ -225,6 +246,7 @@ export function createPickerActions({ state, api, showToast, renderView, renderB
     closeBuiltinPicker,
     refreshBuiltinPicker,
     selectBuiltinPickerItem,
+    selectBuiltinPickerCurrentRoot,
     openBuiltinPickerForInput,
     setupNativePicker,
   };

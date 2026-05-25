@@ -71,6 +71,39 @@ body {
   width: 100vw;
 }
 
+#backend-offline-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: none;
+  place-items: center;
+  padding: 24px;
+  background: rgba(8, 12, 18, 0.56);
+  backdrop-filter: blur(10px);
+}
+
+#backend-offline-overlay.visible {
+  display: grid;
+}
+
+.backend-offline-panel {
+  width: min(560px, 92vw);
+  border: 1px solid rgba(239, 68, 68, 0.38);
+  border-radius: 8px;
+  padding: 22px 26px;
+  background: rgba(20, 24, 32, 0.9);
+  color: #fee2e2;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.42);
+}
+
+.backend-offline-title {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .icon {
   width: 1em;
   height: 1em;
@@ -1113,6 +1146,47 @@ input[type="range"]::-webkit-slider-thumb {
 .field-desc-strong {
   font-weight: 700;
   color: var(--text-main);
+}
+
+.field-conflict-hint {
+  color: #ef4444 !important;
+  font-weight: 800;
+  opacity: 1;
+}
+
+.config-group.field-disabled {
+  opacity: 0.68;
+}
+
+.config-group.field-disabled .field-header-row label,
+.config-group.field-disabled .collapsible-field-title {
+  color: var(--text-muted);
+}
+
+.config-group.field-disabled .field-conflict-hint {
+  opacity: 1;
+}
+
+.config-group.field-disabled input:disabled,
+.config-group.field-disabled select:disabled,
+.config-group.field-disabled textarea:disabled,
+.config-group.field-disabled button:disabled {
+  cursor: not-allowed;
+}
+
+.config-group.field-disabled .text-input:disabled,
+.config-group.field-disabled .text-area:disabled,
+.config-group.field-disabled select:disabled,
+.config-group.field-disabled .input-picker:has(input:disabled) {
+  color: var(--text-muted);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-panel) 72%, var(--bg-darker));
+}
+
+.switch input:disabled + .slider {
+  cursor: not-allowed;
+  opacity: 0.65;
+  background-color: color-mix(in srgb, var(--bg-input) 72%, var(--bg-darker));
 }
 
 .switch {

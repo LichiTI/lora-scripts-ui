@@ -61,10 +61,26 @@ export function createPreflightRenderer({ state, deps }) {
     if (issue == null) return '';
     if (typeof issue === 'string') return issue;
     if (typeof issue !== 'object') return String(issue);
-    var msg = String(issue.message || issue.detail || issue.reason || issue.error || '').trim();
+    if (Array.isArray(issue)) {
+      return issue.map(_formatPreflightIssue).filter(Boolean).join('; ');
+    }
+    var msg = '';
+    ['message', 'detail', 'reason', 'error'].some(function(key) {
+      if (issue[key] == null) return false;
+      msg = _formatPreflightIssue(issue[key]).trim();
+      return !!msg;
+    });
     var code = String(issue.code || '').trim();
     if (msg && code) return msg + ' [' + code + ']';
     if (msg) return msg;
+    if (Array.isArray(issue.errors) && issue.errors.length) {
+      var errors = issue.errors.map(_formatPreflightIssue).filter(Boolean).join('; ');
+      if (errors) return errors;
+    }
+    if (Array.isArray(issue.issues) && issue.issues.length) {
+      var issues = issue.issues.map(_formatPreflightIssue).filter(Boolean).join('; ');
+      if (issues) return issues;
+    }
     try {
       return JSON.stringify(issue);
     } catch (_e) {

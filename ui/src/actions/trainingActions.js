@@ -23,6 +23,14 @@ export function createTrainingActions({
   startTrainingLogPolling,
   startSysMonitorPolling,
 }) {
+  function switchToTrainingMonitor() {
+    state.activeModule = 'training';
+    state.trainSubTab = 'monitor';
+    document.querySelectorAll('.nav-item').forEach((item) => {
+      item.classList.toggle('active', item.dataset.module === 'training');
+    });
+  }
+
   function validateConfigConflicts() {
     const c = state.config;
     const tt = state.activeTrainingType;
@@ -266,6 +274,7 @@ export function createTrainingActions({
       showToast(clientCheck.errors[0]);
       state.preflight = { can_start: false, errors: clientCheck.errors, warnings: clientCheck.warnings };
       state.loading.run = false;
+      syncFooterAction();
       if (state.activeModule === 'config') renderView('config');
       return;
     }
@@ -287,11 +296,19 @@ export function createTrainingActions({
       errors: [preflightResponse.message || '训练预检阻止了本次训练。'],
           warnings: [],
         };
+        state.loading.run = false;
+        syncFooterAction();
         showToast('预检未通过，请先修正错误。');
         return;
       }
 
       state.preflight = preflightResponse.data;
+      if (state.preflight?.execution_profile_id) {
+        runConfig.execution_profile_id = state.preflight.execution_profile_id;
+      }
+      if (state.preflight?.resolved_attention_backend) {
+        runConfig.attention_backend = state.preflight.resolved_attention_backend;
+      }
       state._pendingTrainingMetadata = launchMetadata;
       state.activeTrainingTaskId = '';
       const response = await api.runTraining(runConfig);
@@ -308,7 +325,16 @@ export function createTrainingActions({
       showToast(state.lastMessage);
       resetTrainingMetrics();
       const responseTaskId = response?.data?.task_id || response?.data?.id || '';
+      if (response?.data?.execution_profile_id) {
+        launchMetadata.execution_profile_id = response.data.execution_profile_id;
+      }
+      if (response?.data?.resolved_attention_backend) {
+        launchMetadata.attention_backend = response.data.resolved_attention_backend;
+      }
+      if (responseTaskId) state.activeTrainingTaskId = responseTaskId;
       if (responseTaskId) rememberTrainingTaskMetadata(responseTaskId, launchMetadata);
+      switchToTrainingMonitor();
+      renderView('training');
       const tasksResponse = await api.getTasks();
       const freshTasks = tasksResponse?.data?.tasks || [];
       const localHistory = await loadLocalTaskHistory();
@@ -337,6 +363,7 @@ export function createTrainingActions({
       showToast(error.message || '训练请求失败。');
     } finally {
       state.loading.run = false;
+      syncFooterAction();
       if (state.activeModule === 'training') {
         renderView('training');
       } else if (state.activeModule === 'config') {

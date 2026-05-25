@@ -2,6 +2,36 @@ const JSON_HEADERS = {
   'Content-Type': 'application/json',
 };
 
+function formatApiMessage(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value !== 'object') return String(value);
+
+  if (Array.isArray(value)) {
+    return value.map(formatApiMessage).filter(Boolean).join('; ');
+  }
+
+  for (const key of ['message', 'detail', 'error', 'reason']) {
+    const text = formatApiMessage(value[key]);
+    if (text) return text;
+  }
+
+  if (Array.isArray(value.errors) && value.errors.length) {
+    const text = value.errors.map(formatApiMessage).filter(Boolean).join('; ');
+    if (text) return text;
+  }
+  if (Array.isArray(value.issues) && value.issues.length) {
+    const text = value.issues.map(formatApiMessage).filter(Boolean).join('; ');
+    if (text) return text;
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch (_error) {
+    return String(value);
+  }
+}
+
 async function request(path, options = {}) {
   let response;
   try {
@@ -24,7 +54,7 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(payload?.detail || payload?.message || `请求失败：${response.status}`);
+    throw new Error(formatApiMessage(payload?.detail || payload?.message || payload) || `请求失败：${response.status}`);
   }
 
   return payload;

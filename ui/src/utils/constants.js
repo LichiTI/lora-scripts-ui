@@ -63,6 +63,18 @@ export const CONDITIONAL_KEYS = new Set([
   'enable_debug_options',
   'caption_tag_dropout_target_mode',
   'train_length_mode',
+  'shuffle_caption',
+  'cache_text_encoder_outputs',
+  'network_train_unet_only',
+  'network_train_text_encoder_only',
+  'full_fp16',
+  'full_bf16',
+  'cache_text_encoder_outputs_to_disk',
+  'caption_dropout_rate',
+  'caption_tag_dropout_rate',
+  'token_warmup_step',
+  'noise_offset',
+  'multires_noise_iterations',
 ]);
 
 // 这些字段在配置面板中折叠展示，仅在被启用时才显示完整输入。

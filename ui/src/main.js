@@ -322,8 +322,9 @@ const {
   pickPathForInput,
   openNativePicker,
   closeBuiltinPicker,
- refreshBuiltinPicker,
+  refreshBuiltinPicker,
   selectBuiltinPickerItem,
+  selectBuiltinPickerCurrentRoot,
   openBuiltinPickerForInput,
   setupNativePicker,
 } = createPickerActions({ state, api, showToast, renderView, renderBuiltinPickerModal });
@@ -333,6 +334,7 @@ window.openNativePicker = openNativePicker;
 window.closeBuiltinPicker = closeBuiltinPicker;
 window.refreshBuiltinPicker = refreshBuiltinPicker;
 window.selectBuiltinPickerItem = selectBuiltinPickerItem;
+window.selectBuiltinPickerCurrentRoot = selectBuiltinPickerCurrentRoot;
 window.openBuiltinPickerForInput = openBuiltinPickerForInput;
 
 
@@ -413,6 +415,7 @@ function init() {
   loadTaskSummariesFromCache();
   renderView(state.activeModule);
   startTaskPolling();
+  startBackendHeartbeat();
   setupTopbarSearch();
   refreshDeveloperModeChrome();
 
@@ -431,10 +434,17 @@ function init() {
 
 
 // 草稿读写：底层 IO 在 utils/storage.js，这里只做 state 合并/写入
+function migrateLegacyDefaultOutputName(config) {
+  if (!config || typeof config !== 'object') return config;
+  const outputName = String(config.output_name ?? '').trim();
+  if (outputName !== 'aki' && outputName !== 'aki_') return config;
+  return { ...config, output_name: 'lulynx_' };
+}
+
 function loadDraft() {
   const parsed = readDraftFromStorage();
   if (!parsed) return;
-  mergeConfigPatch(parsed);
+  mergeConfigPatch(migrateLegacyDefaultOutputName(parsed));
   state.hasLocalDraft = true;
 }
 
@@ -480,7 +490,7 @@ async function loadBootstrapData() {
   }
 
   if (savedParamsResult.status === 'fulfilled' && !state.hasLocalDraft) {
-    mergeConfigPatch(savedParamsResult.value.data || {});
+    mergeConfigPatch(migrateLegacyDefaultOutputName(savedParamsResult.value.data || {}));
     saveDraft();
   }
 
@@ -525,6 +535,71 @@ async function refreshBackendConfigOptions() {
 window.refreshBackendConfigOptions = refreshBackendConfigOptions;
 
 
+const BACKEND_OFFLINE_MESSAGE = '未连接到后端,可能是因为VPN/防火墙或未启动后端';
+
+function ensureBackendOfflineOverlay() {
+  let overlay = document.getElementById('backend-offline-overlay');
+  if (overlay) {
+    return overlay;
+  }
+
+  overlay = document.createElement('div');
+  overlay.id = 'backend-offline-overlay';
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.innerHTML = `
+    <div class="backend-offline-panel" role="alert" aria-live="assertive">
+      <div class="backend-offline-title">${BACKEND_OFFLINE_MESSAGE}</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function setBackendOffline(offline) {
+  const nextOffline = Boolean(offline);
+  const changed = state.backendOffline !== nextOffline;
+  state.backendOffline = nextOffline;
+
+  const overlay = ensureBackendOfflineOverlay();
+  overlay.classList.toggle('visible', nextOffline);
+  overlay.setAttribute('aria-hidden', nextOffline ? 'false' : 'true');
+
+  if (changed) {
+    renderTaskStatus();
+    syncFooterAction();
+  }
+}
+
+function startBackendHeartbeat() {
+  const INTERVAL = 3000;
+  let inFlight = false;
+
+  async function probe() {
+    if (inFlight) {
+      return;
+    }
+    inFlight = true;
+    try {
+      const response = await fetch('/health', { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`health check failed: ${response.status}`);
+      }
+      setBackendOffline(false);
+    } catch (error) {
+      if (!state.backendOffline) {
+        console.warn('[BackendHeartbeat] 后端不可达。', error?.message || '');
+      }
+      setBackendOffline(true);
+    } finally {
+      inFlight = false;
+    }
+  }
+
+  ensureBackendOfflineOverlay();
+  probe();
+  window.setInterval(probe, INTERVAL);
+}
+
 function startTaskPolling() {
   let _pollFailCount = 0;
   const BASE_INTERVAL = 3000;
@@ -546,7 +621,7 @@ function startTaskPolling() {
       // 后端恢复在线
       if (_pollFailCount > 0) {
         _pollFailCount = 0;
-        state.backendOffline = false;
+        setBackendOffline(false);
         showToast('✓ 后端服务已连接');
         renderTaskStatus();
       }
@@ -612,7 +687,7 @@ function startTaskPolling() {
       if (_pollFailCount === 1) {
         // 首次失败时提示（之后静默，避免刷屏）
         console.warn('[TaskPoll] 后端不可达，轮询将自动降频重试。', error.message || '');
-        state.backendOffline = true;
+        setBackendOffline(true);
         renderTaskStatus();
         syncFooterAction();
       }

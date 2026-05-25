@@ -59,7 +59,7 @@ const ANIMA_SECTIONS = [
     title: '保存设置',
     description: '输出路径、格式与训练状态快照。',
     fields: [
-      { key: 'output_name', type: 'string', label: '模型保存名称', defaultValue: 'aki' },
+      { key: 'output_name', type: 'string', label: '模型保存名称', defaultValue: 'lulynx_' },
       { key: 'output_dir', type: 'folder', pickerType: 'folder', label: '模型保存文件夹', defaultValue: './output' },
       { key: 'save_model_as', type: 'select', label: '保存格式', defaultValue: 'safetensors', options: ['safetensors', 'pt', 'ckpt'] },
       { key: 'save_precision', type: 'select', label: '保存精度', defaultValue: 'fp16', options: ['fp16', 'float', 'bf16'] },

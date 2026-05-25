@@ -46,6 +46,66 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     return normal + important;
   }
 
+  function toBool(value) {
+    if (value === true || value === 1) return true;
+    return String(value ?? '').trim().toLowerCase() === 'true';
+  }
+
+  function toNum(value) {
+    const n = Number(value);
+    return Number.isNaN(n) ? 0 : n;
+  }
+
+  function getFieldConflict(field) {
+    const config = state.config || {};
+    const key = field.key;
+    const value = config[key];
+    const isActive = field.type === 'boolean'
+      ? toBool(value)
+      : (field.type === 'number' || field.type === 'slider')
+        ? toNum(value) > 0
+        : Boolean(String(value ?? '').trim());
+    if (isActive) return '';
+
+    const cacheText = toBool(config.cache_text_encoder_outputs);
+    const shuffleCaption = toBool(config.shuffle_caption);
+    const captionDropout = toNum(config.caption_dropout_rate) > 0;
+    const captionTagDropout = toNum(config.caption_tag_dropout_rate) > 0;
+    const tokenWarmup = toNum(config.token_warmup_step) > 0;
+    const trainsTextEncoder = !toBool(config.network_train_unet_only);
+    const unetOnly = toBool(config.network_train_unet_only);
+    const textEncoderOnly = toBool(config.network_train_text_encoder_only);
+
+    if (key === 'shuffle_caption' && cacheText) return '缓存文本编码器输出';
+    if (key === 'caption_dropout_rate' && cacheText) return '缓存文本编码器输出';
+    if (key === 'caption_tag_dropout_rate' && cacheText) return '缓存文本编码器输出';
+    if (key === 'token_warmup_step' && cacheText) return '缓存文本编码器输出';
+
+    if (key === 'cache_text_encoder_outputs') {
+      const blockers = [];
+      if (shuffleCaption) blockers.push('随机打乱标签');
+      if (captionDropout) blockers.push('全部标签丢弃概率');
+      if (captionTagDropout) blockers.push('按标签丢弃概率');
+      if (tokenWarmup) blockers.push('Token 预热步数');
+      if (trainsTextEncoder) blockers.push('训练文本编码器');
+      if (blockers.length) return blockers.join(' / ');
+    }
+
+    if (key === 'cache_text_encoder_outputs_to_disk' && !cacheText) return '缓存文本编码器输出';
+    if (key === 'network_train_unet_only' && textEncoderOnly) return '仅训练文本编码器';
+    if (key === 'network_train_text_encoder_only' && unetOnly) return '仅训练 U-Net / DiT';
+    if (key === 'full_fp16' && toBool(config.full_bf16)) return '完全 BF16';
+    if (key === 'full_bf16' && toBool(config.full_fp16)) return '完全 FP16';
+    if (key === 'noise_offset' && toNum(config.multires_noise_iterations) > 0) return '多分辨率噪声迭代';
+    if (key === 'multires_noise_iterations' && toNum(config.noise_offset) > 0) return '噪声偏移';
+    return '';
+  }
+
+  function renderConflictHint(conflictWith) {
+    if (!conflictWith) return '';
+    return `<p class="field-desc field-conflict-hint">与「${escapeHtml(conflictWith)}」互斥，请关闭后开启本选项。</p>`;
+  }
+
   function renderField(field) {
     const value = state.config[field.key];
     const label = field.label;
@@ -65,6 +125,8 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     const canReset = String(value ?? '') !== String(defaultValue ?? '');
     const pickerMode = field.pickerType || field.type;
     const builtinPickerIcon = (pickerMode === 'folder' || pickerMode === 'output-folder') ? '#icon-folder' : '#icon-file';
+    const conflictWith = getFieldConflict(field);
+    const disabledAttr = conflictWith ? ' disabled' : '';
     const renderHeader = () => `
       <div class="field-header-row">
         <label>${escapeHtml(label)}</label>
@@ -76,12 +138,13 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     `;
 
     const modCls = isModified ? ' field-modified' : '';
+    const disabledCls = conflictWith ? ' field-disabled' : '';
     const renderCollapsibleField = (bodyHtml) => {
       const rawSummaryValue = value === undefined || value === null || value === '' ? '' : String(value);
       const summaryValue = rawSummaryValue || '未设置';
       const summaryClass = rawSummaryValue ? '' : ' is-empty';
       return `
-        <details class="config-group collapsible-field${modCls}" data-field-key="${field.key}">
+        <details class="config-group collapsible-field${modCls}${disabledCls}" data-field-key="${field.key}">
           <summary class="collapsible-field-summary">
             <span class="collapsible-field-title">${escapeHtml(label)}</span>
             <span class="collapsible-field-value${summaryClass}">${escapeHtml(summaryValue)}</span>
@@ -97,13 +160,14 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
 
     if (field.type === 'boolean') {
       return `
-        <div class="config-group row boolean-card${modCls}" data-field-key="${field.key}">
+        <div class="config-group row boolean-card${modCls}${disabledCls}" data-field-key="${field.key}">
           <div class="label-col">
             ${renderHeader()}
             ${renderFieldDescription(field)}
+            ${renderConflictHint(conflictWith)}
           </div>
           <label class="switch switch-compact">
-            <input type="checkbox" ${value ? 'checked' : ''} onchange="updateConfigValue('${field.key}', this.checked)">
+            <input type="checkbox" ${value ? 'checked' : ''}${disabledAttr} onchange="updateConfigValue('${field.key}', this.checked)">
             <span class="slider round"></span>
           </label>
         </div>
@@ -123,16 +187,18 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
         return renderCollapsibleField(`
           ${renderHeader()}
           ${renderFieldDescription(field)}
-          <select onchange="updateConfigValue('${field.key}', this.value)">
+          ${renderConflictHint(conflictWith)}
+          <select${disabledAttr} onchange="updateConfigValue('${field.key}', this.value)">
             ${filteredOptions.map((option) => `<option value="${escapeHtml(option)}" ${String(value) === String(option) ? 'selected' : ''}>${escapeHtml(option || '默认')}</option>`).join('')}
           </select>
         `);
       }
       return `
-        <div class="config-group${modCls}" data-field-key="${field.key}">
+        <div class="config-group${modCls}${disabledCls}" data-field-key="${field.key}">
           ${renderHeader()}
           ${renderFieldDescription(field)}
-          <select onchange="updateConfigValue('${field.key}', this.value)">
+          ${renderConflictHint(conflictWith)}
+          <select${disabledAttr} onchange="updateConfigValue('${field.key}', this.value)">
             ${filteredOptions.map((option) => `<option value="${escapeHtml(option)}" ${String(value) === String(option) ? 'selected' : ''}>${escapeHtml(option || '默认')}</option>`).join('')}
           </select>
         </div>
@@ -144,14 +210,16 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
         return renderCollapsibleField(`
           ${renderHeader()}
           ${renderFieldDescription(field)}
-          <textarea class="text-area" oninput="updateConfigValue('${field.key}', this.value)">${escapeHtml(value || '')}</textarea>
+          ${renderConflictHint(conflictWith)}
+          <textarea class="text-area"${disabledAttr} oninput="updateConfigValue('${field.key}', this.value)">${escapeHtml(value || '')}</textarea>
         `);
       }
       return `
-        <div class="config-group${modCls}" data-field-key="${field.key}">
+        <div class="config-group${modCls}${disabledCls}" data-field-key="${field.key}">
           ${renderHeader()}
           ${renderFieldDescription(field)}
-          <textarea class="text-area" oninput="updateConfigValue('${field.key}', this.value)">${escapeHtml(value || '')}</textarea>
+          ${renderConflictHint(conflictWith)}
+          <textarea class="text-area"${disabledAttr} oninput="updateConfigValue('${field.key}', this.value)">${escapeHtml(value || '')}</textarea>
         </div>
       `;
     }
@@ -164,23 +232,25 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
         return renderCollapsibleField(`
           ${renderHeader()}
           ${renderFieldDescription(field)}
+          ${renderConflictHint(conflictWith)}
           <div class="input-picker">
-            <button class="picker-icon" type="button" onclick="pickPath('${field.key}', '${field.pickerType || 'folder'}')">
+            <button class="picker-icon" type="button"${disabledAttr} onclick="pickPath('${field.key}', '${field.pickerType || 'folder'}')">
               <svg class="icon"><use href="#icon-folder"></use></svg>
             </button>
-            <input type="text" value="${escapeHtml(inputValue)}" oninput="updateConfigValue('${field.key}', this.value)">
+            <input type="text" value="${escapeHtml(inputValue)}"${disabledAttr} oninput="updateConfigValue('${field.key}', this.value)">
           </div>
         `);
       }
       return `
-        <div class="config-group${modCls}" data-field-key="${field.key}">
+        <div class="config-group${modCls}${disabledCls}" data-field-key="${field.key}">
           ${renderHeader()}
           ${renderFieldDescription(field)}
+          ${renderConflictHint(conflictWith)}
           <div class="input-picker">
-            <button class="picker-icon" type="button" onclick="pickPath('${field.key}', '${field.pickerType || 'folder'}')">
+            <button class="picker-icon" type="button"${disabledAttr} onclick="pickPath('${field.key}', '${field.pickerType || 'folder'}')">
               <svg class="icon"><use href="#icon-folder"></use></svg>
             </button>
-            <input type="text" value="${escapeHtml(inputValue)}" oninput="updateConfigValue('${field.key}', this.value)">
+            <input type="text" value="${escapeHtml(inputValue)}"${disabledAttr} oninput="updateConfigValue('${field.key}', this.value)">
           </div>
         </div>
       `;
@@ -192,15 +262,17 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
       return renderCollapsibleField(`
         ${renderHeader()}
         ${renderFieldDescription(field)}
-        <input class="text-input" type="${inputType}" value="${escapeHtml(inputValue)}" ${field.min !== undefined ? `min="${field.min}"` : ''} ${field.max !== undefined ? `max="${field.max}"` : ''} ${field.step !== undefined ? `step="${field.step}"` : ''} oninput="updateConfigValue('${field.key}', this.value)">
+        ${renderConflictHint(conflictWith)}
+        <input class="text-input" type="${inputType}" value="${escapeHtml(inputValue)}"${disabledAttr} ${field.min !== undefined ? `min="${field.min}"` : ''} ${field.max !== undefined ? `max="${field.max}"` : ''} ${field.step !== undefined ? `step="${field.step}"` : ''} oninput="updateConfigValue('${field.key}', this.value)">
       `);
     }
 
     return `
-      <div class="config-group${modCls}" data-field-key="${field.key}">
+      <div class="config-group${modCls}${disabledCls}" data-field-key="${field.key}">
         ${renderHeader()}
         ${renderFieldDescription(field)}
-        <input class="text-input" type="${inputType}" value="${escapeHtml(inputValue)}" ${field.min !== undefined ? `min="${field.min}"` : ''} ${field.max !== undefined ? `max="${field.max}"` : ''} ${field.step !== undefined ? `step="${field.step}"` : ''} oninput="updateConfigValue('${field.key}', this.value)">
+        ${renderConflictHint(conflictWith)}
+        <input class="text-input" type="${inputType}" value="${escapeHtml(inputValue)}"${disabledAttr} ${field.min !== undefined ? `min="${field.min}"` : ''} ${field.max !== undefined ? `max="${field.max}"` : ''} ${field.step !== undefined ? `step="${field.step}"` : ''} oninput="updateConfigValue('${field.key}', this.value)">
       </div>
     `;
   }

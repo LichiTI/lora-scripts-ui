@@ -88,7 +88,7 @@ export const TRAINING_TYPES = [
 // 共享字段片段
 // ================================================================
 const S_SAVE = [
-  { key: 'output_name', type: 'string', label: '模型保存名称（output_name）', desc: '模型保存名称', defaultValue: 'aki' },
+  { key: 'output_name', type: 'string', label: '模型保存名称（output_name）', desc: '模型保存名称', defaultValue: 'lulynx_' },
   { key: 'output_dir', type: 'folder', pickerType: 'folder', label: '模型保存文件夹（output_dir）', desc: '模型保存文件夹', defaultValue: './output' },
   { key: 'save_model_as', type: 'select', label: '保存格式（save_model_as）', desc: '模型保存格式', defaultValue: 'safetensors', options: ['safetensors', 'pt', 'ckpt'] },
   { key: 'save_precision', type: 'select', label: '保存精度（save_precision）', desc: '模型保存精度', defaultValue: 'fp16', options: ['fp16', 'float', 'bf16'] },
