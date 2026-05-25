@@ -26,6 +26,8 @@ function createEmptyMetrics() {
     totalSteps: 0,
     bTier: null,
     ghostReplay: null,
+    memoryOptimization: null,
+    precisionSwapProfile: null,
   };
 }
 
@@ -66,6 +68,12 @@ function applyProgressJson(metrics, data, now) {
       metrics.ghostReplay = data.b_tier.ghost_replay;
     }
   }
+  if (data.memory_optimization && typeof data.memory_optimization === 'object') {
+    metrics.memoryOptimization = data.memory_optimization;
+    if (data.memory_optimization.precision_swap_profile && typeof data.memory_optimization.precision_swap_profile === 'object') {
+      metrics.precisionSwapProfile = data.memory_optimization.precision_swap_profile;
+    }
+  }
   return true;
 }
 
@@ -85,7 +93,8 @@ export function collectTrainingMetrics(metrics, lines) {
     const now = Date.now();
     if (line.includes('PROGRESS_JSON:')) {
       try {
-        const data = JSON.parse(line.split('PROGRESS_JSON:', 1)[1].trim());
+        const marker = 'PROGRESS_JSON:';
+        const data = JSON.parse(line.slice(line.indexOf(marker) + marker.length).trim());
         if (applyProgressJson(m, data, now)) {
           continue;
         }

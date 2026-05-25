@@ -168,6 +168,35 @@ export function createPreflightRenderer({ state, deps }) {
     html += '</details>';
     return html;
   }
+
+  function _renderPrecisionSwapProfile(profile) {
+    if (!profile || typeof profile !== 'object') return '';
+    var selected = Array.isArray(profile.selected_names) ? profile.selected_names : [];
+    var selectedText = selected.length ? selected.join(', ') : '未选择';
+    var source = profile.profile_source || 'static';
+    var resolution = Array.isArray(profile.resolution) ? profile.resolution.join('x') : '—';
+    var hint = Number(profile.selected_activation_hint_mb || 0);
+    var params = Number(profile.selected_parameter_mb || 0);
+    var html = '<details class="preflight-group collapsible-subgroup" style="margin-top:8px;" open>';
+    html += '<summary class="preflight-group-title">' + _ico('activity', 14) + ' Lulynx Precision Swap<span class="collapsible-caret" aria-hidden="true">⌄</span></summary>';
+    html += '<div class="preflight-dataset-grid">';
+    html += _pfTag('策略', profile.strategy || 'balanced');
+    html += _pfTag('后端', profile.backend || 'suffix_block_swap');
+    html += _pfTag('分辨率', resolution);
+    html += _pfTag('Profile', source);
+    html += _pfTag('选中单元', String(profile.selected_count || selected.length || 0) + ' / ' + String(profile.units_total || 0));
+    html += _pfTag('BlockSwap 数量', profile.compatible_blocks_to_swap || 0);
+    html += _pfTag('参数量', params > 0 ? params.toFixed(1) + ' MB' : '运行时统计');
+    html += _pfTag('激活 Hint', hint > 0 ? hint.toFixed(1) + ' MB' : '—');
+    html += '</div>';
+    html += '<div class="preflight-item preflight-note">选中: ' + escapeHtml(selectedText) + '</div>';
+    if (source === 'preflight_static') {
+      html += '<div class="preflight-item preflight-note">预检阶段不会加载模型；参数量会在训练启动后由运行时 profile 补齐。</div>';
+    }
+    html += '</details>';
+    return html;
+  }
+
   function renderPreflightReport() {
     const pf = state.preflight;
     if (!pf) return '';
@@ -178,8 +207,9 @@ export function createPreflightRenderer({ state, deps }) {
     const ds = pf.dataset;
     const deps = pf.dependencies;
     const advisor = pf.training_advisor;
+    const precisionSwapProfile = pf.precision_swap_profile;
 
-    if (errors.length === 0 && warnings.length === 0 && notes.length === 0 && !ds && !advisor) {
+    if (errors.length === 0 && warnings.length === 0 && notes.length === 0 && !ds && !advisor && !precisionSwapProfile) {
       return '';
     }
 
@@ -251,6 +281,7 @@ export function createPreflightRenderer({ state, deps }) {
     }
 
     html += _renderAdvisorSummary(advisor);
+    html += _renderPrecisionSwapProfile(precisionSwapProfile);
 
     // 提示信息（保留可折叠）
     if (notes.length > 0) {

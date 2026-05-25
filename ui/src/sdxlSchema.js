@@ -151,6 +151,8 @@ const S_TRAIN = (epochs = 10) => [
 ];
 const S_PREVIEW = [
   { key: 'enable_preview', type: 'boolean', label: '启用预览图（enable_preview）', desc: '启用训练预览图', defaultValue: false },
+  { key: 'preview_device', type: 'select', label: '预览设备（preview_device）', desc: 'cpu 会保留训练 GPU 显存，当前作为后台采样路线预留；gpu 会在安全点临时采样；off 关闭真实预览', defaultValue: 'cpu', options: ['cpu', 'gpu', 'off'], visibleWhen: when('enable_preview', true) },
+  { key: 'ephemeral_preview_pipeline', type: 'boolean', label: '临时预览 Pipeline（ephemeral_preview_pipeline）', desc: '每次预览后销毁 pipeline 并释放缓存，避免 VAE/TE 长期污染训练显存', defaultValue: true, visibleWhen: all(when('enable_preview', true), when('preview_device', 'gpu')) },
   { key: 'sample_every_n_epochs', type: 'number', label: '每 N 轮生成预览（sample_every_n_epochs）', desc: '每训练 N 个 epoch 生成一次预览图。留空则仅在 epoch 结束时按默认频率生成', defaultValue: '', min: 1, visibleWhen: when('enable_preview', true) },
   { key: 'sample_every_n_steps', type: 'number', label: '每 N 步生成预览（sample_every_n_steps）', desc: '每训练 N 步生成一次预览图（优先于按 epoch）。留空不启用', defaultValue: '', min: 1, visibleWhen: when('enable_preview', true) },
   { key: 'sample_at_first', type: 'boolean', label: '训练前先生成预览（sample_at_first）', desc: '训练开始前先生成一张预览图，可用于确认提示词效果', defaultValue: false, visibleWhen: when('enable_preview', true) },
@@ -205,6 +207,11 @@ const S_SPEED_SDXL = [
   { key: 'cache_text_encoder_outputs_to_disk', type: 'boolean', label: '缓存文本编码器输出到磁盘（cache_text_encoder_outputs_to_disk）', desc: '缓存文本编码器的输出到磁盘', defaultValue: false },
   { key: 'text_encoder_outputs_cache_disk_format', type: 'select', label: '文本缓存格式（text_encoder_outputs_cache_disk_format）', desc: '文本编码器输出磁盘缓存格式。默认 safetensors；若已有旧缓存会自动兼容读取 npz', defaultValue: 'safetensors', options: ['safetensors', 'npz'], visibleWhen: when('cache_text_encoder_outputs_to_disk', true) },
   { key: 'text_encoder_outputs_cache_dtype', type: 'select', label: '文本缓存精度（text_encoder_outputs_cache_dtype）', desc: '文本编码器输出磁盘缓存保存精度。auto 会尽量保留运行时 dtype；fp16 / bf16 更省空间，fp32 兼容性更高', defaultValue: 'auto', options: ['auto', 'fp16', 'bf16', 'fp32'], visibleWhen: when('cache_text_encoder_outputs_to_disk', true) },
+  { key: 'te_vae_offload_strategy', type: 'select', label: 'TE/VAE Offload 策略（te_vae_offload_strategy）', desc: 'phase 为默认训练生命周期策略；aggressive 面向 6GB 低显存目标；resident 保持兼容但显存占用更高', defaultValue: 'phase', options: ['phase', 'aggressive', 'resident'] },
+  { key: 'model_to_condition_enabled', type: 'boolean', label: 'ModelToCondition（model_to_condition_enabled）', desc: '启用共享条件生成协议。当前为兼容层，后续会逐步接管 SDXL cache-first 热路径', defaultValue: true },
+  { key: 'sdxl_unet_backend', type: 'select', label: 'SDXL U-Net 后端（sdxl_unet_backend）', desc: 'diffusers 为稳定默认；native_shadow 只记录 Lulynx 原生 U-Net block graph；native_proxy 通过代理进入训练链路用于 P2 对照；lulynx_native 预留给完整 clean-room 实现', defaultValue: 'diffusers', options: ['diffusers', 'native_shadow', 'native_proxy', 'lulynx_native'] },
+  { key: 'lulynx_precision_swap_enabled', type: 'boolean', label: 'Lulynx Precision Swap（lulynx_precision_swap_enabled）', desc: '启用 Lulynx 精准交换规划兼容层。当前先输出规划，后续接管 SDXL block residency', defaultValue: false },
+  { key: 'lulynx_precision_swap_strategy', type: 'select', label: 'Precision Swap 策略（lulynx_precision_swap_strategy）', desc: 'balanced 优先 output/mid 高收益 block；aggressive 会选择更多候选 block', defaultValue: 'balanced', options: ['balanced', 'aggressive', 'off'], visibleWhen: when('lulynx_precision_swap_enabled', true) },
   { key: 'full_fp16', type: 'boolean', label: '完全 FP16（full_fp16）', desc: '完全使用 FP16 精度', defaultValue: false },
   { key: 'full_bf16', type: 'boolean', label: '完全 BF16（full_bf16）', desc: '完全使用 BF16 精度', defaultValue: false },
   { key: 'no_half_vae', type: 'boolean', label: '不使用半精度 VAE（no_half_vae）', desc: '不使用半精度 VAE', defaultValue: false },

@@ -51,6 +51,47 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       + '</section>';
   }
 
+  function renderPrecisionSwapRuntimeCard(profile) {
+    if (!profile || typeof profile !== 'object') return '';
+    var selected = Array.isArray(profile.selected_names) ? profile.selected_names : [];
+    var selectedText = selected.length ? selected.join(', ') : '未选择';
+    var hint = Number(profile.selected_activation_hint_mb || 0);
+    var params = Number(profile.selected_parameter_mb || 0);
+    var source = profile.profile_source || 'static';
+    var obs = (profile.runtime_observations && typeof profile.runtime_observations === 'object') ? profile.runtime_observations : {};
+    var avgStep = Number(obs.avg_step_wall_seconds || 0);
+    var lastStep = Number(obs.last_step_wall_seconds || 0);
+    var swapCount = Number(obs.swap_count || 0);
+    var waitCount = Number(obs.wait_count || 0);
+    var swapMs = Number(obs.total_swap_ms || 0);
+    var peak = (obs.peak_vram_stages && typeof obs.peak_vram_stages === 'object') ? obs.peak_vram_stages : null;
+    var peakText = peak
+      ? ['forward_mb', 'backward_mb', 'optimizer_mb'].map(function(k) {
+          return peak[k] != null ? String(peak[k]) + ' MB' : null;
+        }).filter(Boolean).join(' / ')
+      : '';
+    return '<div class="train-side-section" id="train-precision-swap-card">'
+      + '<div class="train-panel-title">Lulynx Precision Swap</div>'
+      + '<div class="train-hw-card">'
+      +   '<div class="train-hw-row"><span class="hw-label">策略</span><span class="hw-value">' + escapeHtml(String(profile.strategy || 'balanced')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">后端</span><span class="hw-value">' + escapeHtml(String(profile.backend || 'suffix_block_swap')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">选中单元</span><span class="hw-value-accent">' + escapeHtml(String(profile.selected_count || selected.length || 0) + ' / ' + String(profile.units_total || 0)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">BlockSwap</span><span class="hw-value">' + escapeHtml(String(profile.compatible_blocks_to_swap || 0)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">参数量</span><span class="hw-value">' + (params > 0 ? params.toFixed(1) + ' MB' : '—') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">激活 Hint</span><span class="hw-value">' + (hint > 0 ? hint.toFixed(1) + ' MB' : '—') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">观测步数</span><span class="hw-value">' + escapeHtml(String(obs.steps_observed || 0)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">步耗时</span><span class="hw-value">' + (avgStep > 0 ? escapeHtml(avgStep.toFixed(2) + 's avg / ' + lastStep.toFixed(2) + 's last') : '—') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">Swap / Wait</span><span class="hw-value">' + escapeHtml(String(swapCount) + ' / ' + String(waitCount)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">Swap 耗时</span><span class="hw-value">' + (swapMs > 0 ? escapeHtml(swapMs.toFixed(1) + ' ms') : '—') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">峰值阶段</span><span class="hw-value">' + (peakText ? escapeHtml(peakText) : '—') + '</span></div>'
+      + '</div>'
+      + '<div style="margin-top:8px;font-size:0.68rem;color:var(--text-muted);line-height:1.45;">'
+      +   '<div>Profile: ' + escapeHtml(String(source)) + '</div>'
+      +   '<div>选中: ' + escapeHtml(selectedText) + '</div>'
+      + '</div>'
+      + '</div>';
+  }
+
   function renderTraining(container) {
     var running = state.tasks.filter(function(t) { return t.status === 'RUNNING'; });
     var finished = state.tasks.filter(function(t) { return ['FINISHED', 'COMPLETED'].includes(String(t.status || '').toUpperCase()); });
@@ -76,6 +117,10 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
     var lossArrow = lossDeltaPct < 0 ? _ico('trending-down', 12) : (lossDeltaPct > 0 ? _ico('trending-up', 12) : '');
     var lossArrowColor = lossDeltaPct < 0 ? '#22c55e' : (lossDeltaPct > 0 ? '#ef4444' : 'var(--text-dim)');
     var ghost = m.ghostReplay || (m.bTier && m.bTier.ghost_replay) || null;
+    var precisionSwapProfile = m.precisionSwapProfile
+      || (m.memoryOptimization && m.memoryOptimization.precision_swap_profile)
+      || (state.preflight && state.preflight.precision_swap_profile)
+      || null;
     var showGhostCard = !!(state.config.lulynx_ghost_replay || ghost);
     var ghostStatus = ghost && ghost.last_status ? String(ghost.last_status) : 'idle';
     var ghostStatusMap = {
@@ -298,6 +343,8 @@ var statusDot = '', statusText = '';
     +       '</div>'
     +       '<div id="sys-monitor-panel" class="sysmon-panel">' + _buildSysMonitorHTML() + '</div>'
     +       '</div>'
+
+    +     renderPrecisionSwapRuntimeCard(precisionSwapProfile)
 
     // Active params
     +     '<div class="train-side-section">'
