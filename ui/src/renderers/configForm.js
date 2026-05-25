@@ -62,42 +62,111 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     const value = config[key];
     const isActive = field.type === 'boolean'
       ? toBool(value)
-      : (field.type === 'number' || field.type === 'slider')
-        ? toNum(value) > 0
-        : Boolean(String(value ?? '').trim());
+      : key === 'swap_granularity'
+        ? Boolean(String(value ?? 'off').trim()) && String(value ?? 'off').trim() !== 'off'
+        : (field.type === 'number' || field.type === 'slider')
+          ? toNum(value) > 0
+          : Boolean(String(value ?? '').trim());
     if (isActive) return '';
 
     const cacheText = toBool(config.cache_text_encoder_outputs);
+    const cacheLatents = toBool(config.cache_latents);
     const shuffleCaption = toBool(config.shuffle_caption);
+    const shuffleCaptionTagsOnly = toBool(config.shuffle_caption_tags_only);
     const captionDropout = toNum(config.caption_dropout_rate) > 0;
     const captionTagDropout = toNum(config.caption_tag_dropout_rate) > 0;
+    const captionDropoutEvery = toNum(config.caption_dropout_every_n_epochs) > 0;
     const tokenWarmup = toNum(config.token_warmup_step) > 0;
     const trainsTextEncoder = !toBool(config.network_train_unet_only);
     const unetOnly = toBool(config.network_train_unet_only);
     const textEncoderOnly = toBool(config.network_train_text_encoder_only);
+    const flowEnabled = toBool(config.flow_model) || String(config.flow_model || '').trim() === 'rectified_flow' || String(config.flow_model || '').trim() === 'cfm';
+    const vParameterization = toBool(config.v_parameterization);
+    const swapMode = String(config.swap_granularity || 'off').trim().toLowerCase().replace('-', '_');
+    const swapActive = swapMode !== '' && swapMode !== 'off';
+    const moduleOffload = toBool(config.module_offload_enabled);
+    const vramSwapToRam = toBool(config.vram_swap_to_ram);
+    const torchCompile = toBool(config.torch_compile);
+    const distributed = toBool(config.enable_distributed_training) || toBool(config.enable_distributed) || toNum(config.num_processes) > 1 || toNum(config.num_machines) > 1;
+    const deepspeed = toBool(config.deepspeed);
+    const safeFallback = toBool(config.safe_fallback) || toBool(config.newbie_safe_fallback);
 
     if (key === 'shuffle_caption' && cacheText) return '缓存文本编码器输出';
+    if (key === 'shuffle_caption_tags_only' && cacheText) return '缓存文本编码器输出';
     if (key === 'caption_dropout_rate' && cacheText) return '缓存文本编码器输出';
     if (key === 'caption_tag_dropout_rate' && cacheText) return '缓存文本编码器输出';
+    if (key === 'caption_dropout_every_n_epochs' && cacheText) return '缓存文本编码器输出';
     if (key === 'token_warmup_step' && cacheText) return '缓存文本编码器输出';
 
     if (key === 'cache_text_encoder_outputs') {
       const blockers = [];
       if (shuffleCaption) blockers.push('随机打乱标签');
+      if (shuffleCaptionTagsOnly) blockers.push('仅打乱 Tag 部分');
       if (captionDropout) blockers.push('全部标签丢弃概率');
       if (captionTagDropout) blockers.push('按标签丢弃概率');
+      if (captionDropoutEvery) blockers.push('每 N 轮丢弃标签');
       if (tokenWarmup) blockers.push('Token 预热步数');
       if (trainsTextEncoder) blockers.push('训练文本编码器');
       if (blockers.length) return blockers.join(' / ');
     }
 
     if (key === 'cache_text_encoder_outputs_to_disk' && !cacheText) return '缓存文本编码器输出';
+    if (key === 'cache_latents_to_disk' && !cacheLatents) return '缓存 Latent';
+    if (key === 'cache_latents' && toBool(config.cache_latents_to_disk)) return '缓存 Latent 到磁盘';
     if (key === 'network_train_unet_only' && textEncoderOnly) return '仅训练文本编码器';
     if (key === 'network_train_text_encoder_only' && unetOnly) return '仅训练 U-Net / DiT';
     if (key === 'full_fp16' && toBool(config.full_bf16)) return '完全 BF16';
+    if (key === 'full_fp16' && vramSwapToRam) return 'VRAM Swap to RAM';
     if (key === 'full_bf16' && toBool(config.full_fp16)) return '完全 FP16';
+    if (key === 'full_bf16' && vramSwapToRam) return 'VRAM Swap to RAM';
     if (key === 'noise_offset' && toNum(config.multires_noise_iterations) > 0) return '多分辨率噪声迭代';
     if (key === 'multires_noise_iterations' && toNum(config.noise_offset) > 0) return '噪声偏移';
+    if (key === 'flow_model' && vParameterization) return 'V 参数化';
+    if (key === 'v_parameterization' && flowEnabled) return 'Rectified Flow';
+    if (key === 'vram_swap_to_ram') {
+      const blockers = [];
+      if (swapActive) blockers.push('显存交换模式');
+      if (moduleOffload) blockers.push('模块级 Offload');
+      if (toBool(config.full_fp16)) blockers.push('完全 FP16');
+      if (toBool(config.full_bf16)) blockers.push('完全 BF16');
+      if (distributed) blockers.push('分布式训练');
+      if (deepspeed) blockers.push('DeepSpeed');
+      if (blockers.length) return blockers.join(' / ');
+    }
+    if (key === 'swap_granularity') {
+      const blockers = [];
+      if (moduleOffload) blockers.push('模块级 Offload');
+      if (vramSwapToRam) blockers.push('VRAM Swap to RAM');
+      if (torchCompile) blockers.push('torch.compile');
+      if (safeFallback) blockers.push('OOM 安全回退');
+      if (blockers.length) return blockers.join(' / ');
+    }
+    if (key === 'module_offload_enabled') {
+      const blockers = [];
+      if (swapActive) blockers.push('显存交换模式');
+      if (vramSwapToRam) blockers.push('VRAM Swap to RAM');
+      if (torchCompile) blockers.push('torch.compile');
+      if (distributed) blockers.push('分布式训练');
+      if (deepspeed) blockers.push('DeepSpeed');
+      if (toBool(config.gradient_checkpointing)) blockers.push('梯度检查点');
+      if (toBool(config.cpu_offload_checkpointing)) blockers.push('CPU 卸载检查点');
+      if (safeFallback) blockers.push('OOM 安全回退');
+      if (blockers.length) return blockers.join(' / ');
+    }
+    if (key === 'torch_compile' && (swapActive || moduleOffload)) {
+      return [swapActive ? '显存交换模式' : '', moduleOffload ? '模块级 Offload' : ''].filter(Boolean).join(' / ');
+    }
+    if (key === 'gradient_checkpointing') {
+      if (moduleOffload) return '模块级 Offload';
+      if (swapMode === 'layer') return 'Layer Swap';
+    }
+    if (key === 'cpu_offload_checkpointing' && moduleOffload) return '模块级 Offload';
+    if (key === 'enable_distributed_training' && (moduleOffload || vramSwapToRam)) {
+      return [moduleOffload ? '模块级 Offload' : '', vramSwapToRam ? 'VRAM Swap to RAM' : ''].filter(Boolean).join(' / ');
+    }
+    if ((key === 'safe_fallback' || key === 'newbie_safe_fallback') && (swapActive || moduleOffload)) {
+      return [swapActive ? '显存交换模式' : '', moduleOffload ? '模块级 Offload' : ''].filter(Boolean).join(' / ');
+    }
     return '';
   }
 

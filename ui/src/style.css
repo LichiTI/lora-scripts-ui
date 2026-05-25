@@ -87,6 +87,7 @@ body {
 }
 
 .backend-offline-panel {
+  position: relative;
   width: min(560px, 92vw);
   border: 1px solid rgba(239, 68, 68, 0.38);
   border-radius: 8px;
@@ -95,6 +96,26 @@ body {
   color: #fee2e2;
   text-align: center;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.42);
+}
+
+.backend-offline-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(254, 202, 202, 0.32);
+  border-radius: 50%;
+  background: rgba(127, 29, 29, 0.18);
+  color: #fecaca;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.backend-offline-close:hover {
+  background: rgba(239, 68, 68, 0.26);
+  color: #fff;
 }
 
 .backend-offline-title {

@@ -106,6 +106,10 @@ export const api = {
     return request('/api/config/saved_params');
   },
 
+  getConfigOptions() {
+    return request('/api/config/options');
+  },
+
   getTasks() {
     return request('/api/tasks');
   },
