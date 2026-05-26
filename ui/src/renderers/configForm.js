@@ -244,9 +244,14 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     }
 
     if (field.type === 'select') {
+      const optionValue = (option) => (option && typeof option === 'object') ? option.value : option;
+      const optionLabel = (option) => {
+        if (option && typeof option === 'object') return option.label ?? option.value ?? '默认';
+        return option || '默认';
+      };
       const ensureCurrentOption = (options) => {
         const current = value === undefined || value === null ? '' : String(value);
-        if (!current || options.includes(current)) {
+        if (!current || options.some((option) => String(optionValue(option)) === current)) {
           return options;
         }
         return [current, ...options];
@@ -258,7 +263,7 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
           ${renderFieldDescription(field)}
           ${renderConflictHint(conflictWith)}
           <select${disabledAttr} onchange="updateConfigValue('${field.key}', this.value)">
-            ${filteredOptions.map((option) => `<option value="${escapeHtml(option)}" ${String(value) === String(option) ? 'selected' : ''}>${escapeHtml(option || '默认')}</option>`).join('')}
+            ${filteredOptions.map((option) => `<option value="${escapeHtml(optionValue(option))}" ${String(value) === String(optionValue(option)) ? 'selected' : ''}>${escapeHtml(optionLabel(option))}</option>`).join('')}
           </select>
         `);
       }
@@ -268,7 +273,7 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
           ${renderFieldDescription(field)}
           ${renderConflictHint(conflictWith)}
           <select${disabledAttr} onchange="updateConfigValue('${field.key}', this.value)">
-            ${filteredOptions.map((option) => `<option value="${escapeHtml(option)}" ${String(value) === String(option) ? 'selected' : ''}>${escapeHtml(option || '默认')}</option>`).join('')}
+            ${filteredOptions.map((option) => `<option value="${escapeHtml(optionValue(option))}" ${String(value) === String(optionValue(option)) ? 'selected' : ''}>${escapeHtml(optionLabel(option))}</option>`).join('')}
           </select>
         </div>
       `;

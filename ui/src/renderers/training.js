@@ -64,6 +64,8 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
     var swapCount = Number(obs.swap_count || 0);
     var waitCount = Number(obs.wait_count || 0);
     var swapMs = Number(obs.total_swap_ms || 0);
+    var prepareCount = Number(obs.prepare_count || 0);
+    var prepareMs = Number(obs.total_prepare_ms || 0);
     var peak = (obs.peak_vram_stages && typeof obs.peak_vram_stages === 'object') ? obs.peak_vram_stages : null;
     var peakText = peak
       ? ['forward_mb', 'backward_mb', 'optimizer_mb'].map(function(k) {
@@ -83,11 +85,76 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       +   '<div class="train-hw-row"><span class="hw-label">步耗时</span><span class="hw-value">' + (avgStep > 0 ? escapeHtml(avgStep.toFixed(2) + 's avg / ' + lastStep.toFixed(2) + 's last') : '—') + '</span></div>'
       +   '<div class="train-hw-row"><span class="hw-label">Swap / Wait</span><span class="hw-value">' + escapeHtml(String(swapCount) + ' / ' + String(waitCount)) + '</span></div>'
       +   '<div class="train-hw-row"><span class="hw-label">Swap 耗时</span><span class="hw-value">' + (swapMs > 0 ? escapeHtml(swapMs.toFixed(1) + ' ms') : '—') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">Prepare</span><span class="hw-value">' + (prepareCount > 0 ? escapeHtml(String(prepareCount) + ' / ' + prepareMs.toFixed(1) + ' ms') : '—') + '</span></div>'
       +   '<div class="train-hw-row"><span class="hw-label">峰值阶段</span><span class="hw-value">' + (peakText ? escapeHtml(peakText) : '—') + '</span></div>'
       + '</div>'
       + '<div style="margin-top:8px;font-size:0.68rem;color:var(--text-muted);line-height:1.45;">'
       +   '<div>Profile: ' + escapeHtml(String(source)) + '</div>'
       +   '<div>选中: ' + escapeHtml(selectedText) + '</div>'
+      + '</div>'
+      + '</div>';
+  }
+
+  function renderNativeUnetRuntimeCard(profile) {
+    if (!profile || typeof profile !== 'object') return '';
+    var coverage = (profile.native_coverage && typeof profile.native_coverage === 'object') ? profile.native_coverage : {};
+    var probe = (profile.native_forward_probe && typeof profile.native_forward_probe === 'object')
+      ? profile.native_forward_probe
+      : ((coverage.native_forward_probe && typeof coverage.native_forward_probe === 'object') ? coverage.native_forward_probe : {});
+    var probeOk = !!(profile.native_forward_probe_ok || coverage.native_forward_probe_ok || probe.ok);
+    var ready = !!(profile.available || coverage.skeleton_ready);
+    var blocks = profile.blocks_total || profile.native_ready_blocks || coverage.implemented_top_blocks || 0;
+    var active = !!profile.active;
+    var residency = (profile.weight_residency && typeof profile.weight_residency === 'object') ? profile.weight_residency : null;
+    return '<div class="train-side-section" id="train-native-unet-card">'
+      + '<div class="train-panel-title">Native SDXL U-Net</div>'
+      + '<div class="train-hw-card">'
+      +   '<div class="train-hw-row"><span class="hw-label">后端</span><span class="hw-value">' + escapeHtml(String(profile.backend || 'diffusers')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">模式</span><span class="hw-value">' + escapeHtml(String(profile.mode || 'shadow')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">Skeleton</span><span class="hw-value" style="color:' + (ready ? '#22c55e' : '#f59e0b') + ';">' + (ready ? '可用' : '不可用') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">Forward Probe</span><span class="hw-value" style="color:' + (probeOk ? '#22c55e' : '#f59e0b') + ';">' + (probeOk ? '通过' : '未通过') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">Top Blocks</span><span class="hw-value-accent">' + escapeHtml(String(blocks || '—')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">训练接管</span><span class="hw-value">' + (active ? '代理接管' : '未接管') + '</span></div>'
+      +   (residency ? '<div class="train-hw-row"><span class="hw-label">权重驻留</span><span class="hw-value">' + escapeHtml(String(residency.mode || 'resident')) + '</span></div>' : '')
+      +   (residency ? '<div class="train-hw-row"><span class="hw-label">CPU Linear</span><span class="hw-value">' + escapeHtml(String(residency.active_linear_count || 0) + ' / ' + String(residency.managed_linear_count || 0)) + '</span></div>' : '')
+      +   (residency ? '<div class="train-hw-row"><span class="hw-label">CPU Conv2d</span><span class="hw-value">' + escapeHtml(String(residency.active_conv2d_count || 0) + ' / ' + String(residency.managed_conv2d_count || 0)) + '</span></div>' : '')
+      + '</div>'
+      + '<div style="margin-top:8px;font-size:0.68rem;color:var(--text-muted);line-height:1.45;">'
+      +   '<div>Forward: ' + escapeHtml(profile.native_forward_integrated ? 'integrated' : 'diagnostic') + '</div>'
+      +   (probe.output_shape ? '<div>Probe 输出: ' + escapeHtml(String(probe.output_shape.join ? probe.output_shape.join('x') : probe.output_shape)) + '</div>' : '')
+      + '</div>'
+      + '</div>';
+  }
+
+  function renderPeakVramDiagnosticsCard(diagnostics, cacheRelease) {
+    if (!diagnostics || typeof diagnostics !== 'object') return '';
+    var stages = (diagnostics.stages && typeof diagnostics.stages === 'object') ? diagnostics.stages : {};
+    var release = (cacheRelease && typeof cacheRelease === 'object') ? cacheRelease : null;
+    function _fmt(value) {
+      var n = Number(value || 0);
+      return n > 0 ? n.toFixed(1) + ' MB' : '—';
+    }
+    function _stageRow(label, key) {
+      var item = stages[key] && typeof stages[key] === 'object' ? stages[key] : null;
+      if (!item) return '';
+      return '<div class="train-hw-row"><span class="hw-label">' + escapeHtml(label) + '</span><span class="hw-value">'
+        + escapeHtml(_fmt(item.peak_allocated_mb) + ' alloc / ' + _fmt(item.peak_reserved_mb) + ' reserved')
+        + '</span></div>';
+    }
+    return '<div class="train-side-section" id="train-vram-diagnostics-card">'
+      + '<div class="train-panel-title">VRAM Diagnostics</div>'
+      + '<div class="train-hw-card">'
+      +   '<div class="train-hw-row"><span class="hw-label">Reserved 峰值</span><span class="hw-value-accent">' + escapeHtml(_fmt(diagnostics.max_reserved_mb)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">Reserved 阶段</span><span class="hw-value">' + escapeHtml(String(diagnostics.max_reserved_stage || '—')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">Allocated 峰值</span><span class="hw-value">' + escapeHtml(_fmt(diagnostics.max_allocated_mb)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">Allocated 阶段</span><span class="hw-value">' + escapeHtml(String(diagnostics.max_allocated_stage || '—')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">缓存差距</span><span class="hw-value">' + escapeHtml(_fmt(diagnostics.allocator_cache_gap_mb)) + '</span></div>'
+      +   _stageRow('Forward', 'forward')
+      +   _stageRow('Backward', 'backward')
+      +   _stageRow('Optimizer', 'optimizer')
+      +   (release ? '<div class="train-hw-row"><span class="hw-label">清缓存策略</span><span class="hw-value">' + escapeHtml(String(release.strategy || 'off')) + '</span></div>' : '')
+      +   (release ? '<div class="train-hw-row"><span class="hw-label">释放 Reserved</span><span class="hw-value">' + escapeHtml(_fmt(release.released_reserved_mb)) + '</span></div>' : '')
+      +   (release ? '<div class="train-hw-row"><span class="hw-label">清缓存耗时</span><span class="hw-value">' + escapeHtml(Number(release.elapsed_ms || 0).toFixed(1) + ' ms') + '</span></div>' : '')
       + '</div>'
       + '</div>';
   }
@@ -121,6 +188,11 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       || (m.memoryOptimization && m.memoryOptimization.precision_swap_profile)
       || (state.preflight && state.preflight.precision_swap_profile)
       || null;
+    var nativeUnetProfile = m.nativeUnet
+      || (state.preflight && state.preflight.native_unet_profile)
+      || null;
+    var peakVramDiagnostics = m.peakVramDiagnostics || null;
+    var cudaCacheRelease = m.cudaCacheRelease || null;
     var showGhostCard = !!(state.config.lulynx_ghost_replay || ghost);
     var ghostStatus = ghost && ghost.last_status ? String(ghost.last_status) : 'idle';
     var ghostStatusMap = {
@@ -343,6 +415,10 @@ var statusDot = '', statusText = '';
     +       '</div>'
     +       '<div id="sys-monitor-panel" class="sysmon-panel">' + _buildSysMonitorHTML() + '</div>'
     +       '</div>'
+
+    +     renderNativeUnetRuntimeCard(nativeUnetProfile)
+
+    +     renderPeakVramDiagnosticsCard(peakVramDiagnostics, cudaCacheRelease)
 
     +     renderPrecisionSwapRuntimeCard(precisionSwapProfile)
 

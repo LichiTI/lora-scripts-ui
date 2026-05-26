@@ -28,6 +28,9 @@ function createEmptyMetrics() {
     ghostReplay: null,
     memoryOptimization: null,
     precisionSwapProfile: null,
+    nativeUnet: null,
+    peakVramDiagnostics: null,
+    cudaCacheRelease: null,
   };
 }
 
@@ -73,6 +76,15 @@ function applyProgressJson(metrics, data, now) {
     if (data.memory_optimization.precision_swap_profile && typeof data.memory_optimization.precision_swap_profile === 'object') {
       metrics.precisionSwapProfile = data.memory_optimization.precision_swap_profile;
     }
+  }
+  if (data.native_unet && typeof data.native_unet === 'object') {
+    metrics.nativeUnet = data.native_unet;
+  }
+  if (data.peak_vram_diagnostics && typeof data.peak_vram_diagnostics === 'object') {
+    metrics.peakVramDiagnostics = data.peak_vram_diagnostics;
+  }
+  if (data.cuda_cache_release && typeof data.cuda_cache_release === 'object') {
+    metrics.cudaCacheRelease = data.cuda_cache_release;
   }
   return true;
 }

@@ -45,6 +45,8 @@ export const CONDITIONAL_KEYS = new Set([
   'enable_block_weights',
   'sdxl_low_vram_optimization',
   'sdxl_low_vram_fixed_block_swap',
+  'sdxl_unet_backend',
+  'cuda_cache_release_strategy',
   'lulynx_precision_swap_enabled',
   'enable_mixed_resolution_training',
   'adapter_type',

@@ -197,6 +197,38 @@ export function createPreflightRenderer({ state, deps }) {
     return html;
   }
 
+  function _renderNativeUnetProfile(profile) {
+    if (!profile || typeof profile !== 'object') return '';
+    var coverage = (profile.native_coverage && typeof profile.native_coverage === 'object') ? profile.native_coverage : {};
+    var probe = (profile.native_forward_probe && typeof profile.native_forward_probe === 'object')
+      ? profile.native_forward_probe
+      : ((coverage.native_forward_probe && typeof coverage.native_forward_probe === 'object') ? coverage.native_forward_probe : {});
+    var probeOk = !!(profile.native_forward_probe_ok || coverage.native_forward_probe_ok || probe.ok);
+    var available = !!profile.available;
+    var mode = profile.mode || 'shadow';
+    var blocks = profile.blocks_total || coverage.implemented_top_blocks || 0;
+    var html = '<details class="preflight-group collapsible-subgroup" style="margin-top:8px;" open>';
+    html += '<summary class="preflight-group-title">' + _ico('cpu', 14) + ' Native SDXL U-Net<span class="collapsible-caret" aria-hidden="true">⌄</span></summary>';
+    html += '<div class="preflight-dataset-grid">';
+    html += _pfTag('后端', profile.backend || 'diffusers');
+    html += _pfTag('模式', mode);
+    html += _pfTag('Skeleton', available ? '可用' : '不可用', available ? 'ok' : 'warn');
+    html += _pfTag('Forward Probe', probeOk ? '通过' : '未通过', probeOk ? 'ok' : 'warn');
+    html += _pfTag('Top Blocks', blocks || '—');
+    html += _pfTag('训练接管', profile.native_forward_integrated ? '已接管' : '未接管');
+    html += '</div>';
+    if (probe.output_shape) {
+      html += '<div class="preflight-item preflight-note">Probe 输出: ' + escapeHtml(String(probe.output_shape.join ? probe.output_shape.join('x') : probe.output_shape)) + '</div>';
+    }
+    if (profile.message) {
+      html += '<div class="preflight-item preflight-warning">' + escapeHtml(profile.message) + '</div>';
+    } else {
+      html += '<div class="preflight-item preflight-note">当前为诊断/对照入口；除 native_proxy 外不会替换训练 U-Net。</div>';
+    }
+    html += '</details>';
+    return html;
+  }
+
   function renderPreflightReport() {
     const pf = state.preflight;
     if (!pf) return '';
@@ -208,8 +240,9 @@ export function createPreflightRenderer({ state, deps }) {
     const deps = pf.dependencies;
     const advisor = pf.training_advisor;
     const precisionSwapProfile = pf.precision_swap_profile;
+    const nativeUnetProfile = pf.native_unet_profile;
 
-    if (errors.length === 0 && warnings.length === 0 && notes.length === 0 && !ds && !advisor && !precisionSwapProfile) {
+    if (errors.length === 0 && warnings.length === 0 && notes.length === 0 && !ds && !advisor && !precisionSwapProfile && !nativeUnetProfile) {
       return '';
     }
 
@@ -281,6 +314,7 @@ export function createPreflightRenderer({ state, deps }) {
     }
 
     html += _renderAdvisorSummary(advisor);
+    html += _renderNativeUnetProfile(nativeUnetProfile);
     html += _renderPrecisionSwapProfile(precisionSwapProfile);
 
     // 提示信息（保留可折叠）
