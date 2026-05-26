@@ -14,6 +14,7 @@
 // 该文件仅负责生成 HTML 与调用依赖入口，不读写 localStorage、不调 api。
 
 import { escapeHtml, _ico } from '../utils/dom.js';
+import { schedulerOption } from '../features/settingsOptions.js';
 import { formatDuration, renderSummaryCard } from '../utils/trainingMetrics.js';
 
 export function createTrainingRenderer({ state, renderSlot, deps }) {
@@ -317,7 +318,7 @@ var statusDot = '', statusText = '';
       : (state.config.max_train_epochs || '\u2014');
     var cfgParams = [
       ['\u7f51\u7edc\u7b97\u6cd5', networkAlgo || '\u2014'],
-    ['\u5b66\u4e60\u7387\u8c03\u5ea6\u5668', state.config.lr_scheduler || '\u2014'],
+    ['\u5b66\u4e60\u7387\u8c03\u5ea6\u5668', state.config.lr_scheduler ? schedulerOption(state.config.lr_scheduler).label : '\u2014'],
       ['\u4f18\u5316\u5668', state.config.optimizer_type || '\u2014'],
       ['\u6279\u91cf\u5927\u5c0f', state.config.train_batch_size || '\u2014'],
       ['\u5b66\u4e60\u7387', state.config.learning_rate || '\u2014'],

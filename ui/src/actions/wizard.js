@@ -4,6 +4,7 @@
 // 依赖（工厂注入）：state, updateConfigValue, renderView, executeTraining
 
 import { escapeHtml } from '../utils/dom.js';
+import { schedulerOption } from '../features/settingsOptions.js';
 
 export function createWizardActions({ state, updateConfigValue, renderView, executeTraining }) {
   function wizardSet(key, value) {
@@ -26,7 +27,7 @@ export function createWizardActions({ state, updateConfigValue, renderView, exec
         ['lycoris_algo', 'LyCORIS 算法', c.network_module === 'lycoris.kohya' ? c.lycoris_algo : ''],
         ['unet_lr', 'U-Net 学习率', c.unet_lr],
         ['optimizer_type', '优化器', c.optimizer_type],
-        ['lr_scheduler', '调度器', c.lr_scheduler],
+        ['lr_scheduler', '调度器', schedulerOption(c.lr_scheduler).label],
         [(c.train_length_mode || '最大轮数') === '最大步数' ? 'max_train_steps' : 'max_train_epochs', (c.train_length_mode || '最大轮数') === '最大步数' ? '训练步数' : '训练轮数', (c.train_length_mode || '最大轮数') === '最大步数' ? c.max_train_steps : c.max_train_epochs],
         ['train_batch_size', '批量大小', c.train_batch_size],
         ['gradient_accumulation_steps', '梯度累加', c.gradient_accumulation_steps],

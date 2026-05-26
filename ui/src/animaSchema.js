@@ -1,6 +1,7 @@
 // Anima LoRA schema - based on mikazuki/schema/anima-lora.ts
 
 import { when, all, oneOf } from './schemaRegistry.js';
+import { schedulerOptions } from './features/settingsOptions.js';
 
 const ANIMA_TABS = [
   { key: 'model', label: '模型' },
@@ -15,6 +16,45 @@ const ANIMA_TABS = [
 
 const ANIMA_BLOCK_WEIGHTS_28 = Array(28).fill('1').join(',');
 const swapEnabled = oneOf('swap_granularity', ['auto', 'block', 'merged_block', 'layer']);
+const nonResidentBlockMode = (key) => (c) => c[key] && c[key] !== 'resident';
+const LOSS_AWARE_SCHEDULERS = ['loss_gated_cosine', 'loss_weighted_annealed_cosine'];
+const lossAwareScheduler = oneOf('lr_scheduler', LOSS_AWARE_SCHEDULERS);
+const lossWeightedScheduler = when('lr_scheduler', 'loss_weighted_annealed_cosine');
+
+const ANIMA_SCHEDULERS = [
+  'linear',
+  'cosine',
+  'cosine_with_restarts',
+  'polynomial',
+  'constant',
+  'constant_with_warmup',
+  'loss_gated_cosine',
+  'loss_weighted_annealed_cosine',
+];
+
+const LOSS_AWARE_LR_FIELDS = [
+  { key: 'loss_scheduler_ema_alpha', type: 'number', label: 'Loss 平滑系数', desc: '用 EMA 平滑原始 loss，避免单个 batch 抖动误导调度器。越大越敏感，推荐 0.05-0.20。', defaultValue: 0.1, min: 0, max: 1, step: 0.01, visibleWhen: lossAwareScheduler },
+  { key: 'loss_scheduler_min_delta', type: 'number', label: '有效下降阈值', desc: 'EMA loss 至少下降这么多才算仍在变好。默认偏保守，避免微小波动长期锁住余弦。', defaultValue: 0.0005, min: 0, step: 0.00001, visibleWhen: lossAwareScheduler },
+  { key: 'loss_scheduler_relative_delta', type: 'number', label: '相对下降阈值', desc: '按最佳 EMA loss 的比例判断有效下降。默认 0.001 会过滤后期很小的训练 loss 抖动。', defaultValue: 0.001, min: 0, max: 1, step: 0.0001, visibleWhen: lossAwareScheduler },
+  { key: 'loss_scheduler_patience', type: 'number', label: '平台期等待步数', desc: '连续多少个 optimizer step 没有有效下降后，才继续推进余弦相位。', defaultValue: 8, min: 1, step: 1, visibleWhen: lossAwareScheduler },
+  { key: 'loss_scheduler_cooldown', type: 'number', label: '冷却步数', desc: '刚出现有效下降后，先忽略多少步平台期判断，减少来回抖动。', defaultValue: 0, min: 0, step: 1, visibleWhen: lossAwareScheduler },
+  { key: 'loss_scheduler_max_hold_steps', type: 'number', label: '最长锁定步数', desc: '连续不推进余弦相位的最大步数。0 表示自动保护上限（约 5% 有效训练步，最多 200 步），避免训练 loss 形成负反馈循环。', defaultValue: 0, min: 0, step: 1, visibleWhen: lossAwareScheduler },
+  { key: 'loss_scheduler_late_gamma', type: 'number', label: '后期 Loss 权重曲线', desc: '仅用于 Loss 加权退火余弦。值越大，越晚才让 loss 强力影响余弦相位。', defaultValue: 2.0, min: 0.01, step: 0.1, visibleWhen: lossWeightedScheduler },
+  { key: 'loss_scheduler_lock_weight_threshold', type: 'number', label: '锁定权重阈值', desc: '仅用于 Loss 加权退火余弦。训练进度带来的 loss 权重达到该值后，loss 下降才允许锁住当前余弦值。默认 0.7，避免太早由 loss 接管。', defaultValue: 0.7, min: 0, max: 1, step: 0.05, visibleWhen: lossWeightedScheduler },
+  { key: 'loss_scheduler_min_advance_ratio', type: 'number', label: '最小推进速度', desc: '仅用于 Loss 加权退火余弦。未锁定或触发保护上限时，每步至少推进多少余弦相位，避免后期完全停住。', defaultValue: 0.25, min: 0, max: 1, step: 0.05, visibleWhen: lossWeightedScheduler },
+];
+
+const ANIMA_BLOCK_RESIDENCY_OPTIONS = [
+  { value: 'resident', label: '常驻 GPU（resident）' },
+  { value: 'streaming_offload', label: 'Streaming Offload（平衡）' },
+  { value: 'block_cpu_pinned', label: 'Block CPU pinned（最低显存/最慢）' },
+];
+
+const LORA_RECOMPUTE_OPTIONS = [
+  { value: 'auto', label: '自动（DiT 默认开启）' },
+  { value: 'on', label: '强制开启' },
+  { value: 'off', label: '关闭（用于 A/B）' },
+];
 
 const ANIMA_SECTIONS = [
   {
@@ -131,6 +171,7 @@ const ANIMA_SECTIONS = [
       { key: 'dim_from_weights', type: 'boolean', label: '从权重推断 Dim', defaultValue: false },
       { key: 'scale_weight_norms', type: 'number', label: '最大范数正则化', defaultValue: '', min: 0, step: 0.01 },
       { key: 'train_norm', type: 'boolean', label: '训练 Norm 层', desc: '额外训练带可学习参数的归一化层（如 RMSNorm/LayerNorm 的 weight/bias），用于微调特征尺度和风格/域适配；会小幅增加显存占用和 LoRA 文件大小，并增加过拟合风险，普通训练建议先关闭。', defaultValue: false },
+      { key: 'anima_train_llm_adapter', type: 'boolean', label: '训练 LLM Adapter', desc: '普通 Anima LoRA 默认保持关闭，更贴近低显存参考路径；开启后会把 LLM Adapter 也纳入 LoRA 目标，可能提升特定文本对齐但会增加显存和计算量。', defaultValue: false },
       { key: 'network_dropout', type: 'number', label: 'Dropout', defaultValue: 0, min: 0, step: 0.01, visibleWhen: (c) => c.lora_type === 'lora' || c.lora_type === 'lora_fa' || c.lora_type === 'vera' || c.lora_type === 'tlora' || c.lora_type === 'lokr' },
       { key: 'tlora_min_rank', type: 'number', label: 'T-LoRA 最小 Rank', defaultValue: 1, min: 1, visibleWhen: when('lora_type', 'tlora') },
       { key: 'tlora_rank_schedule', type: 'select', label: 'T-LoRA Rank 调度', defaultValue: 'linear', options: ['constant', 'linear', 'geometric'], visibleWhen: when('lora_type', 'tlora') },
@@ -176,9 +217,10 @@ const ANIMA_SECTIONS = [
       { key: 'unet_lr', type: 'string', label: 'DiT 学习率', defaultValue: '1e-4' },
       { key: 'text_encoder_lr', type: 'string', label: '文本编码器学习率', defaultValue: '1e-5' },
       { key: 'weight_decay', type: 'number', label: '权重衰减', desc: '权重衰减（等价于自动注入 optimizer_args: weight_decay=...）', defaultValue: '', step: 0.0001 },
-      { key: 'lr_scheduler', type: 'select', label: '学习率调度器', defaultValue: 'cosine_with_restarts', options: ['linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant', 'constant_with_warmup'] },
+      { key: 'lr_scheduler', type: 'select', label: '学习率调度器', desc: 'Loss 门控余弦会在 loss 有效下降时保持当前余弦值，平台期再继续推进；Loss 加权退火余弦会越到后期越依赖 loss 信号。', defaultValue: 'cosine_with_restarts', options: schedulerOptions(ANIMA_SCHEDULERS) },
       { key: 'lr_warmup_steps', type: 'number', label: '预热步数', defaultValue: 0, min: 0 },
       { key: 'lr_scheduler_num_cycles', type: 'number', label: '重启次数', defaultValue: 1, min: 1, visibleWhen: when('lr_scheduler', 'cosine_with_restarts') },
+      ...LOSS_AWARE_LR_FIELDS,
       { key: 'optimizer_type', type: 'select', label: '优化器', defaultValue: 'AdamW8bit', options: ['AdamW', 'AdamW8bit', 'AdamW8bitKahan', 'PagedAdamW8bit', 'Lion', 'Lion8bit', 'DAdaptation', 'DAdaptAdam', 'DAdaptLion', 'AdaFactor', 'Prodigy', 'prodigyplus.ProdigyPlusScheduleFree', 'pytorch_optimizer.CAME', 'pytorch_optimizer.Compass', 'pytorch_optimizer.Ranger21', 'pytorch_optimizer.AdEMAMix'] },
       { key: 'min_snr_gamma', type: 'number', label: 'Min-SNR Gamma', defaultValue: '', min: 0, step: 0.1 },
     ],
@@ -191,7 +233,7 @@ const ANIMA_SECTIONS = [
     fields: [
       { key: 'max_train_epochs', type: 'number', label: '最大训练轮数', defaultValue: 10, min: 1 },
       { key: 'train_batch_size', type: 'slider', label: '批量大小', defaultValue: 1, min: 1, max: 32, step: 1 },
-      { key: 'gradient_checkpointing', type: 'boolean', label: '梯度检查点', defaultValue: true },
+      { key: 'gradient_checkpointing', type: 'boolean', label: 'Anima 通用检查点', desc: 'Anima 原生 DiT 主路径由加速页的 Anima DiT Block Checkpointing 控制。两者同开不会双重叠加；本项保留给兼容配置/旧训练路径。', defaultValue: true },
       { key: 'gradient_accumulation_steps', type: 'number', label: '梯度累加步数', defaultValue: 1, min: 1 },
       { key: 'network_train_unet_only', type: 'boolean', label: '仅训练 DiT', desc: '仅训练 DiT / U-Net。', defaultValue: true },
       { key: 'network_train_text_encoder_only', type: 'boolean', label: '仅训练文本编码器', defaultValue: false },
@@ -265,6 +307,12 @@ const ANIMA_SECTIONS = [
       { key: 'text_encoder_outputs_cache_disk_format', type: 'select', label: '文本缓存格式', desc: '文本编码器输出磁盘缓存格式。默认 safetensors；若已有旧的 npz 缓存也会自动兼容读取', defaultValue: 'safetensors', options: ['safetensors', 'npz'], visibleWhen: v => v.cache_text_encoder_outputs_to_disk === true },
       { key: 'text_encoder_outputs_cache_dtype', type: 'select', label: '文本缓存精度', desc: '文本编码器输出磁盘缓存的保存精度。auto 会尽量保留运行时 dtype；fp16 / bf16 更省空间，fp32 兼容性更高', defaultValue: 'auto', options: ['auto', 'fp16', 'bf16', 'fp32'], visibleWhen: v => v.cache_text_encoder_outputs_to_disk === true },
       { key: 'text_encoder_batch_size', type: 'number', label: '文本编码器批量大小', defaultValue: '', min: 1 },
+      { key: 'lora_activation_recompute_mode', type: 'select', label: 'LoRA 分支重算', desc: '降低原生 DiT LoRA 反传激活峰值。auto 会在 Anima/Newbie 路线默认开启；off 主要用于 benchmark 对比。', defaultValue: 'auto', options: LORA_RECOMPUTE_OPTIONS },
+      { key: 'anima_block_residency', type: 'select', label: 'Anima Streaming Offload', desc: '控制原生 Anima 冻结 DiT 权重的驻留策略。Streaming Offload 是省显存与速度的平衡档，但 1024/4096-token 训练需要配合 DiT Block Checkpointing；Block CPU pinned 是极限低显存档。', defaultValue: 'resident', options: ANIMA_BLOCK_RESIDENCY_OPTIONS },
+      { key: 'anima_block_residency_min_params', type: 'number', label: 'Anima Offload 最小参数量', desc: '只托管参数量达到该阈值的冻结 Linear。Streaming Offload 下 0 表示 hot-aware 自动阈值：边缘 block 和 attention/modulation 热路径常驻，冷的大 Linear 才会流式卸载；Block CPU pinned 下 0 表示不过滤。', defaultValue: 0, min: 0, visibleWhen: nonResidentBlockMode('anima_block_residency') },
+      { key: 'anima_block_checkpointing', type: 'boolean', label: 'Anima DiT Block Checkpointing', desc: '训练时重算 DiT block 以降低反传激活峰值。高分辨率非 resident 驻留会由后端自动启用；手动开启可让预检和配置更直观。', defaultValue: false, visibleWhen: nonResidentBlockMode('anima_block_residency') },
+      { key: 'anima_block_prefetch', type: 'boolean', label: 'Anima Streaming Prefetch', desc: '实验性：仅对 Streaming Offload 生效，提前把后续 block 的 CPU-pinned 冻结 Linear 权重异步拉到 GPU，尝试减少 PCIe 等待。默认关闭，建议先用 benchmark 对比速度。', defaultValue: false, visibleWhen: when('anima_block_residency', 'streaming_offload') },
+      { key: 'anima_block_prefetch_depth', type: 'number', label: 'Anima Prefetch 深度', desc: '提前预取后续多少个 DiT block。1 表示当前 block 入口同时预热当前和下一个 block；过大可能增加瞬时显存。', defaultValue: 1, min: 0, max: 4, visibleWhen: all(when('anima_block_residency', 'streaming_offload'), when('anima_block_prefetch', true)) },
       { key: 'swap_granularity', type: 'select', label: '显存交换模式', desc: 'off 关闭；auto 自动选择；block 按 block 搬运；merged_block 合并 block 降低 PCIe 传输次数；layer 为 Fine-grained / Layer Swap（现有细粒度 swap，不是真模块级 offload）。', defaultValue: 'off', options: ['off', 'auto', 'block', 'merged_block', 'layer'] },
       { key: 'swap_ratio', type: 'slider', label: '显存交换比例', desc: '按原始 block/layer 总数计算交换比例。0 表示只在 auto 或 swap_count 下生效。', defaultValue: 0, min: 0, max: 1, step: 0.05, visibleWhen: swapEnabled },
       { key: 'swap_count', type: 'number', label: '显存交换数量', desc: '高级：绝对交换数量。大于 0 时优先于比例。', defaultValue: 0, min: 0, visibleWhen: swapEnabled },
@@ -378,6 +426,8 @@ const ANIMA_SECTIONS = [
 const ANIMA_CONDITIONAL_KEYS = new Set([
   'lora_type', 'enable_preview', 'save_state', 'prefer_json_caption',
   'lr_scheduler', 'optimizer_type',
+  'anima_block_residency',
+  'anima_block_prefetch',
   'lulynx_experimental_core_enabled', 'lulynx_safeguard_enabled',
   'lulynx_ema_enabled', 'lulynx_resource_manager_enabled',
   'lulynx_block_weight_enabled', 'lulynx_smart_rank_enabled',

@@ -635,6 +635,15 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     pushField('lr_scheduler', 'dataset-layout-full');
     pushField('lr_warmup_steps');
     pushField('lr_scheduler_num_cycles');
+    pushField('loss_scheduler_ema_alpha');
+    pushField('loss_scheduler_min_delta');
+    pushField('loss_scheduler_relative_delta');
+    pushField('loss_scheduler_patience');
+    pushField('loss_scheduler_cooldown');
+    pushField('loss_scheduler_max_hold_steps');
+    pushField('loss_scheduler_late_gamma');
+    pushField('loss_scheduler_lock_weight_threshold');
+    pushField('loss_scheduler_min_advance_ratio');
     pushField('lr_scheduler_type', 'dataset-layout-full');
     pushField('min_snr_gamma', 'dataset-layout-full');
 

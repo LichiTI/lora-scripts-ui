@@ -4,8 +4,15 @@
 // 依赖（工厂注入）：state, updateConfigValue（调用于设默认值）, getFieldDefinition
 
 import { escapeHtml } from '../utils/dom.js';
+import { schedulerOption } from '../features/settingsOptions.js';
 
 export function createWizardRenderer({ state, updateConfigValue, getFieldDefinition }) {
+  const optionValue = (option) => (option && typeof option === 'object') ? option.value : option;
+  const optionLabel = (option) => {
+    if (option && typeof option === 'object') return option.label ?? option.value ?? '默认';
+    return option || '默认';
+  };
+
   function renderWizard(container) {
   var c = state.config;
     // 参数预览
@@ -19,7 +26,7 @@ export function createWizardRenderer({ state, updateConfigValue, getFieldDefinit
       ['lycoris_algo', 'LyCORIS算法', c.network_module === 'lycoris.kohya' ? c.lycoris_algo : ''],
       ['unet_lr', 'U-Net 学习率', c.unet_lr],
       ['optimizer_type', '优化器', c.optimizer_type],
-      ['lr_scheduler', '调度器', c.lr_scheduler],
+      ['lr_scheduler', '调度器', schedulerOption(c.lr_scheduler).label],
       [(c.train_length_mode || '最大轮数') === '最大步数' ? 'max_train_steps' : 'max_train_epochs', (c.train_length_mode || '最大轮数') === '最大步数' ? '训练步数' : '训练轮数', (c.train_length_mode || '最大轮数') === '最大步数' ? c.max_train_steps : c.max_train_epochs],
       ['train_batch_size', '批量大小', c.train_batch_size],
       ['gradient_accumulation_steps', '梯度累加', c.gradient_accumulation_steps],
@@ -55,13 +62,16 @@ export function createWizardRenderer({ state, updateConfigValue, getFieldDefinit
     //优化器选项
     var optimizers = getFieldDefinition?.('optimizer_type', state.activeTrainingType)?.options || ['AdamW8bit', 'Prodigy', 'prodigyplus.ProdigyPlusScheduleFree', 'AdamW'];
     var optSelect = optimizers.map(function(o) {
-      return '<option value="' + o + '"' + (c.optimizer_type === o ? ' selected' : '') + '>' + o + '</option>';
+      var value = optionValue(o);
+      var label = optionLabel(o);
+      return '<option value="' + escapeHtml(value) + '"' + (String(c.optimizer_type) === String(value) ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
     }).join('');
 
     // 学习率调度器选项
     var schedulers = getFieldDefinition?.('lr_scheduler', state.activeTrainingType)?.options || ['cosine', 'cosine_with_restarts', 'constant', 'linear'];
     var schSelect = schedulers.map(function(s) {
-      return '<option value="' + s + '"' + (c.lr_scheduler === s ? ' selected' : '') + '>' + s + '</option>';
+      var option = schedulerOption(s);
+      return '<option value="' + escapeHtml(option.value) + '"' + (String(c.lr_scheduler) === String(option.value) ? ' selected' : '') + '>' + escapeHtml(option.label) + '</option>';
     }).join('');
 
     // 预览图开关

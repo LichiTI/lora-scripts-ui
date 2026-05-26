@@ -262,10 +262,20 @@ export function createTrainingActions({
     return { errors,warnings };
   }
 
+  function getLabLaunchApi(trainingType) {
+    if (trainingType === 'lab-distiller') return api.startLabDistiller;
+    if (trainingType === 'sdxl-turbo-lora') return api.startTurboLora;
+    if (trainingType === 'anima-few-step-lora' || trainingType === 'newbie-few-step-lora') {
+      return api.startDitFewStepLora;
+    }
+    return null;
+  }
+
   async function executeTraining() {
     state.loading.run = true;
     const runConfig = buildRunConfig(state.config, state.activeTrainingType);
     const launchMetadata = buildTaskMetadataFromConfig(runConfig, state.activeTrainingType);
+    const labLaunchApi = getLabLaunchApi(state.activeTrainingType);
     syncFooterAction();
     resetTrainingMetrics();
     let trainingLaunched = false;
@@ -289,29 +299,37 @@ export function createTrainingActions({
     }
 
     try {
-      const preflightResponse =await api.runPreflight(runConfig);
-      if (preflightResponse.status !== 'success' || !preflightResponse.data?.can_start) {
-        state.preflight = preflightResponse.data || {
-          can_start: false,
-      errors: [preflightResponse.message || '训练预检阻止了本次训练。'],
-          warnings: [],
-        };
-        state.loading.run = false;
-        syncFooterAction();
-        showToast('预检未通过，请先修正错误。');
-        return;
-      }
+      if (!labLaunchApi) {
+        const preflightResponse =await api.runPreflight(runConfig);
+        if (preflightResponse.status !== 'success' || !preflightResponse.data?.can_start) {
+          state.preflight = preflightResponse.data || {
+            can_start: false,
+        errors: [preflightResponse.message || '训练预检阻止了本次训练。'],
+            warnings: [],
+          };
+          state.loading.run = false;
+          syncFooterAction();
+          showToast('预检未通过，请先修正错误。');
+          return;
+        }
 
-      state.preflight = preflightResponse.data;
-      if (state.preflight?.execution_profile_id) {
-        runConfig.execution_profile_id = state.preflight.execution_profile_id;
-      }
-      if (state.preflight?.resolved_attention_backend) {
-        runConfig.attention_backend = state.preflight.resolved_attention_backend;
+        state.preflight = preflightResponse.data;
+        if (state.preflight?.execution_profile_id) {
+          runConfig.execution_profile_id = state.preflight.execution_profile_id;
+        }
+        if (state.preflight?.resolved_attention_backend) {
+          runConfig.attention_backend = state.preflight.resolved_attention_backend;
+        }
+      } else {
+        state.preflight = {
+          can_start: true,
+          errors: [],
+          warnings: ['实验训练由 Lulynx LAB 后端路由校验，已跳过普通 sd-scripts 预检。'],
+        };
       }
       state._pendingTrainingMetadata = launchMetadata;
       state.activeTrainingTaskId = '';
-      const response = await api.runTraining(runConfig);
+      const response = labLaunchApi ? await labLaunchApi(runConfig) : await api.runTraining(runConfig);
       if (response.status !== 'success') {
         state._pendingTrainingMetadata = null;
       state.activeTrainingTaskId = '';
@@ -321,7 +339,7 @@ export function createTrainingActions({
       trainingLaunched = true;
 
       state.trainingFailed = false;
-      state.lastMessage = response.message || '训练已启动。';
+      state.lastMessage = response.message || (labLaunchApi ? '实验训练任务已提交。' : '训练已启动。');
       showToast(state.lastMessage);
       resetTrainingMetrics();
       const responseTaskId = response?.data?.task_id || response?.data?.id || '';

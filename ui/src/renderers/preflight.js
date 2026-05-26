@@ -127,6 +127,8 @@ export function createPreflightRenderer({ state, deps }) {
     var bModules = bTier.modules || {};
     var findings = advisor.findings || [];
     var vram = advisor.vram || {};
+    var ditRuntime = (vram.dit_runtime && typeof vram.dit_runtime === 'object') ? vram.dit_runtime : null;
+    var compileToken = (advisor.compile_token && typeof advisor.compile_token === 'object') ? advisor.compile_token : null;
     var dataset = advisor.dataset || {};
     var patch = { ...(vram.recommended_config_patch || {}), ...(aTier.recommended_config_patch || {}) };
     var patchKeys = Object.keys(patch).filter(function(k) { return !k.startsWith('__') && patch[k] !== undefined; });
@@ -136,6 +138,29 @@ export function createPreflightRenderer({ state, deps }) {
     html += _pfTag('状态', summary.status || 'ok', summary.status === 'error' ? 'err' : (summary.status === 'warning' ? 'warn' : 'ok'));
     html += _pfTag('发现项', findings.length || summary.finding_count || 0);
     if (vram.estimated_gb != null) html += _pfTag('估算显存', vram.estimated_gb + ' GB', vram.safety === 'danger' ? 'err' : (vram.safety === 'tight' ? 'warn' : ''));
+    if (ditRuntime && ditRuntime.available) {
+      var ditMode = String(ditRuntime.mode || 'resident');
+      var ditRecommendation = String(ditRuntime.recommendation || ditMode);
+      html += _pfTag('DiT驻留', ditMode, ditRuntime.risk ? 'warn' : '');
+      if (ditRuntime.strategy) html += _pfTag('驻留策略', String(ditRuntime.strategy), ditRuntime.risk ? 'warn' : '');
+      if (ditRuntime.full_token_resident_pressure) html += _pfTag('Resident压力', '高', 'warn');
+      if (ditRuntime.auto_min_parameter_count) html += _pfTag('Offload阈值', '自动', '');
+      if (ditRuntime.prefetch_available) {
+        var prefetchEnabled = !!ditRuntime.prefetch_enabled;
+        html += _pfTag('Prefetch', prefetchEnabled ? 'on' : 'off', prefetchEnabled ? 'ok' : '');
+        if (prefetchEnabled) html += _pfTag('Prefetch深度', ditRuntime.prefetch_depth == null ? 1 : ditRuntime.prefetch_depth, '');
+      }
+      if (ditRecommendation !== ditMode) html += _pfTag('DiT建议', ditRecommendation, 'warn');
+    }
+    if (compileToken && compileToken.available) {
+      var compileStatus = String(compileToken.status || 'off');
+      var compileTone = compileStatus === 'warning' || compileStatus === 'disabled' ? 'warn' : (compileStatus === 'ready' ? 'ok' : '');
+      html += _pfTag('Compile', String(compileToken.resolved || compileToken.requested || 'off'), compileTone);
+      if (compileToken.compile_active) {
+        html += _pfTag('Token形状', compileToken.token_shape_safe ? '稳定' : '需检查', compileToken.token_shape_safe ? 'ok' : 'warn');
+      }
+      if (compileToken.no_pad_visual_bucket) html += _pfTag('视觉Bucket', 'no-pad', 'ok');
+    }
     if (dataset.image_count != null) html += _pfTag('Advisor图片', dataset.image_count || 0);
     html += _advisorModuleTag('Vortex融合', modules.memory_vortex_fusion);
     html += _advisorModuleTag('Block Weight', modules.block_weight);
@@ -153,6 +178,36 @@ export function createPreflightRenderer({ state, deps }) {
     if (patchKeys.length) {
       html += '<div class="preflight-item preflight-note">建议修改: ' + escapeHtml(patchKeys.slice(0, 8).join(', ') + (patchKeys.length > 8 ? '...' : '')) + '</div>';
       html += '<button class="btn btn-outline btn-sm" type="button" onclick="applyTrainingAdvisorPatch()" style="margin-top:8px;">' + _ico('check-circle', 14) + ' 手动应用 Advisor 建议</button>';
+    }
+    if (findings.length) {
+      findings.slice(0, 5).forEach(function(f) {
+        var severity = String((f && f.severity) || 'info');
+        var cls = severity === 'error' ? 'preflight-error' : (severity === 'warning' ? 'preflight-warning' : 'preflight-note');
+        var message = String((f && (f.message || f.code)) || '');
+        var suggestion = String((f && f.suggestion) || '');
+        html += '<div class="preflight-item ' + cls + '">' + escapeHtml(message + (suggestion ? ' - ' + suggestion : '')) + '</div>';
+      });
+    }
+    if (ditRuntime && ditRuntime.available) {
+      var ditNotes = Array.isArray(ditRuntime.notes) ? ditRuntime.notes : [];
+      ditNotes.slice(0, 2).forEach(function(n) {
+        html += '<div class="preflight-item preflight-note">' + escapeHtml(n) + '</div>';
+      });
+      if (ditRuntime.benchmark_basis) {
+        html += '<div class="preflight-item preflight-note">' + escapeHtml(String(ditRuntime.benchmark_basis)) + '</div>';
+      }
+      if (ditRuntime.prefetch_note) {
+        html += '<div class="preflight-item preflight-note">' + escapeHtml(String(ditRuntime.prefetch_note)) + '</div>';
+      }
+    }
+    if (compileToken && compileToken.available) {
+      var compileNotes = [];
+      if (Array.isArray(compileToken.notes)) compileNotes = compileNotes.concat(compileToken.notes);
+      if (Array.isArray(compileToken.reasons)) compileNotes = compileNotes.concat(compileToken.reasons);
+      if (Array.isArray(compileToken.warnings)) compileNotes = compileNotes.concat(compileToken.warnings);
+      compileNotes.slice(0, 3).forEach(function(n) {
+        html += '<div class="preflight-item preflight-note">' + escapeHtml(n) + '</div>';
+      });
     }
     if (aTier.notes && aTier.notes.length) {
       aTier.notes.slice(0, 4).forEach(function(n) {

@@ -63,7 +63,7 @@ import {
   _appendSageEnvNote,
 } from './utils/trainingMetrics.js';
 
-import { renderAbout, renderGuide, renderLogs, refreshTensorBoardStatus, startTensorBoardFromLogs, stopTensorBoardFromLogs, createBuiltinPickerRenderer, createStatusDeckRenderer, createNavigatorRenderer, createSettingsRenderer, createConfigFormRenderer, createPreflightRenderer, createSamplesRenderer, createWizardRenderer, createPluginsRenderer, createToolsRenderer, createDatasetRenderer, createSysMonitorRenderer, createTrainingRenderer, renderTurboCore, turboCoreProbeStatus, turboCoreCopyFlags } from './renderers/index.js';
+import { renderAbout, renderGuide, renderLogs, refreshTensorBoardStatus, startTensorBoardFromLogs, stopTensorBoardFromLogs, createBuiltinPickerRenderer, createStatusDeckRenderer, createNavigatorRenderer, createSettingsRenderer, createConfigFormRenderer, createPreflightRenderer, createSamplesRenderer, createWizardRenderer, createPluginsRenderer, createToolsRenderer, createDatasetRenderer, createSysMonitorRenderer, createTrainingRenderer, createExperimentalTrainingRenderer, renderTurboCore, turboCoreProbeStatus, turboCoreCopyFlags } from './renderers/index.js';
 import { createThemeActions, createTrainTabsActions, createJsonPanelActions, createFieldMenuActions, createTaskHistoryActions, createSearchActions, createPickerActions, createLayoutActions, createConfigActions, createSampleActions, createWizardActions, createPluginsActions, createToolsActions, createNavActions, createRuntimeActions, createTerminateActions, createSavedConfigsActions, createTrainingActions, createTrainingMetadataActions } from './actions/index.js';
 
 
@@ -183,6 +183,10 @@ const {
   renderCaptionTagDropoutGroup,
   renderRegularizationFieldGroup,
 } = createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVisible, COLLAPSIBLE_FIELD_KEYS });
+const {
+  renderExperimentalTrainingPanel,
+  renderFloatingTrainingAssistant,
+} = createExperimentalTrainingRenderer({ state });
 // samples renderer（含 5 个渲染函数 + 3 个 action，状态在闭包内维护）
 const {
   renderSamplesPanel,
@@ -852,7 +856,9 @@ function renderConfig(container) {
       ${renderPreflightReport()}
       ${renderSlot('training.preflight_panel')}
       ${renderSlot('config.after_status_deck')}
+      ${renderExperimentalTrainingPanel()}
       ${visibleSections.map(renderSectionWithAnchor).join('')}
+      ${renderFloatingTrainingAssistant()}
     </div>
   `;
 
@@ -866,6 +872,54 @@ function renderConfig(container) {
     _setupWaterfallScrollSpy(container);
   }
 }
+
+window.validateTurboLoraOutputFromConfig = async function() {
+  const outputPath = String(state.config?.output_path || '').trim();
+  if (!outputPath) {
+    showToast('请先填写输出 LoRA 路径。');
+    return;
+  }
+  try {
+    showToast('正在提交输出 sidecar 验证任务...');
+    const response = await api.validateTurboLoraOutput(outputPath, state.config?.runtime_id || state.config?.execution_profile_id || '');
+    if (response.status !== 'success') {
+      showToast(response.message || '输出验证任务提交失败。');
+      return;
+    }
+    showToast(response.message || '输出验证任务已提交，可在训练监控/日志中查看。');
+    state.trainSubTab = 'monitor';
+    state.activeModule = 'training';
+    renderView('training');
+  } catch (error) {
+    showToast(error.message || '输出验证请求失败。');
+  }
+};
+
+window.reportTurboLoraSamplesFromConfig = async function() {
+  const outputPath = String(state.config?.output_path || '').trim();
+  if (!outputPath) {
+    showToast('请先填写输出 LoRA 路径。');
+    return;
+  }
+  try {
+    showToast('正在提交样张报告任务...');
+    const response = await api.reportTurboLoraSamples(
+      outputPath,
+      String(state.config?.samples_dir || '').trim(),
+      state.config?.runtime_id || state.config?.execution_profile_id || '',
+    );
+    if (response.status !== 'success') {
+      showToast(response.message || '样张报告任务提交失败。');
+      return;
+    }
+    showToast(response.message || '样张报告任务已提交，可在训练监控/日志中查看。');
+    state.trainSubTab = 'monitor';
+    state.activeModule = 'training';
+    renderView('training');
+  } catch (error) {
+    showToast(error.message || '样张报告请求失败。');
+  }
+};
 
 // ---- 瀑布流滚动联动 ----
 let _waterfallScrollHandler = null;
@@ -1054,9 +1108,10 @@ const {
 window.dismissPreflightReport = dismissPreflightReport;
 window.dismissTrainingSummary = dismissTrainingSummary;
 // runtime actions
-const { runPreflight, refreshRuntime } = createRuntimeActions({ state, api, showToast, renderView, updateJSONPreview, buildRunConfig });
+const { runPreflight, refreshRuntime, applyTrainingAdvisorPatch } = createRuntimeActions({ state, api, showToast, renderView, updateJSONPreview, buildRunConfig });
 window.runPreflight = runPreflight;
 window.refreshRuntime = refreshRuntime;
+window.applyTrainingAdvisorPatch = applyTrainingAdvisorPatch;
 // terminate actions
 const { terminateAllTasks } = createTerminateActions({
   state, api, showToast, renderView,

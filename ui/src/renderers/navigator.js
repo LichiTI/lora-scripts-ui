@@ -13,7 +13,7 @@ export function createNavigatorRenderer({ state, TRAINING_TYPES, _persistTrainin
         groups[tt.group].push(tt);
       }
       // 默认折叠的组（首次进入时使用）
-      const defaultCollapsed = ['ControlNet', 'Textual Inversion', '其他模型训练'];
+      const defaultCollapsed = ['ControlNet', 'Textual Inversion', '其他模型训练', '实验训练'];
       if (!state._collapsedTrainingGroups) {
         const saved = localStorage.getItem('sd-rescripts:training-groups-collapsed');
         let initial;

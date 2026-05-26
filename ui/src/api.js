@@ -248,6 +248,33 @@ export const api = {
     return postJson('/api/run', config);
   },
 
+  startLabDistiller(config) {
+    return postJson('/api/lulynx-lab/distiller/start', { config });
+  },
+
+  startTurboLora(config) {
+    return postJson('/api/lulynx-lab/turbo-lora/start', { config });
+  },
+
+  startDitFewStepLora(config) {
+    return postJson('/api/lulynx-lab/dit-few-step-lora/start', { config });
+  },
+
+  validateTurboLoraOutput(outputPath, runtimeId = '') {
+    return postJson('/api/lulynx-lab/turbo-lora/validate', {
+      output_path: outputPath,
+      runtime_id: runtimeId,
+    });
+  },
+
+  reportTurboLoraSamples(outputPath, samplesDir = '', runtimeId = '') {
+    return postJson('/api/lulynx-lab/turbo-lora/report-samples', {
+      output_path: outputPath,
+      samples_dir: samplesDir,
+      runtime_id: runtimeId,
+    });
+  },
+
   getTensorBoardStatus(logdir = '') {
     const q = logdir ? `?logdir=${encodeURIComponent(logdir)}` : '';
     return request(`/api/tensorboard/status${q}`);
