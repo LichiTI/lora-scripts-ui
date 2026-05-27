@@ -11,7 +11,7 @@
 //     totalSteps: number
 //   }
 
-import { _ico } from './dom.js';
+import { _ico, escapeHtml } from './dom.js';
 
 /**
  * 创建一个空的 metrics 对象。用于初始化 state.trainingMetrics 或 reset。
@@ -31,6 +31,82 @@ function createEmptyMetrics() {
     nativeUnet: null,
     peakVramDiagnostics: null,
     cudaCacheRelease: null,
+    pcieDeltaCache: null,
+    pcieCacheV0: null,
+    vramSmartSensingRuntime: null,
+  };
+}
+
+function parsePcieDeltaCacheLine(line) {
+  if (!line || !line.includes('PCIe Delta/Cache observe:')) return null;
+  const familyPrefix = line.match(/(?:^|\s)(Anima|Newbie|Native SDXL)\s+PCIe Delta\/Cache observe:/);
+  const payload = line.slice(line.indexOf('PCIe Delta/Cache observe:') + 'PCIe Delta/Cache observe:'.length).trim();
+  const result = {
+    label: familyPrefix ? familyPrefix[1] : '',
+    raw: line.trim(),
+  };
+  payload.split(/\s+/).forEach(function(part) {
+    const idx = part.indexOf('=');
+    if (idx <= 0) return;
+    const key = part.slice(0, idx);
+    let value = part.slice(idx + 1).replace(/[,;]$/, '');
+    if (value.endsWith('MB')) value = value.slice(0, -2);
+    if (['candidates', 'high', 'medium', 'prefetch_missed', 'errors'].includes(key)) {
+      result[key] = Number(value) || 0;
+    } else if (['transfer', 'estimated_cache'].includes(key)) {
+      result[key] = Number(value) || 0;
+    } else {
+      result[key] = value;
+    }
+  });
+  if (!result.family && result.label) {
+    result.family = String(result.label).toLowerCase().replace(/\s+/g, '_');
+  }
+  return result;
+}
+
+function parsePcieCacheV0Line(line) {
+  if (!line || !line.includes('PCIe Cache v0:')) return null;
+  const familyPrefix = line.match(/(?:^|\s)(Anima|Newbie|Native SDXL)\s+PCIe Cache v0:/);
+  const payload = line.slice(line.indexOf('PCIe Cache v0:') + 'PCIe Cache v0:'.length).trim();
+  const result = {
+    label: familyPrefix ? familyPrefix[1] : '',
+    raw: line.trim(),
+  };
+  payload.split(/\s+/).forEach(function(part) {
+    const idx = part.indexOf('=');
+    if (idx <= 0) return;
+    const key = part.slice(0, idx);
+    let value = part.slice(idx + 1).replace(/[,;]$/, '');
+    if (value.endsWith('MB')) value = value.slice(0, -2);
+    if (key === 'enabled') {
+      result.enabled = value === 'True' || value === 'true' || value === '1';
+    } else if (['selected', 'hits', 'misses', 'errors'].includes(key)) {
+      result[key] = Number(value) || 0;
+    } else if (['cache', 'budget'].includes(key)) {
+      result[key] = Number(value) || 0;
+    } else {
+      result[key] = value;
+    }
+  });
+  return result;
+}
+
+function applyPcieDeltaCacheProfile(metrics, profile, label) {
+  if (!profile || typeof profile !== 'object') return;
+  metrics.pcieDeltaCache = {
+    label: label || profile.family || '',
+    family: profile.family || '',
+    mode: profile.mode || '',
+    candidates: Number(profile.candidate_count || 0),
+    high: Number(profile.high_value_count || 0),
+    medium: Number(profile.medium_value_count || 0),
+    transfer: Number(profile.total_transfer_mb || 0),
+    estimated_cache: Number(profile.estimated_cache_mb || 0),
+    prefetch_missed: Number(profile.prefetch_missed_total || 0),
+    errors: Number(profile.error_count || 0),
+    next: profile.next_action || '',
+    raw: profile.summary_text || '',
   };
 }
 
@@ -79,12 +155,27 @@ function applyProgressJson(metrics, data, now) {
   }
   if (data.native_unet && typeof data.native_unet === 'object') {
     metrics.nativeUnet = data.native_unet;
+    const residency = data.native_unet.weight_residency;
+    if (residency && residency.pcie_delta_cache) {
+      applyPcieDeltaCacheProfile(metrics, residency.pcie_delta_cache, 'Native SDXL');
+    }
+  }
+  if (data.anima_block_residency && typeof data.anima_block_residency === 'object') {
+    const profile = data.anima_block_residency.pcie_delta_cache;
+    if (profile) applyPcieDeltaCacheProfile(metrics, profile, 'Anima');
+  }
+  if (data.newbie_block_residency && typeof data.newbie_block_residency === 'object') {
+    const profile = data.newbie_block_residency.pcie_delta_cache;
+    if (profile) applyPcieDeltaCacheProfile(metrics, profile, 'Newbie');
   }
   if (data.peak_vram_diagnostics && typeof data.peak_vram_diagnostics === 'object') {
     metrics.peakVramDiagnostics = data.peak_vram_diagnostics;
   }
   if (data.cuda_cache_release && typeof data.cuda_cache_release === 'object') {
     metrics.cudaCacheRelease = data.cuda_cache_release;
+  }
+  if (data.vram_smart_sensing_runtime && typeof data.vram_smart_sensing_runtime === 'object') {
+    metrics.vramSmartSensingRuntime = data.vram_smart_sensing_runtime;
   }
   return true;
 }
@@ -113,6 +204,16 @@ export function collectTrainingMetrics(metrics, lines) {
       } catch (_err) {
         // Fallback to legacy regex parsing below.
       }
+    }
+    const pcieDeltaCache = parsePcieDeltaCacheLine(line);
+    if (pcieDeltaCache) {
+      m.pcieDeltaCache = pcieDeltaCache;
+      continue;
+    }
+    const pcieCacheV0 = parsePcieCacheV0Line(line);
+    if (pcieCacheV0) {
+      m.pcieCacheV0 = pcieCacheV0;
+      continue;
     }
     const speedMatch = line.match(/(\d+\.?\d*)\s*(it\/s|s\/it)/);
     const lossMatch = line.match(/avr_loss[=:]\s*(\d+\.?\d*)/);
@@ -154,7 +255,8 @@ export function parseLinesIntoMetrics(lines) {
     const line = lines[i];
     if (line.includes('PROGRESS_JSON:')) {
       try {
-        const data = JSON.parse(line.split('PROGRESS_JSON:', 1)[1].trim());
+        const marker = 'PROGRESS_JSON:';
+        const data = JSON.parse(line.slice(line.indexOf(marker) + marker.length).trim());
         if (applyProgressJson(m, data, 0)) {
           prevStep = m.lastStep;
           continue;
@@ -162,6 +264,16 @@ export function parseLinesIntoMetrics(lines) {
       } catch (_err) {
         // Ignore and continue with regex fallback.
       }
+    }
+    const pcieDeltaCache = parsePcieDeltaCacheLine(line);
+    if (pcieDeltaCache) {
+      m.pcieDeltaCache = pcieDeltaCache;
+      continue;
+    }
+    const pcieCacheV0 = parsePcieCacheV0Line(line);
+    if (pcieCacheV0) {
+      m.pcieCacheV0 = pcieCacheV0;
+      continue;
     }
     const speedMatch = line.match(/(\d+\.?\d*)\s*(it\/s|s\/it)/);
     const lossMatch = line.match(/avr_loss[=:]\s*(\d+\.?\d*)/);
@@ -368,6 +480,9 @@ export function buildSummaryFromMetrics(m, elapsedMs) {
     elapsed, elapsedStr,
     overallRating, overallColor,
     lossLevelTag, lossLevelColor,
+    pcieDeltaCache: m.pcieDeltaCache || null,
+    pcieCacheV0: m.pcieCacheV0 || null,
+    vramSmartSensingRuntime: m.vramSmartSensingRuntime || null,
   };
 }
 
@@ -400,6 +515,66 @@ export function renderSummaryCard(s) {
   if (s.minLoss < Infinity && s.minLoss > 0) {
     lossRange += '\uff08\u6700\u4f4e ' + s.minLoss.toFixed(4) + '\uff09';
   }
+  const pcie = s.pcieDeltaCache && typeof s.pcieDeltaCache === 'object' ? s.pcieDeltaCache : null;
+  const cacheV0 = s.pcieCacheV0 && typeof s.pcieCacheV0 === 'object' ? s.pcieCacheV0 : null;
+  const smart = s.vramSmartSensingRuntime && typeof s.vramSmartSensingRuntime === 'object' ? s.vramSmartSensingRuntime : null;
+  const pcieNextLabel = pcie ? ({
+    cache_v0_manual_candidate: '可手动试验 Cache v0（prefetch 覆盖差时优先）',
+    observe_more_steps: '建议继续观察更多 step',
+    keep_observing: '继续观察',
+    no_cache_candidate: '暂无缓存候选',
+    fix_transfer_errors_before_cache: '先处理传输错误',
+    disabled: '未启用',
+  }[pcie.next] || pcie.next || '观察中') : '';
+  const pcieCard = pcie ? (
+    '<div style="margin-top:8px;">'
+    + '<div class="status-card" style="border-left:3px solid ' + (Number(pcie.errors || 0) > 0 ? '#ef4444' : '#38bdf8') + ';">'
+    + '<div class="status-label">PCIe Delta/Cache 候选</div>'
+    + '<div style="font-size:0.95rem;font-weight:700;color:var(--text);margin:4px 0;">'
+    + escapeHtml(String(pcie.candidates || 0)) + ' 个候选 / 高价值 ' + escapeHtml(String(pcie.high || 0))
+    + '</div>'
+    + '<div class="status-sub">'
+    + '传输 ' + escapeHtml(Number(pcie.transfer || 0).toFixed(1)) + ' MB，估算缓存 '
+    + escapeHtml(Number(pcie.estimated_cache || 0).toFixed(1)) + ' MB，miss '
+    + escapeHtml(String(pcie.prefetch_missed || 0)) + '，错误 ' + escapeHtml(String(pcie.errors || 0))
+    + '</div>'
+    + '<div class="status-sub" style="margin-top:4px;">' + escapeHtml(pcieNextLabel) + '；prefetch 已完整覆盖时通常不需要 Cache v0</div>'
+    + '</div>'
+    + '</div>'
+  ) : '';
+  const cacheV0Card = cacheV0 ? (
+    '<div style="margin-top:8px;">'
+    + '<div class="status-card" style="border-left:3px solid ' + (Number(cacheV0.errors || 0) > 0 ? '#ef4444' : (cacheV0.enabled ? '#22c55e' : '#94a3b8')) + ';">'
+    + '<div class="status-label">PCIe Cache v0</div>'
+    + '<div style="font-size:0.95rem;font-weight:700;color:var(--text);margin:4px 0;">'
+    + (cacheV0.enabled ? '已启用' : '未启用') + ' / 选中 ' + escapeHtml(String(cacheV0.selected || 0))
+    + '</div>'
+    + '<div class="status-sub">'
+    + '缓存 ' + escapeHtml(Number(cacheV0.cache || 0).toFixed(1)) + ' MB / 预算 '
+    + escapeHtml(Number(cacheV0.budget || 0).toFixed(1)) + ' MB，hit/miss '
+    + escapeHtml(String(cacheV0.hits || 0)) + '/' + escapeHtml(String(cacheV0.misses || 0))
+    + '，错误 ' + escapeHtml(String(cacheV0.errors || 0))
+    + '</div>'
+    + '<div class="status-sub" style="margin-top:4px;">' + escapeHtml(String(cacheV0.reason || '')) + '；适合 prefetch miss 高或关闭时对比</div>'
+    + '</div>'
+    + '</div>'
+  ) : '';
+  const smartCard = smart ? (
+    '<div style="margin-top:8px;">'
+    + '<div class="status-card" style="border-left:3px solid ' + (smart.phase === 'runtime_slowdown' ? '#f59e0b' : '#38bdf8') + ';">'
+    + '<div class="status-label">显存智能感知</div>'
+    + '<div style="font-size:0.95rem;font-weight:700;color:var(--text);margin:4px 0;">'
+    + escapeHtml(String(smart.phase || 'observe')) + ' / ' + escapeHtml(String(smart.action || 'observe'))
+    + '</div>'
+    + '<div class="status-sub">'
+    + '基线 ' + escapeHtml(Number(smart.baseline_avg_step_seconds || 0).toFixed(3)) + 's，窗口 '
+    + escapeHtml(Number(smart.window_avg_step_seconds || 0).toFixed(3)) + 's，倍率 '
+    + escapeHtml(Number(smart.slowdown_ratio || 0).toFixed(2))
+    + '</div>'
+    + '<div class="status-sub" style="margin-top:4px;">' + (smart.shared_vram_suspected ? '疑似显存压力/共享显存介入；只输出建议，不中途改策略' : '基线观察中或未检测到显存压力') + '</div>'
+    + '</div>'
+    + '</div>'
+  ) : '';
   return '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;">'
     + '<div class="status-card" style="flex:1;min-width:150px;">'
     + '<div class="status-label">\u5e73\u5747\u901f\u5ea6</div>'
@@ -428,5 +603,8 @@ export function renderSummaryCard(s) {
     + '<div style="font-size:0.95rem;font-weight:700;color:' + s.overallColor + ';margin:4px 0;">' + s.overallRating + '</div>'
     + '<div class="status-sub">' + s.lossDetail + '</div>'
     + '</div>'
-    + '</div>';
+    + '</div>'
+    + pcieCard
+    + cacheV0Card
+    + smartCard;
 }

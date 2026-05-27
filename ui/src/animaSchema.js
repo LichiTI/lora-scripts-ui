@@ -16,7 +16,9 @@ const ANIMA_TABS = [
 
 const ANIMA_BLOCK_WEIGHTS_28 = Array(28).fill('1').join(',');
 const swapEnabled = oneOf('swap_granularity', ['auto', 'block', 'merged_block', 'layer']);
+const adamwFamilyOptimizer = (c) => ['adamw', 'adamw8bit'].includes(String(c.optimizer_type || '').trim().toLowerCase());
 const nonResidentBlockMode = (key) => (c) => c[key] && c[key] !== 'resident';
+const streamingBlockMode = (key) => when(key, 'streaming_offload');
 const LOSS_AWARE_SCHEDULERS = ['loss_gated_cosine', 'loss_weighted_annealed_cosine'];
 const lossAwareScheduler = oneOf('lr_scheduler', LOSS_AWARE_SCHEDULERS);
 const lossWeightedScheduler = when('lr_scheduler', 'loss_weighted_annealed_cosine');
@@ -50,10 +52,91 @@ const ANIMA_BLOCK_RESIDENCY_OPTIONS = [
   { value: 'block_cpu_pinned', label: 'Block CPU pinned（最低显存/最慢）' },
 ];
 
+const PCIE_TRANSFER_FORMAT_OPTIONS = [
+  { value: 'off', label: '关闭（off）' },
+  { value: 'fp8_e4m3', label: 'FP8 E4M3 传输（实验）' },
+  { value: 'int8_rowwise', label: 'INT8 行缩放传输（实验）' },
+  { value: 'uint4_rowwise', label: 'UINT4 行缩放传输（更实验）' },
+  { value: 'raw_bf16', label: 'Raw BF16 传输（对照）' },
+  { value: 'raw_fp16', label: 'Raw FP16 传输（对照）' },
+];
+
 const LORA_RECOMPUTE_OPTIONS = [
   { value: 'auto', label: '自动（DiT 默认开启）' },
   { value: 'on', label: '强制开启' },
   { value: 'off', label: '关闭（用于 A/B）' },
+];
+
+const WINDOW_ATTENTION_BACKEND_OPTIONS = [
+  { value: 'auto', label: '自动（优先启动器/预检解析）' },
+  { value: 'flex', label: 'FlexAttention' },
+  { value: 'sdpa_masked', label: 'SDPA Masked' },
+  { value: 'torch_fallback', label: 'Torch Fallback（小序列调试）' },
+];
+
+const SAFEGUARD_GRADIENT_SCAN_OPTIONS = [
+  { value: 'batched', label: 'Batched（推荐）' },
+  { value: 'foreach', label: 'Foreach' },
+  { value: 'legacy', label: 'Legacy（逐参数）' },
+  { value: 'off', label: '关闭梯度范数扫描' },
+];
+
+const FUSED_PROJECTION_MEMORY_MODE_OPTIONS = [
+  { value: 'keep_original', label: '保留原始层（keep_original）' },
+  { value: 'drop_original', label: '删除原始层（drop_original）' },
+  { value: 'materialize_on_save', label: '保存时补回（materialize_on_save）' },
+];
+
+const OPTIMIZER_BACKEND_OPTIONS = [
+  { value: 'auto', label: '自动（auto）' },
+  { value: 'torch_adamw', label: 'PyTorch AdamW' },
+  { value: 'foreach_adamw', label: 'PyTorch Foreach AdamW' },
+  { value: 'torch_fused', label: 'PyTorch Fused AdamW' },
+  { value: 'bnb_8bit', label: 'bitsandbytes 8-bit AdamW' },
+  { value: 'apex', label: 'Apex FusedAdam（可选依赖）' },
+  { value: 'lulynx_fused', label: 'Lulynx FusedAdamW（兼容后端）' },
+];
+
+const DATA_TRANSFER_PROFILE_MODE_OPTIONS = [
+  { value: 'event', label: 'Event（推荐，延迟同步）' },
+  { value: 'sync', label: 'Sync（精确调试，会变慢）' },
+  { value: 'off', label: '关闭' },
+];
+
+const IMAGE_DECODE_BACKEND_OPTIONS = [
+  { value: 'pil', label: 'PIL（默认/最兼容）' },
+  { value: 'auto', label: '自动（有缓存大小时启用 PIL LRU）' },
+  { value: 'pil_lru', label: 'PIL LRU 缓存' },
+  { value: 'torchvision', label: 'torchvision（预留，会回退）' },
+];
+
+const CACHED_COLLATE_MODE_OPTIONS = [
+  { value: 'auto', label: '自动（pad_sequence）' },
+  { value: 'pad_sequence', label: 'PyTorch pad_sequence' },
+  { value: 'legacy', label: 'Legacy 预分配' },
+];
+
+const CHECKPOINT_POLICY_OPTIONS = [
+  { value: 'auto', label: '自动（尊重现有检查点开关）' },
+  { value: 'off', label: '关闭' },
+  { value: 'full', label: 'Full checkpointing' },
+  { value: 'offloaded', label: 'CPU offloaded checkpointing' },
+  { value: 'selective', label: 'Selective recompute（实验/fallback）' },
+];
+
+const CUDA_CACHE_RELEASE_OPTIONS = [
+  { value: 'off', label: '关闭（off）' },
+  { value: 'oom_only', label: '仅 OOM 恢复（oom_only）' },
+  { value: 'phase_boundary', label: '阶段边界（phase_boundary）' },
+  { value: 'after_optimizer', label: '优化器后释放（after_optimizer）' },
+  { value: 'aggressive', label: '激进低显存（aggressive）' },
+];
+
+const BLOCK_SWAP_STRATEGY_OPTIONS = [
+  { value: 'auto', label: '自动（尊重后端解析）' },
+  { value: 'sync', label: '同步（保守/调试）' },
+  { value: 'async', label: '异步预取' },
+  { value: 'pipeline', label: 'Pipeline（实验）' },
 ];
 
 const ANIMA_SECTIONS = [
@@ -124,6 +207,8 @@ const ANIMA_SECTIONS = [
       { key: 'max_bucket_reso', type: 'number', label: '桶最大分辨率', defaultValue: 2048 },
       { key: 'bucket_reso_steps', type: 'number', label: '桶划分单位', defaultValue: 64 },
       { key: 'bucket_no_upscale', type: 'boolean', label: '桶不放大图片', defaultValue: true },
+      { key: 'image_decode_backend', type: 'select', label: '图片解码后端', desc: 'pil 最兼容；pil_lru 会按文件 mtime/大小缓存已解码 RGB/Alpha，适合多 epoch、磁盘或 CPU 解码成为瓶颈时 A/B；torchvision 目前作为预留策略进入后端 fallback。', defaultValue: 'pil', options: IMAGE_DECODE_BACKEND_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'image_decode_cache_size', type: 'number', label: '图片解码缓存张数', desc: '每个 DataLoader worker 的 PIL 解码 LRU 容量。0 关闭缓存；缓存越大内存占用越高。', defaultValue: 0, min: 0, visibleWhen: all(when('performance_expert_mode', true), oneOf('image_decode_backend', ['auto', 'pil_lru'])) },
     ],
   },
   {
@@ -222,6 +307,7 @@ const ANIMA_SECTIONS = [
       { key: 'lr_scheduler_num_cycles', type: 'number', label: '重启次数', defaultValue: 1, min: 1, visibleWhen: when('lr_scheduler', 'cosine_with_restarts') },
       ...LOSS_AWARE_LR_FIELDS,
       { key: 'optimizer_type', type: 'select', label: '优化器', defaultValue: 'AdamW8bit', options: ['AdamW', 'AdamW8bit', 'AdamW8bitKahan', 'PagedAdamW8bit', 'Lion', 'Lion8bit', 'DAdaptation', 'DAdaptAdam', 'DAdaptLion', 'AdaFactor', 'Prodigy', 'prodigyplus.ProdigyPlusScheduleFree', 'pytorch_optimizer.CAME', 'pytorch_optimizer.Compass', 'pytorch_optimizer.Ranger21', 'pytorch_optimizer.AdEMAMix'] },
+      { key: 'optimizer_backend', type: 'select', label: 'AdamW 后端', desc: '仅细化 AdamW / AdamW8bit 的实现路线；optimizer_args 中显式 foreach/fused 参数优先，后端不可用时训练器会 fallback 并写入运行记录。', defaultValue: 'auto', options: OPTIMIZER_BACKEND_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), adamwFamilyOptimizer) },
       { key: 'min_snr_gamma', type: 'number', label: 'Min-SNR Gamma', defaultValue: '', min: 0, step: 0.1 },
     ],
   },
@@ -262,6 +348,7 @@ const ANIMA_SECTIONS = [
       { key: 'enable_preview', type: 'boolean', label: '启用预览图', defaultValue: false },
       { key: 'positive_prompts', type: 'textarea', label: '正向提示词', defaultValue: 'newest, safe, 1girl, masterpiece, best quality', visibleWhen: when('enable_preview', true) },
       { key: 'negative_prompts', type: 'textarea', label: '反向提示词', defaultValue: '', visibleWhen: when('enable_preview', true) },
+      { key: 'preview_groups', type: 'preview_groups', label: '预览测试组', desc: '可添加多组预览，并为每组单独设置 seed、LoRA 权重和延迟启用轮次；例如第三组从第 3 个 epoch 后再开始测试泛化性。留空时仍使用上方旧提示词。', defaultValue: [], visibleWhen: when('enable_preview', true) },
       { key: 'sample_width', type: 'number', label: '预览图宽', defaultValue: 1024, min: 64, visibleWhen: when('enable_preview', true) },
       { key: 'sample_height', type: 'number', label: '预览图高', defaultValue: 1024, min: 64, visibleWhen: when('enable_preview', true) },
       { key: 'sample_cfg', type: 'number', label: 'CFG', defaultValue: 4, min: 1, max: 30, visibleWhen: when('enable_preview', true) },
@@ -307,16 +394,29 @@ const ANIMA_SECTIONS = [
       { key: 'text_encoder_outputs_cache_disk_format', type: 'select', label: '文本缓存格式', desc: '文本编码器输出磁盘缓存格式。默认 safetensors；若已有旧的 npz 缓存也会自动兼容读取', defaultValue: 'safetensors', options: ['safetensors', 'npz'], visibleWhen: v => v.cache_text_encoder_outputs_to_disk === true },
       { key: 'text_encoder_outputs_cache_dtype', type: 'select', label: '文本缓存精度', desc: '文本编码器输出磁盘缓存的保存精度。auto 会尽量保留运行时 dtype；fp16 / bf16 更省空间，fp32 兼容性更高', defaultValue: 'auto', options: ['auto', 'fp16', 'bf16', 'fp32'], visibleWhen: v => v.cache_text_encoder_outputs_to_disk === true },
       { key: 'text_encoder_batch_size', type: 'number', label: '文本编码器批量大小', defaultValue: '', min: 1 },
+      { key: 'vram_auto_enhance_enabled', type: 'boolean', label: '显存不足自动增强', desc: '训练预检判断显存紧张时，自动尝试 Streaming Offload、DiT Block Checkpointing、Streaming Prefetch 和稀疏交换。不会自动启用 PCIe 低精度传输。', defaultValue: true },
+      { key: 'enhanced_protection_mode', type: 'boolean', label: '增强防护模式', desc: '默认关闭。开启后，显存自动增强流程才允许把 PCIe 训练传输格式自动提升到 FP8 E4M3；仍只作用于 CPU-pinned 的冻结 Linear 权重。', defaultValue: false, visibleWhen: when('vram_auto_enhance_enabled', true) },
+      { key: 'vram_smart_sensing_baseline_steps', type: 'number', label: '智能感知基线步数', desc: '二阶段智能感知用于建立平均速度基线的步数。达到基线后，后续 step 若明显变慢才输出建议。', defaultValue: 50, min: 5, step: 5, visibleWhen: when('vram_auto_enhance_enabled', true) },
+      { key: 'vram_smart_sensing_slowdown_ratio', type: 'number', label: '智能感知变慢阈值', desc: '后续窗口平均耗时相对基线的触发倍率。1.5 表示慢 50% 才提示。只建议，不会中途改训练策略。', defaultValue: 1.5, min: 1.05, step: 0.05, visibleWhen: when('vram_auto_enhance_enabled', true) },
+      { key: 'vram_smart_sensing_delta_cache_enabled', type: 'boolean', label: '智能感知 Delta/Cache 候选', desc: '默认关闭。开启后，显存自动增强只会打开只读候选识别，不分配缓存、不改变训练 tensor 路径，用于判断哪些 PCIe 交换层适合后续做 Delta/Cache。', defaultValue: false, visibleWhen: when('vram_auto_enhance_enabled', true) },
       { key: 'lora_activation_recompute_mode', type: 'select', label: 'LoRA 分支重算', desc: '降低原生 DiT LoRA 反传激活峰值。auto 会在 Anima/Newbie 路线默认开启；off 主要用于 benchmark 对比。', defaultValue: 'auto', options: LORA_RECOMPUTE_OPTIONS },
       { key: 'anima_block_residency', type: 'select', label: 'Anima Streaming Offload', desc: '控制原生 Anima 冻结 DiT 权重的驻留策略。Streaming Offload 是省显存与速度的平衡档，但 1024/4096-token 训练需要配合 DiT Block Checkpointing；Block CPU pinned 是极限低显存档。', defaultValue: 'resident', options: ANIMA_BLOCK_RESIDENCY_OPTIONS },
       { key: 'anima_block_residency_min_params', type: 'number', label: 'Anima Offload 最小参数量', desc: '只托管参数量达到该阈值的冻结 Linear。Streaming Offload 下 0 表示 hot-aware 自动阈值：边缘 block 和 attention/modulation 热路径常驻，冷的大 Linear 才会流式卸载；Block CPU pinned 下 0 表示不过滤。', defaultValue: 0, min: 0, visibleWhen: nonResidentBlockMode('anima_block_residency') },
       { key: 'anima_block_checkpointing', type: 'boolean', label: 'Anima DiT Block Checkpointing', desc: '训练时重算 DiT block 以降低反传激活峰值。高分辨率非 resident 驻留会由后端自动启用；手动开启可让预检和配置更直观。', defaultValue: false, visibleWhen: nonResidentBlockMode('anima_block_residency') },
       { key: 'anima_block_prefetch', type: 'boolean', label: 'Anima Streaming Prefetch', desc: '实验性：仅对 Streaming Offload 生效，提前把后续 block 的 CPU-pinned 冻结 Linear 权重异步拉到 GPU，尝试减少 PCIe 等待。默认关闭，建议先用 benchmark 对比速度。', defaultValue: false, visibleWhen: when('anima_block_residency', 'streaming_offload') },
       { key: 'anima_block_prefetch_depth', type: 'number', label: 'Anima Prefetch 深度', desc: '提前预取后续多少个 DiT block。1 表示当前 block 入口同时预热当前和下一个 block；过大可能增加瞬时显存。', defaultValue: 1, min: 0, max: 4, visibleWhen: all(when('anima_block_residency', 'streaming_offload'), when('anima_block_prefetch', true)) },
+      { key: 'pcie_transfer_format', type: 'select', label: 'PCIe 训练传输格式', desc: '实验性全局方案：仅作用于 CPU-pinned 的冻结 Linear 权重，CPU 侧预打包，训练时传到 GPU 后快速还原。默认关闭；建议先用 PCIe benchmark 对比 FP8/INT8。', defaultValue: 'off', options: PCIE_TRANSFER_FORMAT_OPTIONS, visibleWhen: nonResidentBlockMode('anima_block_residency') },
+      { key: 'sparse_swap_enabled', type: 'boolean', label: '稀疏交换方案', desc: '实验性：仅对 Streaming Offload 生效。把冷层分成 warm prefetch 与 cold on-demand，减少低端卡 PCIe 预取队列压力。默认关闭。', defaultValue: false, visibleWhen: streamingBlockMode('anima_block_residency') },
+      { key: 'sparse_swap_warm_fraction', type: 'number', label: '稀疏交换 Warm 比例', desc: '冷层中允许提前预取的比例；剩余冷层按需交换。推荐 0.25-0.40。', defaultValue: 0.35, min: 0, max: 1, step: 0.05, visibleWhen: all(streamingBlockMode('anima_block_residency'), when('sparse_swap_enabled', true)) },
+      { key: 'sparse_swap_budget_mb', type: 'number', label: '稀疏交换 Warm 预算 MB', desc: '限制 warm prefetch 的 FP16 等效预算。0 表示不额外限制，只按 Warm 比例。', defaultValue: 0, min: 0, step: 64, visibleWhen: all(streamingBlockMode('anima_block_residency'), when('sparse_swap_enabled', true)) },
+      { key: 'pcie_delta_cache_enabled', type: 'boolean', label: 'PCIe Delta/Cache 候选分析', desc: '实验性手动入口。observe 只输出候选报告；cache_v0 会在预算内缓存部分 CPU-pinned 冻结 Linear 的 GPU 解码副本。默认关闭。', defaultValue: false, visibleWhen: nonResidentBlockMode('anima_block_residency') },
+      { key: 'pcie_delta_cache_mode', type: 'select', label: 'PCIe Delta/Cache 模式', desc: 'observe 只读观察；cache_v0 是手动实验缓存，不会由自动增强开启。建议只在 prefetch 覆盖差、关闭或 PCIe 等待明显时尝试。', defaultValue: 'observe', options: ['observe', 'cache_v0'], visibleWhen: all(nonResidentBlockMode('anima_block_residency'), when('pcie_delta_cache_enabled', true)) },
+      { key: 'pcie_delta_cache_budget_mb', type: 'number', label: 'PCIe Cache v0 预算 MB', desc: 'cache_v0 的 GPU 缓存预算。建议 256MB 起步；prefetch 已完整覆盖时通常没有收益，预算过大还可能更慢。0 表示不启用真实缓存。', defaultValue: 256, min: 0, step: 64, visibleWhen: all(nonResidentBlockMode('anima_block_residency'), when('pcie_delta_cache_enabled', true), when('pcie_delta_cache_mode', 'cache_v0')) },
       { key: 'swap_granularity', type: 'select', label: '显存交换模式', desc: 'off 关闭；auto 自动选择；block 按 block 搬运；merged_block 合并 block 降低 PCIe 传输次数；layer 为 Fine-grained / Layer Swap（现有细粒度 swap，不是真模块级 offload）。', defaultValue: 'off', options: ['off', 'auto', 'block', 'merged_block', 'layer'] },
       { key: 'swap_ratio', type: 'slider', label: '显存交换比例', desc: '按原始 block/layer 总数计算交换比例。0 表示只在 auto 或 swap_count 下生效。', defaultValue: 0, min: 0, max: 1, step: 0.05, visibleWhen: swapEnabled },
       { key: 'swap_count', type: 'number', label: '显存交换数量', desc: '高级：绝对交换数量。大于 0 时优先于比例。', defaultValue: 0, min: 0, visibleWhen: swapEnabled },
       { key: 'block_merge_size', type: 'number', label: '合并 Block 大小', desc: 'merged_block 模式下每组包含的 block 数。', defaultValue: 2, min: 2, visibleWhen: when('swap_granularity', 'merged_block') },
+      { key: 'block_swap_strategy', type: 'select', label: 'BlockSwap 搬运策略', desc: 'auto 使用后端解析；sync 保守同步；async 使用现有异步预取；pipeline 为 CUDA 实验策略，不适配时会由后端 fallback。', defaultValue: 'auto', options: BLOCK_SWAP_STRATEGY_OPTIONS, visibleWhen: all(swapEnabled, when('performance_expert_mode', true)) },
       { key: 'module_offload_enabled', type: 'boolean', label: '模块级 Offload', desc: 'clean-room 新路线：按比例让冻结的 Linear / Conv 模块常驻 CPU，训练时按需临时回到 GPU。与现有 swap 互斥。', defaultValue: false },
       { key: 'module_offload_profile_enabled', type: 'boolean', label: '使用 Offload Profile', desc: '启用后可用 conservative / balanced / aggressive 预设填充主干与文本编码器比例；显式覆盖比例仍优先。', defaultValue: false, visibleWhen: when('module_offload_enabled', true) },
       { key: 'module_offload_profile', type: 'select', label: 'Offload Profile', desc: 'conservative: 主干25%/文本0%；balanced: 主干50%/文本25%；aggressive: 主干75%/文本50%。', defaultValue: 'custom', options: ['custom', 'conservative', 'balanced', 'aggressive'], visibleWhen: v => v.module_offload_enabled === true && v.module_offload_profile_enabled === true },
@@ -329,8 +429,21 @@ const ANIMA_SECTIONS = [
       { key: 'module_offload_prefetch_enabled', type: 'boolean', label: '实验 Prefetch / Streaming', desc: '实验性，会变慢，可能不兼容部分训练配置。第一版仅尝试 frozen backbone Linear 预热，失败会降级为普通 module_offload。', defaultValue: false, visibleWhen: when('module_offload_enabled', true) },
       { key: 'module_offload_prefetch_mode', type: 'select', label: 'Prefetch 模式', desc: '高级实验入口；当前仅 experimental。', defaultValue: 'experimental', options: ['experimental'], visibleWhen: v => v.module_offload_enabled === true && v.module_offload_prefetch_enabled === true },
       { key: 'blocks_to_swap', type: 'number', label: '旧版 Block 交换数量', desc: '兼容旧配置。新配置建议使用上方显存交换模式、比例和数量。', defaultValue: '', min: 1 },
-      { key: 'experimental_attention_profile_enabled', type: 'boolean', label: '步骤耗时统计', desc: '步骤耗时窗口统计开关。默认关闭，仅在诊断训练速度/瓶颈时建议开启', defaultValue: false },
-      { key: 'experimental_attention_profile_window', type: 'number', label: '统计窗口 (步)', desc: '每 N 个优化步输出一次聚合耗时摘要', defaultValue: 50, min: 1, visibleWhen: v => v.experimental_attention_profile_enabled === true },
+      { key: 'performance_expert_mode', type: 'boolean', label: '性能专家模式', desc: '显示实验性性能策略。默认保持自动策略；仅在 A/B、长序列或瓶颈诊断时调整。', defaultValue: false },
+      { key: 'cross_attn_fused_kv', type: 'boolean', label: 'Anima Fused K/V', desc: '融合 Anima cross-attention 的 K/V projection。默认保留原始层；显存模式需在专家模式中选择。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'anima_fused_qkv', type: 'boolean', label: 'Anima Fused Q/K/V', desc: '融合 Anima self-attention 的 Q/K/V projection。默认保留原始层；LoRA 包裹层会自动跳过。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'fused_projection_memory_mode', type: 'select', label: 'Fused Projection 显存模式', desc: 'keep_original 最兼容；drop_original 会移除原始 Q/K/V 层以节省显存；materialize_on_save 训练中移除，state_dict 保存时从 fused 权重补回原始 key。', defaultValue: 'keep_original', options: FUSED_PROJECTION_MEMORY_MODE_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), (c) => c.cross_attn_fused_kv === true || c.anima_fused_qkv === true) },
+      { key: 'experimental_attention_profile_enabled', type: 'boolean', label: 'Sliding Window Attention', desc: '实验性窗口注意力。auto 会优先尊重启动器/预检解析后的 attention backend；不支持窗口实现时再 fallback。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'experimental_attention_profile_window', type: 'number', label: '窗口大小', desc: '每个 token 可关注的历史窗口大小。越大越接近全注意力，也越耗显存。', defaultValue: 100, min: 10, visibleWhen: all(when('performance_expert_mode', true), when('experimental_attention_profile_enabled', true)) },
+      { key: 'experimental_attention_profile_backend', type: 'select', label: '窗口注意力后端', desc: 'auto 优先使用启动器/预检传入的 attention 参数；FlexAttention 需要 CUDA 与对应 PyTorch 支持。', defaultValue: 'auto', options: WINDOW_ATTENTION_BACKEND_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), when('experimental_attention_profile_enabled', true)) },
+      { key: 'experimental_attention_profile_torch_max_tokens', type: 'number', label: 'Torch 回退最大 Token', desc: '防止纯 PyTorch O(n²) fallback 在长序列误跑。仅 torch_fallback 生效。', defaultValue: 2048, min: 128, visibleWhen: all(when('performance_expert_mode', true), when('experimental_attention_profile_enabled', true), when('experimental_attention_profile_backend', 'torch_fallback')) },
+      { key: 'data_transfer_profile_enabled', type: 'boolean', label: '数据传输 Profiling', desc: '采样 CPU/GPU tensor 传输耗时。默认关闭；event 模式开销较低，sync 只用于精确排查。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'data_transfer_profile_mode', type: 'select', label: '传输计时模式', desc: 'event 使用 CUDA events 延迟同步；sync 保留旧全局同步计时；off 忽略 profiling。', defaultValue: 'event', options: DATA_TRANSFER_PROFILE_MODE_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), when('data_transfer_profile_enabled', true)) },
+      { key: 'data_transfer_profile_window', type: 'number', label: '传输采样窗口', desc: '每累计多少次传输输出一次汇总。', defaultValue: 50, min: 1, visibleWhen: all(when('performance_expert_mode', true), when('data_transfer_profile_enabled', true)) },
+      { key: 'cached_collate_mode', type: 'select', label: '缓存数据 Collate', desc: '仅影响 Anima/Newbie cache-first 数据集。auto/pad_sequence 使用 PyTorch 原生序列 padding；legacy 保留旧预分配循环路径，用于对照或兼容排查。', defaultValue: 'auto', options: CACHED_COLLATE_MODE_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'checkpoint_policy', type: 'select', label: 'Checkpoint 策略', desc: 'auto 尊重现有 gradient_checkpointing / cpu_offload_checkpointing；full 强制通用检查点；offloaded 使用 CPU saved-tensor/offload 路径；selective 先做能力探测，不可用或未接线时 fallback 并写入运行记录。', defaultValue: 'auto', options: CHECKPOINT_POLICY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'cuda_cache_release_strategy', type: 'select', label: 'CUDA 缓存释放策略', desc: 'oom_only 仅在 OOM 恢复时释放；phase_boundary 在 TE/VAE / 组件下 CPU 边界释放；after_optimizer 保留旧低显存稳妥档；aggressive 会把阶段边界和训练步释放都打开。旧 every_step 配置会自动按 aggressive 兼容。', defaultValue: 'oom_only', options: CUDA_CACHE_RELEASE_OPTIONS },
+      { key: 'cuda_cache_release_interval', type: 'number', label: '缓存释放间隔', desc: '每 N 个优化 step 允许一次缓存释放。1 最省显存；2~10 可减少同步频率，适合显存略紧但想保留速度时尝试。', defaultValue: 1, min: 1, visibleWhen: (c) => c.cuda_cache_release_strategy && c.cuda_cache_release_strategy !== 'off' },
       { key: 'vram_swap_to_ram', type: 'boolean', label: 'VRAM Swap to RAM', desc: '实验性：让原生 Anima LoRA / LoRA-FA / VeRA / T-LoRA 适配器权重常驻 CPU RAM，前向时再按需拉回训练设备。更省显存，但通常更慢；暂不支持 LoKr、多进程、full_fp16/full_bf16 以及部分 8bit/paged 优化器', defaultValue: false },
       { key: 'cpu_offload_checkpointing', type: 'boolean', label: 'CPU Offload 梯度检查点', defaultValue: false },
       { key: 'disable_mmap_load_safetensors', type: 'boolean', label: '禁用 mmap 加载', defaultValue: false },
@@ -346,6 +459,7 @@ const ANIMA_SECTIONS = [
       { key: 'lulynx_experimental_core_enabled', type: 'boolean', label: '启用 Lulynx 实验核心', desc: '集中管理 SafeGuard、EMA、ResourceManager、BlockWeight、SmartRank、AutoController、LISA、PCGrad、Pause、Prodigy Guard 与轻量监控', defaultValue: false },
       { key: 'lulynx_safeguard_enabled', type: 'boolean', label: '启用 SafeGuard', desc: '桥接到当前训练器的轻量安全防护，可拦截 NaN/Inf loss 与异常 spike', defaultValue: false, visibleWhen: when('lulynx_experimental_core_enabled', true) },
       { key: 'lulynx_safeguard_nan_check_interval', type: 'number', label: 'NaN 检查间隔', desc: '每 N 个优化 step 检查一次 NaN / Inf loss', defaultValue: 1, min: 1, visibleWhen: all(when('lulynx_experimental_core_enabled', true), when('lulynx_safeguard_enabled', true)) },
+      { key: 'lulynx_safeguard_gradient_scan_mode', type: 'select', label: 'SafeGuard 梯度扫描', desc: 'batched/foreach 可减少 CUDA 同步；legacy 保留逐参数扫描；off 关闭梯度范数扫描。', defaultValue: 'batched', options: SAFEGUARD_GRADIENT_SCAN_OPTIONS, visibleWhen: all(when('lulynx_experimental_core_enabled', true), when('lulynx_safeguard_enabled', true), when('performance_expert_mode', true)) },
       { key: 'lulynx_safeguard_max_nan_count', type: 'number', label: '最大连续 NaN', desc: '连续触发多少次 NaN / Inf 后直接停止训练', defaultValue: 3, min: 1, visibleWhen: all(when('lulynx_experimental_core_enabled', true), when('lulynx_safeguard_enabled', true)) },
       { key: 'lulynx_safeguard_loss_spike_threshold', type: 'number', label: 'Loss Spike 阈值', desc: '当前 loss 超过滚动平均值多少倍时判定为 spike', defaultValue: 5.0, min: 1, step: 0.1, visibleWhen: all(when('lulynx_experimental_core_enabled', true), when('lulynx_safeguard_enabled', true)) },
       { key: 'lulynx_safeguard_loss_window_size', type: 'number', label: 'Loss 窗口大小', desc: '判定 loss spike 的滚动窗口大小', defaultValue: 20, min: 2, visibleWhen: all(when('lulynx_experimental_core_enabled', true), when('lulynx_safeguard_enabled', true)) },
@@ -425,9 +539,20 @@ const ANIMA_SECTIONS = [
 
 const ANIMA_CONDITIONAL_KEYS = new Set([
   'lora_type', 'enable_preview', 'save_state', 'prefer_json_caption',
-  'lr_scheduler', 'optimizer_type',
+  'lr_scheduler', 'optimizer_type', 'optimizer_backend',
   'anima_block_residency',
   'anima_block_prefetch',
+  'performance_expert_mode',
+  'cross_attn_fused_kv',
+  'anima_fused_qkv',
+  'fused_projection_memory_mode',
+  'image_decode_backend',
+  'cached_collate_mode',
+  'checkpoint_policy',
+  'experimental_attention_profile_enabled',
+  'experimental_attention_profile_backend',
+  'data_transfer_profile_enabled',
+  'cuda_cache_release_strategy',
   'lulynx_experimental_core_enabled', 'lulynx_safeguard_enabled',
   'lulynx_ema_enabled', 'lulynx_resource_manager_enabled',
   'lulynx_block_weight_enabled', 'lulynx_smart_rank_enabled',
@@ -443,8 +568,3 @@ export const ANIMA_LORA_SCHEMA = {
   sections: ANIMA_SECTIONS,
   conditionalKeys: ANIMA_CONDITIONAL_KEYS,
 };
-
-
-
-
-

@@ -3,7 +3,7 @@
 //   syncFooterAction / syncTopbarState / updateLayoutWidth
 //
 // 依赖（工厂注入）：state, getAvailableTabs
-// 注：syncFooterAction 生成的 HTML 中有 onclick="executeTraining()" / "terminateAllTasks()" 依赖 window.* (后续 actions 挂上)
+// 注：syncFooterAction 生成的 HTML 中有 onclick="executeTraining()" / "terminateAllTasks()" / "openAdvancedMonitor()" 依赖 window.* (后续 actions 挂上)
 
 import { $, $$, _ico } from '../utils/dom.js';
 
@@ -52,9 +52,14 @@ export function createLayoutActions({ state, getAvailableTabs }) {
     if (!showBar) return;
     const hasRunningTask = state.tasks.some((task) => task.status === 'RUNNING');
     const hasFailedRecent = state.trainingFailed;
+    const monitorButton = ''
+      + '<button class="btn btn-monitor" type="button" onclick="openAdvancedMonitor()" title="打开 Lulynx 高级监控器">'
+      +   '<span class="btn-main">' + _ico('activity') + ' 高级监控器</span>'
+      + '</button>';
 
     if (hasRunningTask) {
       bar.innerHTML = ''
+        + monitorButton
         + '<button class="btn btn-execute btn-training-active" disabled>'
         +   '<span class="btn-main">' + _ico('loader') + ' 训练中...</span>'
         + '</button>'
@@ -63,11 +68,13 @@ export function createLayoutActions({ state, getAvailableTabs }) {
         + '</button>';
     } else if (hasFailedRecent) {
       bar.innerHTML = ''
+        + monitorButton
         + '<button class="btn btn-execute btn-training-failed" onclick="executeTraining()">'
         +   '<span class="btn-main">' + _ico('refresh-cw') + ' 训练失败 — 点击重新训练</span>'
         + '</button>';
    } else {
       bar.innerHTML = `
+        ${monitorButton}
         <button class="btn btn-primary btn-execute" onclick="executeTraining()" ${state.loading.run ? 'disabled' : ''}>
           <span class="btn-main">${state.loading.run ? '正在启动训练...' : '开始训练'}</span>
         </button>

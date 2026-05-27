@@ -68,6 +68,17 @@ import { createThemeActions, createTrainTabsActions, createJsonPanelActions, cre
 
 
 const uiPreferences = readUiPreferences();
+const savedTrainingAdvisorPosition = (() => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('sd-rescripts:training-advisor-position') || 'null');
+    if (!parsed || typeof parsed !== 'object') return null;
+    const x = Number(parsed.x);
+    const y = Number(parsed.y);
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+  } catch (_e) {
+    return null;
+  }
+})();
 
 const state = {
   compactLayout: false,
@@ -98,6 +109,8 @@ const state = {
   roundedUI: uiPreferences.roundedUI,
   verticalTabs: uiPreferences.verticalTabs,
   configWaterfall: localStorage.getItem('sd-rescripts:config-waterfall') === 'true',
+  trainingAdvisorCollapsed: localStorage.getItem('sd-rescripts:training-advisor-collapsed') === 'true',
+  trainingAdvisorPosition: savedTrainingAdvisorPosition,
   activeModule: 'config',
   activeTab: uiPreferences.activeTab,
   navigatorCollapsed: uiPreferences.navigatorCollapsed,
@@ -964,6 +977,59 @@ window.toggleTrainingGroup = function(group) {
   renderNavigator();
 };
 
+window.toggleTrainingAdvisor = function() {
+  state.trainingAdvisorCollapsed = !state.trainingAdvisorCollapsed;
+  localStorage.setItem('sd-rescripts:training-advisor-collapsed', state.trainingAdvisorCollapsed ? 'true' : 'false');
+  renderView(state.activeModule || 'config');
+};
+
+window.startTrainingAdvisorDrag = function(event) {
+  if (event.button !== 0 || event.target?.closest?.('button')) return;
+  const panel = event.currentTarget?.closest?.('.floating-training-advisor');
+  if (!panel) return;
+  event.preventDefault();
+
+  const rect = panel.getBoundingClientRect();
+  const offsetX = event.clientX - rect.left;
+  const offsetY = event.clientY - rect.top;
+  const margin = 12;
+
+  panel.classList.add('is-dragging');
+  panel.style.right = 'auto';
+  panel.style.bottom = 'auto';
+  panel.style.left = `${rect.left}px`;
+  panel.style.top = `${rect.top}px`;
+
+  const clampPosition = (clientX, clientY) => {
+    const maxX = Math.max(margin, window.innerWidth - panel.offsetWidth - margin);
+    const maxY = Math.max(margin, window.innerHeight - panel.offsetHeight - margin);
+    return {
+      x: Math.min(Math.max(margin, clientX - offsetX), maxX),
+      y: Math.min(Math.max(margin, clientY - offsetY), maxY),
+    };
+  };
+
+  const move = (moveEvent) => {
+    const pos = clampPosition(moveEvent.clientX, moveEvent.clientY);
+    panel.style.left = `${pos.x}px`;
+    panel.style.top = `${pos.y}px`;
+  };
+
+  const stop = (upEvent) => {
+    const pos = clampPosition(upEvent.clientX, upEvent.clientY);
+    state.trainingAdvisorPosition = pos;
+    localStorage.setItem('sd-rescripts:training-advisor-position', JSON.stringify(pos));
+    panel.classList.remove('is-dragging');
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', stop);
+    window.removeEventListener('pointercancel', stop);
+  };
+
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', stop);
+  window.addEventListener('pointercancel', stop);
+};
+
 function _persistTrainingGroupsCollapsed() {
   try {
     const arr = Array.from(state._collapsedTrainingGroups || []);
@@ -1006,6 +1072,72 @@ const {
   renderView,
  resetTransientState,
 });
+function _previewGroupsForEdit() {
+  const raw = state.config.preview_groups;
+  if (Array.isArray(raw)) return raw.map((group) => ({ ...(group || {}) }));
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map((group) => ({ ...(group || {}) }));
+    } catch (_e) { /* ignore invalid legacy string */ }
+  }
+  const prompts = String(state.config.positive_prompts || state.config.sample_prompts || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const negative = String(state.config.negative_prompts || state.config.sample_negative || '');
+  return (prompts.length ? prompts : ['']).map((prompt, index) => ({
+    name: index === 0 ? 'LoRA 对照' : `测试组 ${index + 1}`,
+    mode: 'lora',
+    prompt,
+    negative_prompt: negative,
+    seed: state.config.sample_seed || '',
+    lora_weight: 1,
+    start_epoch: '',
+    start_after_epochs: '',
+  }));
+}
+
+function _commitPreviewGroups(groups) {
+  state.config.preview_groups = groups;
+  syncConfigState();
+  saveDraft();
+  updateJSONPreview();
+  renderView('config');
+}
+
+window.addPreviewGroup = function() {
+  const groups = _previewGroupsForEdit();
+  groups.push({
+    name: `测试组 ${groups.length + 1}`,
+    mode: groups.length === 0 ? 'lora' : 'base',
+    prompt: String(state.config.positive_prompts || state.config.sample_prompts || ''),
+    negative_prompt: String(state.config.negative_prompts || state.config.sample_negative || ''),
+    seed: state.config.sample_seed || '',
+    lora_weight: 1,
+    start_epoch: '',
+    start_after_epochs: '',
+  });
+  _commitPreviewGroups(groups);
+};
+
+window.removePreviewGroup = function(index) {
+  const groups = _previewGroupsForEdit();
+  groups.splice(Number(index), 1);
+  _commitPreviewGroups(groups);
+};
+
+window.updatePreviewGroup = function(index, key, value) {
+  const groups = _previewGroupsForEdit();
+  const i = Number(index);
+  if (!Number.isInteger(i) || i < 0 || i >= groups.length) return;
+  groups[i] = { ...(groups[i] || {}), [key]: value };
+  state.config.preview_groups = groups;
+  syncConfigState();
+  saveDraft();
+  updateJSONPreview();
+};
+
 window.updateConfigValue = updateConfigValue;
 window.resetAllParams = resetAllParams;
 window.resetFieldValue = resetFieldValue;
@@ -1037,6 +1169,16 @@ window.scanDataset = scanDataset;
 window.toggleFolderPreview = toggleFolderPreview;
 window.loadMoreThumbs = loadMoreThumbs;
 window.runTrainingPreflight = runTrainingPreflight;
+
+window.openAdvancedMonitor = async function() {
+  try {
+    await api.openAdvancedMonitor();
+    showToast('高级监控器已打开。');
+  } catch (error) {
+    showToast(error?.message || '打开高级监控器失败。');
+  }
+};
+
 // wizard / plugins / tools actions
 // wizard.executeTraining 指向 main.js 中 window.executeTraining（后续 Stage 3.16 迁到 actions/training.js）
 const { wizardSet, wizardStartTraining } = createWizardActions({

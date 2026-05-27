@@ -1462,6 +1462,37 @@ input[type="range"]::-webkit-slider-thumb {
   letter-spacing: 1.5px;
 }
 
+.btn-monitor {
+  height: 56px;
+  min-width: 148px;
+  padding: 0 16px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.btn-monitor:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+}
+
+.btn-monitor .btn-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.92rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
 .btn-training-active {
   background: linear-gradient(135deg, #f59e0b, #d97706) !important;
   box-shadow: 0 4px 25px rgba(245, 158, 11, 0.3) !important;
@@ -4113,16 +4144,28 @@ body.compact-layout .config-group.row {
 }
 
 .floating-training-advisor {
-  position: sticky;
-  bottom: 14px;
-  z-index: 15;
-  margin-top: 16px;
+  position: fixed;
+  right: 22px;
+  bottom: calc(var(--footer-height) + 16px);
+  z-index: 180;
+  width: min(360px, calc(100vw - 32px));
   border: 1px solid var(--border);
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
-  padding: 12px;
+  padding: 10px;
   backdrop-filter: blur(14px);
+  transition: width 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.floating-training-advisor.is-dragging {
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.26);
+  transition: none;
+  user-select: none;
+}
+
+.floating-training-advisor.is-collapsed {
+  width: min(260px, calc(100vw - 32px));
 }
 
 .floating-advisor-head {
@@ -4130,6 +4173,16 @@ body.compact-layout .config-group.row {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.floating-training-advisor.is-dragging .floating-advisor-head {
+  cursor: grabbing;
+}
+
+.floating-advisor-head > div:first-child {
+  min-width: 0;
 }
 
 .floating-advisor-head strong,
@@ -4138,14 +4191,97 @@ body.compact-layout .config-group.row {
 }
 
 .floating-advisor-head strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
   color: var(--text-main);
   font-size: 0.86rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .floating-advisor-head span {
   margin-top: 2px;
+  overflow: hidden;
   color: var(--text-muted);
   font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.floating-advisor-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.floating-advisor-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--text-muted);
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.12);
+}
+
+.floating-advisor-status-ok {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
+}
+
+.floating-advisor-status-warning {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
+}
+
+.floating-advisor-status-error {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.14);
+}
+
+.floating-advisor-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-input);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.floating-advisor-toggle:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-input));
+  color: var(--accent);
+}
+
+.floating-training-advisor.is-collapsed .floating-advisor-toggle svg {
+  transform: rotate(180deg);
+}
+
+.floating-advisor-collapsed-row {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.floating-training-advisor.is-collapsed .floating-advisor-collapsed-row {
+  display: flex;
+}
+
+.floating-training-advisor.is-collapsed .floating-advisor-body {
+  display: none;
 }
 
 .floating-advisor-list {
@@ -4183,7 +4319,13 @@ body.compact-layout .config-group.row {
 
 @media (max-width: 860px) {
   .floating-training-advisor {
-    position: static;
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+  }
+
+  .floating-training-advisor.is-collapsed {
+    width: min(260px, calc(100vw - 24px));
   }
 }
 

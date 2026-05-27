@@ -37,6 +37,13 @@ function advisorItem(text, tone = 'note') {
   return `<li class="floating-advisor-item floating-advisor-${tone}">${escapeHtml(text)}</li>`;
 }
 
+function advisorTone(preflight) {
+  if (!preflight) return 'note';
+  if ((preflight.errors || []).length > 0 || !preflight.can_start) return 'error';
+  if ((preflight.warnings || []).length > 0) return 'warning';
+  return 'ok';
+}
+
 function getExperimentalCopy(typeId) {
   if (typeId === 'lab-distiller') {
     return {
@@ -230,22 +237,44 @@ export function createExperimentalTrainingRenderer({ state }) {
         ? '预检通过'
         : `预检阻断 ${(state.preflight.errors || []).length}`
       : '等待预检';
+    const collapsed = Boolean(state.trainingAdvisorCollapsed);
+    const tone = advisorTone(state.preflight);
+    const itemCount = items.length;
+    const patchCount = Object.keys(advisor.vram?.recommended_config_patch || {}).length
+      + Object.keys(advisor.a_tier?.recommended_config_patch || {}).length;
+    const toggleLabel = collapsed ? '展开训练助手' : '收起训练助手';
+    const pos = state.trainingAdvisorPosition;
+    const positionStyle = pos
+      ? ` style="left:${Math.max(0, Number(pos.x) || 0)}px;top:${Math.max(0, Number(pos.y) || 0)}px;right:auto;bottom:auto;"`
+      : '';
 
     return `
-      <aside class="floating-training-advisor" aria-label="训练助手">
-        <div class="floating-advisor-head">
+      <aside class="floating-training-advisor ${collapsed ? 'is-collapsed' : ''}" aria-label="训练助手"${positionStyle}>
+        <div class="floating-advisor-head" onpointerdown="startTrainingAdvisorDrag(event)">
           <div>
             <strong>${_ico('activity', 14)} 训练助手</strong>
             <span>${escapeHtml(status)}</span>
           </div>
-          ${pill(state.activeTrainingType || 'training', 'neutral')}
+          <div class="floating-advisor-head-actions">
+            <span class="floating-advisor-status-dot floating-advisor-status-${tone}" aria-hidden="true"></span>
+            <button class="floating-advisor-toggle" type="button" onclick="toggleTrainingAdvisor()" title="${escapeHtml(toggleLabel)}" aria-label="${escapeHtml(toggleLabel)}">
+              ${_ico('chevron-down', 14)}
+            </button>
+          </div>
         </div>
-        <ul class="floating-advisor-list">
-          ${items.map((item) => advisorItem(item.text, item.tone)).join('')}
-        </ul>
-        <div class="floating-advisor-actions">
-          <button class="btn btn-outline btn-sm" type="button" onclick="runPreflight()">${_ico('check-circle', 13)} 预检</button>
-          <button class="btn btn-outline btn-sm" type="button" onclick="applyTrainingAdvisorPatch()" ${hasPatch ? '' : 'disabled'}>${_ico('zap', 13)} 应用建议</button>
+        <div class="floating-advisor-collapsed-row">
+          ${pill(state.activeTrainingType || 'training', 'neutral')}
+          <span>${itemCount} 条建议</span>
+          ${patchCount ? `<span>${patchCount} 个可应用</span>` : ''}
+        </div>
+        <div class="floating-advisor-body">
+          <ul class="floating-advisor-list">
+            ${items.map((item) => advisorItem(item.text, item.tone)).join('')}
+          </ul>
+          <div class="floating-advisor-actions">
+            <button class="btn btn-outline btn-sm" type="button" onclick="runPreflight()">${_ico('check-circle', 13)} 预检</button>
+            <button class="btn btn-outline btn-sm" type="button" onclick="applyTrainingAdvisorPatch()" ${hasPatch ? '' : 'disabled'}>${_ico('zap', 13)} 应用建议</button>
+          </div>
         </div>
       </aside>
     `;

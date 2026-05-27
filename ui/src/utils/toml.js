@@ -5,6 +5,9 @@ function _tomlValue(v) {
   if (typeof v === 'boolean') return v ? 'true' : 'false';
   if (typeof v === 'number') return String(v);
   if (Array.isArray(v)) {
+    if (v.some(item => item && typeof item === 'object')) {
+      return _tomlValue(JSON.stringify(v));
+    }
     // TOML 内联数组：[ "a", "b" ]
     return '[ ' + v.map(item => {
       if (typeof item === 'string') return '"' + item.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';

@@ -160,6 +160,68 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       + '</div>';
   }
 
+  function renderPcieDeltaCacheRuntimeCard(profile) {
+    if (!profile || typeof profile !== 'object') return '';
+    var errors = Number(profile.errors || 0);
+    var nextMap = {
+      cache_v0_manual_candidate: '可手动试验 Cache v0（prefetch 覆盖差时优先）',
+      observe_more_steps: '建议继续观察更多 step',
+      keep_observing: '继续观察',
+      no_cache_candidate: '暂无缓存候选',
+      fix_transfer_errors_before_cache: '先处理传输错误',
+      disabled: '未启用',
+    };
+    var next = nextMap[profile.next] || profile.next || '观察中';
+    return '<div class="train-side-section" id="train-pcie-delta-cache-card">'
+      + '<div class="train-panel-title">PCIe Delta/Cache 候选</div>'
+      + '<div class="train-hw-card">'
+      +   '<div class="train-hw-row"><span class="hw-label">路线</span><span class="hw-value">' + escapeHtml(String(profile.label || profile.family || '—')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">模式</span><span class="hw-value">' + escapeHtml(String(profile.mode || 'observe')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">候选 / 高价值</span><span class="hw-value-accent">' + escapeHtml(String(profile.candidates || 0) + ' / ' + String(profile.high || 0)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">中等候选</span><span class="hw-value">' + escapeHtml(String(profile.medium || 0)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">传输量</span><span class="hw-value">' + escapeHtml(Number(profile.transfer || 0).toFixed(1) + ' MB') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">估算缓存</span><span class="hw-value">' + escapeHtml(Number(profile.estimated_cache || 0).toFixed(1) + ' MB') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">Miss / 错误</span><span class="hw-value" style="color:' + (errors > 0 ? '#ef4444' : 'var(--text)') + ';">' + escapeHtml(String(profile.prefetch_missed || 0) + ' / ' + String(errors)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">建议</span><span class="hw-value">' + escapeHtml(next) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">提示</span><span class="hw-value">prefetch 已完整覆盖时通常不需要 Cache v0</span></div>'
+      + '</div>'
+      + '</div>';
+  }
+
+  function renderPcieCacheV0RuntimeCard(profile) {
+    if (!profile || typeof profile !== 'object') return '';
+    var enabled = !!profile.enabled;
+    var errors = Number(profile.errors || 0);
+    return '<div class="train-side-section" id="train-pcie-cache-v0-card">'
+      + '<div class="train-panel-title">PCIe Cache v0</div>'
+      + '<div class="train-hw-card">'
+      +   '<div class="train-hw-row"><span class="hw-label">状态</span><span class="hw-value" style="color:' + (errors > 0 ? '#ef4444' : (enabled ? '#22c55e' : 'var(--text-dim)')) + ';">' + (enabled ? '已启用' : '未启用') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">选中层</span><span class="hw-value-accent">' + escapeHtml(String(profile.selected || 0)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">缓存 / 预算</span><span class="hw-value">' + escapeHtml(Number(profile.cache || 0).toFixed(1) + ' / ' + Number(profile.budget || 0).toFixed(1) + ' MB') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">Hit / Miss</span><span class="hw-value">' + escapeHtml(String(profile.hits || 0) + ' / ' + String(profile.misses || 0)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">错误</span><span class="hw-value">' + escapeHtml(String(errors)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">原因</span><span class="hw-value">' + escapeHtml(String(profile.reason || '—')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">使用建议</span><span class="hw-value">适合 prefetch miss 高或关闭时对比</span></div>'
+      + '</div>'
+      + '</div>';
+  }
+
+  function renderSmartSensingRuntimeCard(profile) {
+    if (!profile || typeof profile !== 'object') return '';
+    var slowdown = profile.phase === 'runtime_slowdown';
+    return '<div class="train-side-section" id="train-vram-smart-sensing-card">'
+      + '<div class="train-panel-title">显存智能感知</div>'
+      + '<div class="train-hw-card">'
+      +   '<div class="train-hw-row"><span class="hw-label">阶段</span><span class="hw-value">' + escapeHtml(String(profile.phase || 'observe')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">动作</span><span class="hw-value">' + escapeHtml(String(profile.action || 'observe')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">基线 / 窗口</span><span class="hw-value">' + escapeHtml(Number(profile.baseline_avg_step_seconds || 0).toFixed(3) + ' / ' + Number(profile.window_avg_step_seconds || 0).toFixed(3) + ' s') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">变慢倍率</span><span class="hw-value" style="color:' + (slowdown ? '#f59e0b' : 'var(--text)') + ';">' + escapeHtml(Number(profile.slowdown_ratio || 0).toFixed(2) + 'x') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">显存压力</span><span class="hw-value">' + (profile.shared_vram_suspected ? '疑似' : '未触发') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">说明</span><span class="hw-value">只输出建议，不中途改策略</span></div>'
+      + '</div>'
+      + '</div>';
+  }
+
   function renderTraining(container) {
     var running = state.tasks.filter(function(t) { return t.status === 'RUNNING'; });
     var finished = state.tasks.filter(function(t) { return ['FINISHED', 'COMPLETED'].includes(String(t.status || '').toUpperCase()); });
@@ -194,6 +256,9 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       || null;
     var peakVramDiagnostics = m.peakVramDiagnostics || null;
     var cudaCacheRelease = m.cudaCacheRelease || null;
+    var pcieDeltaCache = m.pcieDeltaCache || (state.trainingSummary && state.trainingSummary.pcieDeltaCache) || null;
+    var pcieCacheV0 = m.pcieCacheV0 || (state.trainingSummary && state.trainingSummary.pcieCacheV0) || null;
+    var smartSensingRuntime = m.vramSmartSensingRuntime || (state.trainingSummary && state.trainingSummary.vramSmartSensingRuntime) || null;
     var showGhostCard = !!(state.config.lulynx_ghost_replay || ghost);
     var ghostStatus = ghost && ghost.last_status ? String(ghost.last_status) : 'idle';
     var ghostStatusMap = {
@@ -420,6 +485,12 @@ var statusDot = '', statusText = '';
     +     renderNativeUnetRuntimeCard(nativeUnetProfile)
 
     +     renderPeakVramDiagnosticsCard(peakVramDiagnostics, cudaCacheRelease)
+
+    +     renderPcieDeltaCacheRuntimeCard(pcieDeltaCache)
+
+    +     renderPcieCacheV0RuntimeCard(pcieCacheV0)
+
+    +     renderSmartSensingRuntimeCard(smartSensingRuntime)
 
     +     renderPrecisionSwapRuntimeCard(precisionSwapProfile)
 

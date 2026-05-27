@@ -40,6 +40,87 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     `;
   }
 
+  function getPreviewGroupsForRender() {
+    const raw = state.config.preview_groups;
+    let groups = [];
+    if (Array.isArray(raw)) {
+      groups = raw;
+    } else if (typeof raw === 'string' && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw);
+        groups = Array.isArray(parsed) ? parsed : [];
+      } catch (_e) {
+        groups = [];
+      }
+    }
+    if (!groups.length) {
+      const prompts = String(state.config.positive_prompts || state.config.sample_prompts || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const negative = String(state.config.negative_prompts || state.config.sample_negative || '');
+      groups = (prompts.length ? prompts : ['']).map((prompt, index) => ({
+        name: index === 0 ? 'LoRA 对照' : `测试组 ${index + 1}`,
+        mode: 'lora',
+        prompt,
+        negative_prompt: negative,
+        seed: state.config.sample_seed || '',
+        lora_weight: 1,
+        start_epoch: '',
+        start_after_epochs: '',
+      }));
+    }
+    return groups.map((group, index) => ({
+      name: group && group.name != null ? String(group.name) : `测试组 ${index + 1}`,
+      mode: group && group.mode != null ? String(group.mode) : 'lora',
+      prompt: group && group.prompt != null ? String(group.prompt) : '',
+      negative_prompt: group && group.negative_prompt != null ? String(group.negative_prompt) : '',
+      seed: group && group.seed != null ? String(group.seed) : '',
+      lora_weight: group && group.lora_weight != null ? String(group.lora_weight) : '1',
+      start_epoch: group && group.start_epoch != null ? String(group.start_epoch) : '',
+      start_after_epochs: group && group.start_after_epochs != null ? String(group.start_after_epochs) : '',
+    }));
+  }
+
+  function renderPreviewGroupsField(field, disabledAttr, disabledCls, modCls, conflictWith, renderHeader) {
+    const groups = getPreviewGroupsForRender();
+    const modeOptions = [
+      ['lora', 'LoRA 对照'],
+      ['base', '底模对照'],
+      ['fit', '拟合测试'],
+      ['overfit', '过拟合测试'],
+    ];
+    const cards = groups.map((group, index) => `
+      <div class="preview-test-card" style="border:1px solid var(--line, rgba(148,163,184,.35)); border-radius:14px; padding:12px; margin:10px 0; background:rgba(15,23,42,.03);">
+        <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <strong>测试组 ${index + 1}</strong>
+          <button class="btn btn-outline btn-sm" type="button"${disabledAttr} onclick="removePreviewGroup(${index})">删除</button>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; align-items:end;">
+          <label class="mini-field"><span>名称</span><input class="text-input" type="text" value="${escapeHtml(group.name)}"${disabledAttr} oninput="updatePreviewGroup(${index}, 'name', this.value)"></label>
+          <label class="mini-field"><span>模式</span><select${disabledAttr} onchange="updatePreviewGroup(${index}, 'mode', this.value)">${modeOptions.map(([value, label]) => `<option value="${value}" ${group.mode === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+          <label class="mini-field"><span>Seed</span><input class="text-input" type="number" value="${escapeHtml(group.seed)}"${disabledAttr} oninput="updatePreviewGroup(${index}, 'seed', this.value)"></label>
+          <label class="mini-field"><span>LoRA 权重</span><input class="text-input" type="number" step="0.1" value="${escapeHtml(group.lora_weight)}"${disabledAttr} oninput="updatePreviewGroup(${index}, 'lora_weight', this.value)"></label>
+          <label class="mini-field"><span>从第 N 轮开始</span><input class="text-input" type="number" min="0" step="1" value="${escapeHtml(group.start_epoch)}"${disabledAttr} oninput="updatePreviewGroup(${index}, 'start_epoch', this.value)"></label>
+          <label class="mini-field"><span>N 轮后开始</span><input class="text-input" type="number" min="0" step="1" value="${escapeHtml(group.start_after_epochs)}"${disabledAttr} oninput="updatePreviewGroup(${index}, 'start_after_epochs', this.value)"></label>
+        </div>
+        <label class="mini-field" style="display:block; margin-top:10px;"><span>正向提示词</span><textarea class="text-area" rows="3"${disabledAttr} oninput="updatePreviewGroup(${index}, 'prompt', this.value)">${escapeHtml(group.prompt)}</textarea></label>
+        <label class="mini-field" style="display:block; margin-top:10px;"><span>反向提示词</span><textarea class="text-area" rows="2"${disabledAttr} oninput="updatePreviewGroup(${index}, 'negative_prompt', this.value)">${escapeHtml(group.negative_prompt)}</textarea></label>
+      </div>
+    `).join('');
+    return `
+      <div class="config-group${modCls}${disabledCls}" data-field-key="${field.key}">
+        ${renderHeader()}
+        ${renderFieldDescription(field)}
+        ${renderConflictHint(conflictWith)}
+        <div class="preview-test-groups">
+          ${cards}
+          <button class="btn btn-outline" type="button"${disabledAttr} onclick="addPreviewGroup()">+ 添加测试组</button>
+        </div>
+      </div>
+    `;
+  }
+
   function renderFieldDescription(field) {
     const normal = field.desc ? `<p class="field-desc">${escapeHtml(field.desc || '')}</p>` : '';
     const important = field.importantDesc ? `<p class="field-desc field-desc-strong">${escapeHtml(field.importantDesc || '')}</p>` : '';
@@ -277,6 +358,10 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
           </select>
         </div>
       `;
+    }
+
+    if (field.type === 'preview_groups') {
+      return renderPreviewGroupsField(field, disabledAttr, disabledCls, modCls, conflictWith, renderHeader);
     }
 
     if (field.type === 'textarea') {
@@ -792,3 +877,4 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     renderRegularizationFieldGroup,
   };
 }
+

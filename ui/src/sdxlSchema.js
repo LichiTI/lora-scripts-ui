@@ -25,8 +25,10 @@ function when(key, expected) { return (c) => c[key] === expected; }
 function all(...fns) { return (c) => fns.every((f) => f(c)); }
 function oneOf(key, values) { return (c) => values.includes(c[key]); }
 function optimizerIs(value) { return (c) => String(c.optimizer_type || '').trim().toLowerCase() === String(value || '').trim().toLowerCase(); }
+function adamwFamilyOptimizer(c) { return ['adamw', 'adamw8bit'].includes(String(c.optimizer_type || '').trim().toLowerCase()); }
 function swapEnabled(c) { return c.swap_granularity && c.swap_granularity !== 'off'; }
 function nonResidentBlockMode(key) { return (c) => c[key] && c[key] !== 'resident'; }
+function streamingBlockMode(key) { return when(key, 'streaming_offload'); }
 const flowEnabled = when('flow_model', true);
 const LOSS_AWARE_SCHEDULERS = ['loss_gated_cosine', 'loss_weighted_annealed_cosine'];
 const lossAwareScheduler = oneOf('lr_scheduler', LOSS_AWARE_SCHEDULERS);
@@ -68,10 +70,125 @@ const DIT_BLOCK_RESIDENCY_OPTIONS = [
   { value: 'block_cpu_pinned', label: 'Block CPU pinned（最低显存/最慢）' },
 ];
 
+const PCIE_TRANSFER_FORMAT_OPTIONS = [
+  { value: 'off', label: '关闭（off）' },
+  { value: 'fp8_e4m3', label: 'FP8 E4M3 传输（实验）' },
+  { value: 'int8_rowwise', label: 'INT8 行缩放传输（实验）' },
+  { value: 'uint4_rowwise', label: 'UINT4 行缩放传输（更实验）' },
+  { value: 'raw_bf16', label: 'Raw BF16 传输（对照）' },
+  { value: 'raw_fp16', label: 'Raw FP16 传输（对照）' },
+];
+
+const PCIE_TRANSFER_FORMAT_FIELD = {
+  key: 'pcie_transfer_format',
+  type: 'select',
+  label: 'PCIe 训练传输格式（pcie_transfer_format）',
+  desc: '实验性全局方案：仅作用于 CPU-pinned 的冻结 Linear 权重，CPU 侧预打包，训练时传到 GPU 后快速还原。默认关闭；建议先用 PCIe benchmark 对比 FP8/INT8。',
+  defaultValue: 'off',
+  options: PCIE_TRANSFER_FORMAT_OPTIONS,
+};
+
+const sparseSwapFields = (residencyKey) => [
+  { key: 'sparse_swap_enabled', type: 'boolean', label: '稀疏交换方案（sparse_swap_enabled）', desc: '实验性：仅对 Streaming Offload 生效。把冷层分成 warm prefetch 与 cold on-demand，减少低端卡 PCIe 预取队列压力。默认关闭。', defaultValue: false, visibleWhen: streamingBlockMode(residencyKey) },
+  { key: 'sparse_swap_warm_fraction', type: 'number', label: '稀疏交换 Warm 比例（sparse_swap_warm_fraction）', desc: '冷层中允许提前预取的比例；剩余冷层按需交换。推荐 0.25-0.40。', defaultValue: 0.35, min: 0, max: 1, step: 0.05, visibleWhen: all(streamingBlockMode(residencyKey), when('sparse_swap_enabled', true)) },
+  { key: 'sparse_swap_budget_mb', type: 'number', label: '稀疏交换 Warm 预算 MB（sparse_swap_budget_mb）', desc: '限制 warm prefetch 的 FP16 等效预算。0 表示不额外限制，只按 Warm 比例。', defaultValue: 0, min: 0, step: 64, visibleWhen: all(streamingBlockMode(residencyKey), when('sparse_swap_enabled', true)) },
+];
+
+const pcieDeltaCacheField = (residencyKey) => ({
+  key: 'pcie_delta_cache_enabled',
+  type: 'boolean',
+  label: 'PCIe Delta/Cache 候选分析（pcie_delta_cache_enabled）',
+  desc: '实验性手动入口。observe 只输出候选报告；cache_v0 会在预算内缓存部分 CPU-pinned 冻结 Linear 的 GPU 解码副本。默认关闭。',
+  defaultValue: false,
+  visibleWhen: nonResidentBlockMode(residencyKey),
+});
+
+const pcieDeltaCacheModeFields = (residencyKey) => [
+  { key: 'pcie_delta_cache_mode', type: 'select', label: 'PCIe Delta/Cache 模式（pcie_delta_cache_mode）', desc: 'observe 只读观察；cache_v0 是手动实验缓存，不会由自动增强开启。建议只在 prefetch 覆盖差、关闭或 PCIe 等待明显时尝试。', defaultValue: 'observe', options: ['observe', 'cache_v0'], visibleWhen: all(nonResidentBlockMode(residencyKey), when('pcie_delta_cache_enabled', true)) },
+  { key: 'pcie_delta_cache_budget_mb', type: 'number', label: 'PCIe Cache v0 预算 MB（pcie_delta_cache_budget_mb）', desc: 'cache_v0 的 GPU 缓存预算。建议 256MB 起步；prefetch 已完整覆盖时通常没有收益，预算过大还可能更慢。0 表示不启用真实缓存。', defaultValue: 256, min: 0, step: 64, visibleWhen: all(nonResidentBlockMode(residencyKey), when('pcie_delta_cache_enabled', true), when('pcie_delta_cache_mode', 'cache_v0')) },
+];
+
 const LORA_RECOMPUTE_OPTIONS = [
   { value: 'auto', label: '自动（DiT 默认开启）' },
   { value: 'on', label: '强制开启' },
   { value: 'off', label: '关闭（用于 A/B）' },
+];
+
+const WINDOW_ATTENTION_BACKEND_OPTIONS = [
+  { value: 'auto', label: '自动（优先启动器/预检解析）' },
+  { value: 'flex', label: 'FlexAttention' },
+  { value: 'sdpa_masked', label: 'SDPA Masked' },
+  { value: 'torch_fallback', label: 'Torch Fallback（小序列调试）' },
+];
+
+const SAFEGUARD_GRADIENT_SCAN_OPTIONS = [
+  { value: 'batched', label: 'Batched（推荐）' },
+  { value: 'foreach', label: 'Foreach' },
+  { value: 'legacy', label: 'Legacy（逐参数）' },
+  { value: 'off', label: '关闭梯度范数扫描' },
+];
+
+const FUSED_PROJECTION_MEMORY_MODE_OPTIONS = [
+  { value: 'keep_original', label: '保留原始层（keep_original）' },
+  { value: 'drop_original', label: '删除原始层（drop_original）' },
+  { value: 'materialize_on_save', label: '保存时补回（materialize_on_save）' },
+];
+
+const OPTIMIZER_BACKEND_OPTIONS = [
+  { value: 'auto', label: '自动（auto）' },
+  { value: 'torch_adamw', label: 'PyTorch AdamW' },
+  { value: 'foreach_adamw', label: 'PyTorch Foreach AdamW' },
+  { value: 'torch_fused', label: 'PyTorch Fused AdamW' },
+  { value: 'bnb_8bit', label: 'bitsandbytes 8-bit AdamW' },
+  { value: 'apex', label: 'Apex FusedAdam（可选依赖）' },
+  { value: 'lulynx_fused', label: 'Lulynx FusedAdamW（兼容后端）' },
+];
+
+const DATA_TRANSFER_PROFILE_MODE_OPTIONS = [
+  { value: 'event', label: 'Event（推荐，延迟同步）' },
+  { value: 'sync', label: 'Sync（精确调试，会变慢）' },
+  { value: 'off', label: '关闭' },
+];
+
+const IMAGE_DECODE_BACKEND_OPTIONS = [
+  { value: 'pil', label: 'PIL（默认/最兼容）' },
+  { value: 'auto', label: '自动（有缓存大小时启用 PIL LRU）' },
+  { value: 'pil_lru', label: 'PIL LRU 缓存' },
+  { value: 'torchvision_cpu', label: 'torchvision CPU（不占训练显存）' },
+];
+
+const CACHED_COLLATE_MODE_OPTIONS = [
+  { value: 'auto', label: '自动（pad_sequence）' },
+  { value: 'pad_sequence', label: 'PyTorch pad_sequence' },
+  { value: 'legacy', label: 'Legacy 预分配' },
+];
+
+const CHECKPOINT_POLICY_OPTIONS = [
+  { value: 'auto', label: '自动（尊重现有检查点开关）' },
+  { value: 'off', label: '关闭' },
+  { value: 'full', label: 'Full checkpointing' },
+  { value: 'offloaded', label: 'CPU offloaded checkpointing' },
+  { value: 'selective', label: 'Selective recompute（实验/fallback）' },
+];
+
+const BLOCK_SWAP_STRATEGY_OPTIONS = [
+  { value: 'auto', label: '自动（尊重后端解析）' },
+  { value: 'sync', label: '同步（保守/调试）' },
+  { value: 'async', label: '异步预取' },
+  { value: 'pipeline', label: 'Pipeline（实验）' },
+];
+
+const S_DIT_PERFORMANCE_EXPERT = [
+  { key: 'performance_expert_mode', type: 'boolean', label: '性能专家模式（performance_expert_mode）', desc: '显示实验性性能策略。默认保持自动策略；仅在 A/B、长序列或瓶颈诊断时调整。', defaultValue: false },
+  { key: 'experimental_attention_profile_enabled', type: 'boolean', label: 'Sliding Window Attention（experimental_attention_profile_enabled）', desc: '实验性窗口注意力。auto 会优先尊重启动器/预检解析后的 attention backend；不支持窗口实现时再 fallback。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'experimental_attention_profile_window', type: 'number', label: '窗口大小（experimental_attention_profile_window）', desc: '每个 token 可关注的历史窗口大小。越大越接近全注意力，也越耗显存。', defaultValue: 100, min: 10, visibleWhen: all(when('performance_expert_mode', true), when('experimental_attention_profile_enabled', true)) },
+  { key: 'experimental_attention_profile_backend', type: 'select', label: '窗口注意力后端（experimental_attention_profile_backend）', desc: 'auto 优先使用启动器/预检传入的 attention 参数；FlexAttention 需要 CUDA 与对应 PyTorch 支持。', defaultValue: 'auto', options: WINDOW_ATTENTION_BACKEND_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), when('experimental_attention_profile_enabled', true)) },
+  { key: 'experimental_attention_profile_torch_max_tokens', type: 'number', label: 'Torch 回退最大 Token（experimental_attention_profile_torch_max_tokens）', desc: '防止纯 PyTorch O(n²) fallback 在长序列误跑。仅 torch_fallback 生效。', defaultValue: 2048, min: 128, visibleWhen: all(when('performance_expert_mode', true), when('experimental_attention_profile_enabled', true), when('experimental_attention_profile_backend', 'torch_fallback')) },
+  { key: 'data_transfer_profile_enabled', type: 'boolean', label: '数据传输 Profiling（data_transfer_profile_enabled）', desc: '采样 CPU/GPU tensor 传输耗时。默认关闭；event 模式开销较低，sync 只用于精确排查。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'data_transfer_profile_mode', type: 'select', label: '传输计时模式（data_transfer_profile_mode）', desc: 'event 使用 CUDA events 延迟同步；sync 保留旧全局同步计时；off 忽略 profiling。', defaultValue: 'event', options: DATA_TRANSFER_PROFILE_MODE_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), when('data_transfer_profile_enabled', true)) },
+  { key: 'data_transfer_profile_window', type: 'number', label: '传输采样窗口（data_transfer_profile_window）', desc: '每累计多少次传输输出一次汇总。', defaultValue: 50, min: 1, visibleWhen: all(when('performance_expert_mode', true), when('data_transfer_profile_enabled', true)) },
+  { key: 'cached_collate_mode', type: 'select', label: '缓存数据 Collate（cached_collate_mode）', desc: '仅影响 Anima/Newbie cache-first 数据集。auto/pad_sequence 使用 PyTorch 原生序列 padding；legacy 保留旧预分配循环路径，用于对照或兼容排查。', defaultValue: 'auto', options: CACHED_COLLATE_MODE_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'checkpoint_policy', type: 'select', label: 'Checkpoint 策略（checkpoint_policy）', desc: 'auto 尊重现有 gradient_checkpointing / cpu_offload_checkpointing；full 强制通用检查点；offloaded 使用 CPU saved-tensor/offload 路径；selective 先做能力探测，不可用或未接线时 fallback 并写入运行记录。', defaultValue: 'auto', options: CHECKPOINT_POLICY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
 ];
 
 const ditGradientCheckpointingField = (family, defaultValue = true) => ({
@@ -95,6 +212,10 @@ const ANIMA_BLOCK_RESIDENCY_FIELDS = [
   { key: 'anima_block_checkpointing', type: 'boolean', label: 'Anima DiT Block Checkpointing（anima_block_checkpointing）', desc: '训练时重算 DiT block 以降低反传激活峰值。高分辨率非 resident 驻留会由后端自动启用；手动开启可让预检和配置更直观。', defaultValue: false, visibleWhen: nonResidentBlockMode('anima_block_residency') },
   { key: 'anima_block_prefetch', type: 'boolean', label: 'Anima Streaming Prefetch（anima_block_prefetch）', desc: '实验性：仅对 Streaming Offload 生效，提前把后续 block 的 CPU-pinned 冻结 Linear 权重异步拉到 GPU，尝试减少 PCIe 等待。默认关闭，建议先用 benchmark 对比速度。', defaultValue: false, visibleWhen: when('anima_block_residency', 'streaming_offload') },
   { key: 'anima_block_prefetch_depth', type: 'number', label: 'Anima Prefetch 深度（anima_block_prefetch_depth）', desc: '提前预取后续多少个 DiT block。1 表示当前 block 入口同时预热当前和下一个 block；过大可能增加瞬时显存。', defaultValue: 1, min: 0, max: 4, visibleWhen: all(when('anima_block_residency', 'streaming_offload'), when('anima_block_prefetch', true)) },
+  { ...PCIE_TRANSFER_FORMAT_FIELD, visibleWhen: nonResidentBlockMode('anima_block_residency') },
+  ...sparseSwapFields('anima_block_residency'),
+  pcieDeltaCacheField('anima_block_residency'),
+  ...pcieDeltaCacheModeFields('anima_block_residency'),
 ];
 
 const NEWBIE_BLOCK_RESIDENCY_FIELDS = [
@@ -104,6 +225,18 @@ const NEWBIE_BLOCK_RESIDENCY_FIELDS = [
   { key: 'newbie_block_checkpointing', type: 'boolean', label: 'Newbie DiT Block Checkpointing（newbie_block_checkpointing）', desc: '训练时重算 DiT block 以降低反传激活峰值。高分辨率非 resident 驻留会由后端自动启用；手动开启可让预检和配置更直观。', defaultValue: false, visibleWhen: nonResidentBlockMode('newbie_block_residency') },
   { key: 'newbie_block_prefetch', type: 'boolean', label: 'Newbie Streaming Prefetch（newbie_block_prefetch）', desc: '实验性：仅对 Streaming Offload 生效，提前把后续 block 的 CPU-pinned 冻结 Linear 权重异步拉到 GPU，尝试减少 PCIe 等待。默认关闭，建议先用 benchmark 对比速度。', defaultValue: false, visibleWhen: when('newbie_block_residency', 'streaming_offload') },
   { key: 'newbie_block_prefetch_depth', type: 'number', label: 'Newbie Prefetch 深度（newbie_block_prefetch_depth）', desc: '提前预取后续多少个 DiT block。1 表示当前 block 入口同时预热当前和下一个 block；过大可能增加瞬时显存。', defaultValue: 1, min: 0, max: 4, visibleWhen: all(when('newbie_block_residency', 'streaming_offload'), when('newbie_block_prefetch', true)) },
+  { ...PCIE_TRANSFER_FORMAT_FIELD, visibleWhen: nonResidentBlockMode('newbie_block_residency') },
+  ...sparseSwapFields('newbie_block_residency'),
+  pcieDeltaCacheField('newbie_block_residency'),
+  ...pcieDeltaCacheModeFields('newbie_block_residency'),
+];
+
+const VRAM_AUTO_ENHANCE_FIELDS = [
+  { key: 'vram_auto_enhance_enabled', type: 'boolean', label: '显存不足自动增强（vram_auto_enhance_enabled）', desc: '训练预检判断显存紧张时，自动尝试 Streaming Offload、DiT Block Checkpointing、Streaming Prefetch 和稀疏交换。不会自动启用 PCIe 低精度传输。', defaultValue: true },
+  { key: 'enhanced_protection_mode', type: 'boolean', label: '增强防护模式（enhanced_protection_mode）', desc: '默认关闭。开启后，显存自动增强流程才允许把 PCIe 训练传输格式自动提升到 FP8 E4M3；仍只作用于 CPU-pinned 的冻结 Linear 权重。', defaultValue: false, visibleWhen: when('vram_auto_enhance_enabled', true) },
+  { key: 'vram_smart_sensing_baseline_steps', type: 'number', label: '智能感知基线步数（vram_smart_sensing_baseline_steps）', desc: '二阶段智能感知用于建立平均速度基线的步数。达到基线后，后续 step 若明显变慢才输出建议。', defaultValue: 50, min: 5, step: 5, visibleWhen: when('vram_auto_enhance_enabled', true) },
+  { key: 'vram_smart_sensing_slowdown_ratio', type: 'number', label: '智能感知变慢阈值（vram_smart_sensing_slowdown_ratio）', desc: '后续窗口平均耗时相对基线的触发倍率。1.5 表示慢 50% 才提示。只建议，不会中途改训练策略。', defaultValue: 1.5, min: 1.05, step: 0.05, visibleWhen: when('vram_auto_enhance_enabled', true) },
+  { key: 'vram_smart_sensing_delta_cache_enabled', type: 'boolean', label: '智能感知 Delta/Cache 候选（vram_smart_sensing_delta_cache_enabled）', desc: '默认关闭。开启后，显存自动增强只会打开只读候选识别，不分配缓存、不改变训练 tensor 路径，用于判断哪些 PCIe 交换层适合后续做 Delta/Cache。', defaultValue: false, visibleWhen: when('vram_auto_enhance_enabled', true) },
 ];
 
 // ================================================================
@@ -200,6 +333,7 @@ const S_LR = [
   { key: 'lr_scheduler_num_cycles', type: 'number', label: '重启次数（lr_scheduler_num_cycles）', desc: '重启次数', defaultValue: 1, min: 1, visibleWhen: when('lr_scheduler', 'cosine_with_restarts') },
   ...S_LOSS_AWARE_LR,
   { key: 'optimizer_type', type: 'select', label: '优化器（optimizer_type）', desc: '优化器设置。pytorch_optimizer.* / bitsandbytes.optim.* 会按完整类路径传给后端', defaultValue: 'AdamW8bit', options: ALL_OPTIMIZERS },
+  { key: 'optimizer_backend', type: 'select', label: 'AdamW 后端（optimizer_backend）', desc: '仅细化 AdamW / AdamW8bit 的实现路线；optimizer_args 中显式 foreach/fused 参数优先，后端不可用时训练器会 fallback 并写入运行记录。', defaultValue: 'auto', options: OPTIMIZER_BACKEND_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), adamwFamilyOptimizer) },
   { key: 'min_snr_gamma', type: 'number', label: 'Min-SNR Gamma', desc: '最小信噪比伽马值, 如果启用推荐为 5', defaultValue: '', min: 0, step: 0.1 },
   { key: 'prodigy_d0', type: 'string', label: 'Prodigy d0', desc: 'Prodigy / ProdigyPlus 初始步长估计。留空使用默认值', defaultValue: '', visibleWhen: (cfg) => ['prodigy', 'prodigyplus.prodigyplusschedulefree'].includes(String(cfg.optimizer_type || '').trim().toLowerCase()) },
   { key: 'prodigy_d_coef', type: 'string', label: 'Prodigy d_coef', desc: 'Prodigy / ProdigyPlus d 系数，影响自适应学习率大小', defaultValue: '2.0', visibleWhen: (cfg) => ['prodigy', 'prodigyplus.prodigyplusschedulefree'].includes(String(cfg.optimizer_type || '').trim().toLowerCase()) },
@@ -228,6 +362,7 @@ const S_PREVIEW = [
   { key: 'prompt_file', type: 'file', pickerType: 'text-file', label: '提示词文件路径（prompt_file）', desc: '预览图 Prompt 文件路径。填写后将采用文件内的 prompt。', defaultValue: '', visibleWhen: when('enable_preview', true) },
   { key: 'positive_prompts', type: 'textarea', label: '正向提示词（positive_prompts）', desc: '正向提示词', defaultValue: 'masterpiece, best quality, 1girl, solo', visibleWhen: when('enable_preview', true) },
   { key: 'negative_prompts', type: 'textarea', label: '反向提示词（negative_prompts）', desc: '反向提示词', defaultValue: 'lowres, bad anatomy, bad hands, text, error', visibleWhen: when('enable_preview', true) },
+  { key: 'preview_groups', type: 'preview_groups', label: '预览测试组（preview_groups）', desc: '可添加多组预览，并为每组单独设置 seed、LoRA 权重和延迟启用轮次；例如第三组从第 3 个 epoch 后再开始测试泛化性。留空时仍使用上方旧提示词。', defaultValue: [], visibleWhen: when('enable_preview', true) },
   { key: 'sample_width', type: 'number', label: '预览图宽度（sample_width）', desc: '预览图宽', defaultValue: 512, min: 64, visibleWhen: when('enable_preview', true) },
   { key: 'sample_height', type: 'number', label: '预览图高度（sample_height）', desc: '预览图高', defaultValue: 512, min: 64, visibleWhen: when('enable_preview', true) },
   { key: 'sample_cfg', type: 'number', label: 'CFG 系数（sample_cfg）', desc: 'CFG Scale', defaultValue: 7, min: 1, max: 30, visibleWhen: when('enable_preview', true) },
@@ -265,6 +400,7 @@ const S_SPEED_SDXL = [
   { key: 'experimental_attention_profile_window', type: 'number', label: '统计窗口 (步)（experimental_attention_profile_window）', desc: '每 N 个优化步输出一次聚合耗时摘要', defaultValue: 50, min: 1, visibleWhen: when('experimental_attention_profile_enabled', true) },
   { key: 'flashattn', type: 'boolean', label: '启用 FlashAttention 2（flashattn）', desc: '启用 FlashAttention 2（实验性，需要 FlashAttention 运行时）', defaultValue: false },
   { key: 'cross_attn_fused_kv', type: 'boolean', label: '启用 Fused K/V（cross_attn_fused_kv）', desc: '启用 SDXL cross-attn 的 fused K/V projection 实验开关', defaultValue: false },
+  { key: 'fused_projection_memory_mode', type: 'select', label: 'Fused Projection 显存模式（fused_projection_memory_mode）', desc: 'keep_original 最兼容；drop_original 会移除原始 Q/K/V 层以节省显存；materialize_on_save 训练中移除，state_dict 保存时从 fused 权重补回原始 key。', defaultValue: 'keep_original', options: FUSED_PROJECTION_MEMORY_MODE_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), when('cross_attn_fused_kv', true)) },
   { key: 'mem_eff_attn', type: 'boolean', label: '低显存注意力（mem_eff_attn）', desc: '启用省显存 attention（比 xformers 更兼容，但通常更慢）', defaultValue: false },
   { key: 'lowram', type: 'boolean', label: '低内存模式（lowram）', desc: '低内存模式 该模式下会将 U-net、文本编码器、VAE 直接加载到显存中', defaultValue: false },
   { key: 'cache_latents', type: 'boolean', label: '缓存 Latent（cache_latents）', desc: '缓存图像 latent, 缓存 VAE 输出以减少 VRAM 使用', defaultValue: true },
@@ -276,12 +412,14 @@ const S_SPEED_SDXL = [
   { key: 'text_encoder_outputs_cache_disk_format', type: 'select', label: '文本缓存格式（text_encoder_outputs_cache_disk_format）', desc: '文本编码器输出磁盘缓存格式。默认 safetensors；若已有旧缓存会自动兼容读取 npz', defaultValue: 'safetensors', options: ['safetensors', 'npz'], visibleWhen: when('cache_text_encoder_outputs_to_disk', true) },
   { key: 'text_encoder_outputs_cache_dtype', type: 'select', label: '文本缓存精度（text_encoder_outputs_cache_dtype）', desc: '文本编码器输出磁盘缓存保存精度。auto 会尽量保留运行时 dtype；fp16 / bf16 更省空间，fp32 兼容性更高', defaultValue: 'auto', options: ['auto', 'fp16', 'bf16', 'fp32'], visibleWhen: when('cache_text_encoder_outputs_to_disk', true) },
   { key: 'te_vae_offload_strategy', type: 'select', label: 'TE/VAE Offload 策略（te_vae_offload_strategy）', desc: 'phase 为默认训练生命周期策略；aggressive 面向 6GB 低显存目标；resident 保持兼容但显存占用更高', defaultValue: 'phase', options: ['phase', 'aggressive', 'resident'] },
-  { key: 'cuda_cache_release_strategy', type: 'select', label: 'CUDA 缓存释放策略（cuda_cache_release_strategy）', desc: 'off 关闭；after_optimizer 在优化器 step 后释放 CUDA reserved cache，低显存/6GB 目标推荐尝试；every_step 为兼容别名。释放缓存可降低任务管理器显存峰值，但极端情况下可能略慢。', defaultValue: 'off', options: [
+  { key: 'cuda_cache_release_strategy', type: 'select', label: 'CUDA 缓存释放策略（cuda_cache_release_strategy）', desc: 'oom_only 仅在 OOM 恢复时释放；phase_boundary 在 TE/VAE / 组件下 CPU 边界释放；after_optimizer 保留旧低显存稳妥档；aggressive 会把阶段边界和训练步释放都打开。旧 every_step 配置会自动按 aggressive 兼容。', defaultValue: 'oom_only', options: [
     { value: 'off', label: '关闭（off）' },
+    { value: 'oom_only', label: '仅 OOM 恢复（oom_only）' },
+    { value: 'phase_boundary', label: '阶段边界（phase_boundary）' },
     { value: 'after_optimizer', label: '优化器后释放（after_optimizer）' },
-    { value: 'every_step', label: '每步释放（every_step）' },
+    { value: 'aggressive', label: '激进低显存（aggressive）' },
   ] },
-  { key: 'cuda_cache_release_interval', type: 'number', label: '缓存释放间隔（cuda_cache_release_interval）', desc: '每 N 个优化 step 释放一次 CUDA reserved cache。1 最省显存；2~10 可减少清理频率，适合显存略紧但想保留速度时尝试。', defaultValue: 1, min: 1, visibleWhen: (c) => c.cuda_cache_release_strategy && c.cuda_cache_release_strategy !== 'off' },
+  { key: 'cuda_cache_release_interval', type: 'number', label: '缓存释放间隔（cuda_cache_release_interval）', desc: '每 N 个优化 step 允许一次缓存释放。1 最省显存；2~10 可减少同步频率，适合显存略紧但想保留速度时尝试。', defaultValue: 1, min: 1, visibleWhen: (c) => c.cuda_cache_release_strategy && c.cuda_cache_release_strategy !== 'off' },
   { key: 'model_to_condition_enabled', type: 'boolean', label: 'ModelToCondition（model_to_condition_enabled）', desc: '启用共享条件生成协议。当前为兼容层，后续会逐步接管 SDXL cache-first 热路径', defaultValue: true },
   { key: 'sdxl_unet_backend', type: 'select', label: 'SDXL U-Net 后端（sdxl_unet_backend）', desc: 'diffusers 为稳定默认；native_shadow 记录 block graph；native_proxy 代理参考 U-Net；native_skeleton 报告原生覆盖；lulynx_native 使用完整 clean-room wrapper 接管 U-Net（实验）', defaultValue: 'diffusers', options: ['diffusers', 'native_shadow', 'native_proxy', 'native_skeleton', 'lulynx_native'] },
   { key: 'lulynx_weight_residency', type: 'select', label: 'Layer-level Residency（lulynx_weight_residency）', desc: '控制 native SDXL 冻结 base 权重的驻留策略。显存足够选常驻 GPU；显存紧张可选 CPU pinned，Conv2d 模式更省显存但可能略慢。', defaultValue: 'resident', options: [
@@ -290,6 +428,9 @@ const S_SPEED_SDXL = [
     { value: 'linear_conv_cpu_pinned', label: 'Linear + Conv2d CPU pinned（最省显存）' },
   ], visibleWhen: when('sdxl_unet_backend', 'lulynx_native') },
   { key: 'lulynx_weight_residency_min_params', type: 'number', label: 'Residency 最小参数量（lulynx_weight_residency_min_params）', desc: '只托管参数量达到该阈值的 Linear/Conv2d。0 表示全部托管；调高可保留小层在 GPU，减少频繁传输。', defaultValue: 0, min: 0, visibleWhen: all(when('sdxl_unet_backend', 'lulynx_native'), (c) => c.lulynx_weight_residency && c.lulynx_weight_residency !== 'resident') },
+  { ...PCIE_TRANSFER_FORMAT_FIELD, visibleWhen: all(when('sdxl_unet_backend', 'lulynx_native'), (c) => c.lulynx_weight_residency && c.lulynx_weight_residency !== 'resident') },
+  { ...pcieDeltaCacheField('lulynx_weight_residency'), visibleWhen: all(when('sdxl_unet_backend', 'lulynx_native'), (c) => c.lulynx_weight_residency && c.lulynx_weight_residency !== 'resident') },
+  ...pcieDeltaCacheModeFields('lulynx_weight_residency'),
   { key: 'lulynx_precision_swap_enabled', type: 'boolean', label: 'Lulynx Precision Swap（lulynx_precision_swap_enabled）', desc: '启用 Lulynx 精准交换规划兼容层。当前先输出规划，后续接管 SDXL block residency', defaultValue: false },
   { key: 'lulynx_precision_swap_strategy', type: 'select', label: 'Precision Swap 策略（lulynx_precision_swap_strategy）', desc: 'balanced 优先 output/mid 高收益 block；aggressive 会选择更多候选 block', defaultValue: 'balanced', options: ['balanced', 'aggressive', 'off'], visibleWhen: when('lulynx_precision_swap_enabled', true) },
   { key: 'full_fp16', type: 'boolean', label: '完全 FP16（full_fp16）', desc: '完全使用 FP16 精度', defaultValue: false },
@@ -305,6 +446,7 @@ const S_SPEED_SDXL = [
   { key: 'swap_ratio', type: 'slider', label: '显存交换比例（swap_ratio）', desc: '按原始 block/layer 总数计算交换比例。0 表示只在 auto 或 swap_count 下生效。', defaultValue: 0, min: 0, max: 1, step: 0.05, visibleWhen: swapEnabled },
   { key: 'swap_count', type: 'number', label: '显存交换数量（swap_count）', desc: '高级：绝对交换数量。大于 0 时优先于比例。', defaultValue: 0, min: 0, visibleWhen: swapEnabled },
   { key: 'block_merge_size', type: 'number', label: '合并 Block 大小（block_merge_size）', desc: 'merged_block 模式下每组包含的 block 数，不跨 down/mid/up 阶段边界。', defaultValue: 2, min: 2, visibleWhen: when('swap_granularity', 'merged_block') },
+  { key: 'block_swap_strategy', type: 'select', label: 'BlockSwap 搬运策略（block_swap_strategy）', desc: 'auto 使用后端解析；sync 保守同步；async 使用现有异步预取；pipeline 为 CUDA 实验策略，不适配时会由后端 fallback。', defaultValue: 'auto', options: BLOCK_SWAP_STRATEGY_OPTIONS, visibleWhen: all(swapEnabled, when('performance_expert_mode', true)) },
   { key: 'module_offload_enabled', type: 'boolean', label: '模块级 Offload（module_offload_enabled）', desc: 'clean-room 新路线：按比例让冻结的 Linear / Conv 模块常驻 CPU，训练时按需临时回到 GPU。与现有 swap 互斥。', defaultValue: false },
   { key: 'module_offload_ratio', type: 'number', label: '模块 Offload 比例（module_offload_ratio）', desc: '0-100，表示参与 offload 的可管理模块占比，不是目标显存占比。', defaultValue: 0, min: 0, max: 100, visibleWhen: when('module_offload_enabled', true) },
   { key: 'module_offload_backbone_ratio', type: 'number', label: '主干覆盖比例（module_offload_backbone_ratio）', desc: '可选 0-100；留空则继承总比例。backbone 指 UNet 或 DiT 主干。', defaultValue: '', min: 0, max: 100, visibleWhen: when('module_offload_enabled', true) },
@@ -373,6 +515,7 @@ const S_LULYNX_SDXL = [
   { key: 'lulynx_experimental_core_enabled', type: 'boolean', label: '启用 Lulynx 实验核心（lulynx_experimental_core_enabled）', desc: '集中管理 SafeGuard、EMA、ResourceManager、BlockWeight、SmartRank、AutoController、LISA、PCGrad、Pause、Prodigy Guard 与轻量监控', defaultValue: false },
   { key: 'lulynx_safeguard_enabled', type: 'boolean', label: '启用 SafeGuard（lulynx_safeguard_enabled）', desc: '桥接到当前训练器的轻量安全防护，可拦截 NaN/Inf loss 与异常 spike', defaultValue: false, visibleWhen: when('lulynx_experimental_core_enabled', true) },
   { key: 'lulynx_safeguard_nan_check_interval', type: 'number', label: 'NaN 检查间隔（lulynx_safeguard_nan_check_interval）', desc: '每 N 个优化 step 检查一次 NaN / Inf loss', defaultValue: 1, min: 1, visibleWhen: all(when('lulynx_experimental_core_enabled', true), when('lulynx_safeguard_enabled', true)) },
+  { key: 'lulynx_safeguard_gradient_scan_mode', type: 'select', label: 'SafeGuard 梯度扫描（lulynx_safeguard_gradient_scan_mode）', desc: 'batched/foreach 可减少 CUDA 同步；legacy 保留逐参数扫描；off 关闭梯度范数扫描。', defaultValue: 'batched', options: SAFEGUARD_GRADIENT_SCAN_OPTIONS, visibleWhen: all(when('lulynx_experimental_core_enabled', true), when('lulynx_safeguard_enabled', true), when('performance_expert_mode', true)) },
   { key: 'lulynx_safeguard_max_nan_count', type: 'number', label: '最大连续 NaN（lulynx_safeguard_max_nan_count）', desc: '连续触发多少次 NaN / Inf 后直接停止训练', defaultValue: 3, min: 1, visibleWhen: all(when('lulynx_experimental_core_enabled', true), when('lulynx_safeguard_enabled', true)) },
   { key: 'lulynx_safeguard_loss_spike_threshold', type: 'number', label: 'Loss Spike 阈值（lulynx_safeguard_loss_spike_threshold）', desc: '当前 loss 超过滚动平均值多少倍时判定为 spike', defaultValue: 5.0, min: 1, step: 0.1, visibleWhen: all(when('lulynx_experimental_core_enabled', true), when('lulynx_safeguard_enabled', true)) },
   { key: 'lulynx_safeguard_loss_window_size', type: 'number', label: 'Loss 窗口大小（lulynx_safeguard_loss_window_size）', desc: '判定 loss spike 的滚动窗口大小', defaultValue: 20, min: 2, visibleWhen: all(when('lulynx_experimental_core_enabled', true), when('lulynx_safeguard_enabled', true)) },
@@ -416,6 +559,7 @@ const S_SPEED_SD15 = [
   { key: 'swap_ratio', type: 'slider', label: '显存交换比例（swap_ratio）', desc: '按原始 block/layer 总数计算交换比例。0 表示只在 auto 或 swap_count 下生效。', defaultValue: 0, min: 0, max: 1, step: 0.05, visibleWhen: swapEnabled },
   { key: 'swap_count', type: 'number', label: '显存交换数量（swap_count）', desc: '高级：绝对交换数量。大于 0 时优先于比例。', defaultValue: 0, min: 0, visibleWhen: swapEnabled },
   { key: 'block_merge_size', type: 'number', label: '合并 Block 大小（block_merge_size）', desc: 'merged_block 模式下每组包含的 block 数，不跨 down/mid/up 阶段边界。', defaultValue: 2, min: 2, visibleWhen: when('swap_granularity', 'merged_block') },
+  { key: 'block_swap_strategy', type: 'select', label: 'BlockSwap 搬运策略（block_swap_strategy）', desc: 'auto 使用后端解析；sync 保守同步；async 使用现有异步预取；pipeline 为 CUDA 实验策略，不适配时会由后端 fallback。', defaultValue: 'auto', options: BLOCK_SWAP_STRATEGY_OPTIONS, visibleWhen: all(swapEnabled, when('performance_expert_mode', true)) },
   { key: 'module_offload_enabled', type: 'boolean', label: '模块级 Offload（module_offload_enabled）', desc: 'clean-room 新路线：按比例让冻结的 Linear / Conv 模块常驻 CPU，训练时按需临时回到 GPU。与现有 swap 互斥。', defaultValue: false },
   { key: 'module_offload_ratio', type: 'number', label: '模块 Offload 比例（module_offload_ratio）', desc: '0-100，表示参与 offload 的可管理模块占比，不是目标显存占比。', defaultValue: 0, min: 0, max: 100, visibleWhen: when('module_offload_enabled', true) },
   { key: 'module_offload_backbone_ratio', type: 'number', label: '主干覆盖比例（module_offload_backbone_ratio）', desc: '可选 0-100；留空则继承总比例。backbone 指 UNet 或 DiT 主干。', defaultValue: '', min: 0, max: 100, visibleWhen: when('module_offload_enabled', true) },
@@ -509,6 +653,8 @@ const ds = (reso, bucketMax = 2048, bucketStep = 64, extra = []) => [
   { key: 'bucket_no_upscale', type: 'boolean', label: '桶不放大图片（bucket_no_upscale）', desc: 'arb 桶不放大图片', defaultValue: true },
   { key: 'bucket_selection_mode', type: 'select', label: '分桶策略（bucket_selection_mode）', desc: 'legacy 为原始穷举桶，nearest_only 就近桶，custom_only 自定义桶列表', defaultValue: 'legacy', options: ['legacy', 'nearest_only', 'custom_only'] },
   { key: 'bucket_custom_resos', type: 'textarea', label: '自定义桶列表（bucket_custom_resos）', desc: '一行一个，支持 1024x1024、1024,1536。仅在 custom_only 时生效', defaultValue: '', visibleWhen: when('bucket_selection_mode', 'custom_only') },
+  { key: 'image_decode_backend', type: 'select', label: '图片解码后端（image_decode_backend）', desc: 'pil 最兼容；pil_lru 会按文件 mtime/大小缓存已解码 RGB/Alpha；torchvision_cpu 使用 torchvision 在 CPU 解码后回到现有 PIL augment 链路，不提前占用训练显存。', defaultValue: 'pil', options: IMAGE_DECODE_BACKEND_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'image_decode_cache_size', type: 'number', label: '图片解码缓存张数（image_decode_cache_size）', desc: '每个 DataLoader worker 的 PIL 解码 LRU 容量。0 关闭缓存；缓存越大内存占用越高。', defaultValue: 0, min: 0, visibleWhen: all(when('performance_expert_mode', true), oneOf('image_decode_backend', ['auto', 'pil_lru'])) },
   ...extra,
 ];
 
@@ -1186,8 +1332,9 @@ const ANIMA_LORA_SECTIONS = [
   sec('training-settings', 'training', '训练参数', '', ditTrainFields(S_TRAIN(10), 'Anima')),
   sec('preview-settings', 'preview', '预览图设置', '', [...S_PREVIEW]),
   sec('validation-settings', 'preview', '验证设置', '验证集划分与验证频率。', [...S_VALIDATION]),
-  sec('speed-settings', 'speed', '速度优化', '', [...ANIMA_BLOCK_RESIDENCY_FIELDS, ...S_SPEED_FLOW]),
+  sec('speed-settings', 'speed', '速度优化', '', [...VRAM_AUTO_ENHANCE_FIELDS, ...ANIMA_BLOCK_RESIDENCY_FIELDS, ...S_DIT_PERFORMANCE_EXPERT, ...S_SPEED_FLOW]),
   sec('noise-settings', 'advanced', '噪声设置', '噪声偏移与多分辨率噪声。', [...S_NOISE]),
+  sec('lulynx-settings', 'advanced', 'Lulynx 实验核心 (Anima)', 'SafeGuard、EMA、ResourceManager、SmartRank、AutoController。', S_LULYNX_SDXL),
   sec('advanced-settings', 'advanced', '其他设置', '', [...S_ADV]),
   sec('thermal-settings', 'training', '散热与功耗', '训练期间冷却与功率管理。', [...S_THERMAL]),
   sec('distributed-settings', 'advanced', '分布式训练', '多 GPU / 多机分布式训练配置。', [...S_DISTRIBUTED]),
@@ -1288,8 +1435,9 @@ const FLUX_FT_SECTIONS = [
   sec('training-settings', 'training', '训练参数', '', S_TRAIN(20)),
   sec('preview-settings', 'preview', '预览图设置', '', [...S_PREVIEW]),
   sec('validation-settings', 'preview', '验证设置', '验证集划分与验证频率。', [...S_VALIDATION]),
-  sec('speed-settings', 'speed', '速度优化', '', [...S_SPEED_FLOW]),
+  sec('speed-settings', 'speed', '速度优化', '', [...VRAM_AUTO_ENHANCE_FIELDS, ...ANIMA_BLOCK_RESIDENCY_FIELDS, ...S_DIT_PERFORMANCE_EXPERT, ...S_SPEED_FLOW]),
   sec('noise-settings', 'advanced', '噪声设置', '噪声偏移与多分辨率噪声。', [...S_NOISE]),
+  sec('lulynx-settings', 'advanced', 'Lulynx 实验核心 (Anima)', 'SafeGuard、EMA、ResourceManager、SmartRank、AutoController。', S_LULYNX_SDXL),
   sec('advanced-settings', 'advanced', '其他设置', '', [...S_ADV]),
   sec('thermal-settings', 'training', '散热与功耗', '训练期间冷却与功率管理。', [...S_THERMAL]),
   sec('distributed-settings', 'advanced', '分布式训练', '多 GPU / 多机分布式训练配置。', [...S_DISTRIBUTED]),
@@ -1410,6 +1558,8 @@ const cnDataset = (reso, bucketMax, bucketStep) => [
   { key: 'min_bucket_reso', type: 'number', label: '桶最小分辨率（min_bucket_reso）', desc: '桶最小分辨率', defaultValue: 256 },
   { key: 'max_bucket_reso', type: 'number', label: '桶最大分辨率（max_bucket_reso）', desc: '桶最大分辨率', defaultValue: bucketMax },
   { key: 'bucket_reso_steps', type: 'number', label: '桶划分单位（bucket_reso_steps）', desc: '桶划分单位', defaultValue: bucketStep },
+  { key: 'image_decode_backend', type: 'select', label: '图片解码后端（image_decode_backend）', desc: 'pil 最兼容；pil_lru 会缓存主图和条件图的已解码 RGB 结果；torchvision_cpu 使用 CPU tensor 解码后回到现有 PIL augment 链路，不提前占用训练显存。', defaultValue: 'pil', options: IMAGE_DECODE_BACKEND_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'image_decode_cache_size', type: 'number', label: '图片解码缓存张数（image_decode_cache_size）', desc: '每个 DataLoader worker 的 PIL 解码 LRU 容量。0 关闭缓存；缓存越大内存占用越高。', defaultValue: 0, min: 0, visibleWhen: all(when('performance_expert_mode', true), oneOf('image_decode_backend', ['auto', 'pil_lru'])) },
 ];
 const cnTrainFields = [
   { key: 'max_train_epochs', type: 'number', label: '最大训练轮数（max_train_epochs）', desc: '最大训练轮数', defaultValue: 10, min: 1 },
@@ -1643,6 +1793,7 @@ const NEWBIE_LORA_SECTIONS = [
   ]),
   sec('optimizer-settings', 'training', '优化器与学习率', '', [
     { key: 'optimizer_type', type: 'select', label: '优化器（optimizer_type）', desc: 'Newbie 当前后端仅正式支持 AdamW8bit / AdamW', defaultValue: 'AdamW8bit', options: ['AdamW8bit', 'AdamW'] },
+    { key: 'optimizer_backend', type: 'select', label: 'AdamW 后端（optimizer_backend）', desc: '仅细化 AdamW / AdamW8bit 的实现路线；auto 会尊重 optimizer_type，显式 optimizer_args 优先。', defaultValue: 'auto', options: OPTIMIZER_BACKEND_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), adamwFamilyOptimizer) },
     { key: 'learning_rate', type: 'string', label: '学习率（learning_rate）', desc: '学习率', defaultValue: '0.0001' },
     { key: 'weight_decay', type: 'number', label: '权重衰减（weight_decay）', desc: '权重衰减', defaultValue: 0.01, min: 0, step: 0.0001 },
     { key: 'lr_scheduler', type: 'select', label: '学习率调度器（lr_scheduler）', desc: 'Newbie 学习率调度器；Loss 门控余弦会在 loss 有效下降时保持当前余弦值，平台期再继续推进；Loss 加权退火余弦会越到后期越依赖 loss 信号。', defaultValue: 'cosine', options: schedulerOptions(['linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant', 'constant_with_warmup', 'piecewise_constant', 'loss_gated_cosine', 'loss_weighted_annealed_cosine']) },
@@ -1674,11 +1825,13 @@ const NEWBIE_LORA_SECTIONS = [
     { key: 'newbie_gemma_max_token_length', type: 'number', label: 'Gemma 最大 Token（newbie_gemma_max_token_length）', desc: 'Gemma 最大 token 长度', defaultValue: 512, min: 32 },
     { key: 'newbie_clip_max_token_length', type: 'number', label: 'CLIP 最大 Token（newbie_clip_max_token_length）', desc: 'CLIP 最大 token 长度', defaultValue: 2048, min: 32 },
     { key: 'newbie_caption_length_bucket_size', type: 'number', label: 'Caption Bucket 大小（newbie_caption_length_bucket_size）', desc: 'caption 长度 bucket 大小。0 表示关闭，仅按分辨率 bucket，更贴近官方', defaultValue: 0, min: 0 },
+    ...VRAM_AUTO_ENHANCE_FIELDS,
     ...NEWBIE_BLOCK_RESIDENCY_FIELDS,
     { key: 'swap_granularity', type: 'select', label: '显存交换模式（swap_granularity）', desc: 'off 关闭；auto 自动选择；block 按 block 搬运；merged_block 合并 block 降低 PCIe 传输次数；layer 为 Fine-grained / Layer Swap（现有细粒度 swap，不是真模块级 offload）。', defaultValue: 'off', options: ['off', 'auto', 'block', 'merged_block', 'layer'] },
     { key: 'swap_ratio', type: 'slider', label: '显存交换比例（swap_ratio）', desc: '按原始 block/layer 总数计算交换比例。0 表示只在 auto 或 swap_count 下生效。', defaultValue: 0, min: 0, max: 1, step: 0.05, visibleWhen: swapEnabled },
     { key: 'swap_count', type: 'number', label: '显存交换数量（swap_count）', desc: '高级：绝对交换数量。大于 0 时优先于比例。', defaultValue: 0, min: 0, visibleWhen: swapEnabled },
     { key: 'block_merge_size', type: 'number', label: '合并 Block 大小（block_merge_size）', desc: 'merged_block 模式下每组包含的 block 数。', defaultValue: 2, min: 2, visibleWhen: when('swap_granularity', 'merged_block') },
+    { key: 'block_swap_strategy', type: 'select', label: 'BlockSwap 搬运策略（block_swap_strategy）', desc: 'auto 使用后端解析；sync 保守同步；async 使用现有异步预取；pipeline 为 CUDA 实验策略，不适配时会由后端 fallback。', defaultValue: 'auto', options: BLOCK_SWAP_STRATEGY_OPTIONS, visibleWhen: all(swapEnabled, when('performance_expert_mode', true)) },
     { key: 'module_offload_enabled', type: 'boolean', label: '模块级 Offload（module_offload_enabled）', desc: 'clean-room 新路线：按比例让冻结的 Linear / Conv 模块常驻 CPU，训练时按需临时回到 GPU。与现有 swap 互斥。', defaultValue: false },
     { key: 'module_offload_ratio', type: 'number', label: '模块 Offload 比例（module_offload_ratio）', desc: '0-100，表示参与 offload 的可管理模块占比，不是目标显存占比。', defaultValue: 0, min: 0, max: 100, visibleWhen: when('module_offload_enabled', true) },
     { key: 'module_offload_backbone_ratio', type: 'number', label: '主干覆盖比例（module_offload_backbone_ratio）', desc: '可选 0-100；留空则继承总比例。backbone 指 UNet 或 DiT 主干。', defaultValue: '', min: 0, max: 100, visibleWhen: when('module_offload_enabled', true) },
@@ -1689,7 +1842,9 @@ const NEWBIE_LORA_SECTIONS = [
     { key: 'pytorch_cuda_expandable_segments', type: 'boolean', label: '显存碎片优化（pytorch_cuda_expandable_segments）', desc: '启用 PyTorch CUDA expandable_segments 以降低碎片化 OOM', defaultValue: true },
     { key: 'newbie_safe_fallback', type: 'boolean', label: 'OOM 安全回退（newbie_safe_fallback）', desc: 'OOM 时自动尝试更保守的 Newbie 安全回退', defaultValue: true },
     { key: 'trust_remote_code', type: 'boolean', label: '允许远程代码（trust_remote_code）', desc: '允许 transformers / diffusers 加载远程自定义代码', defaultValue: true },
+    ...S_DIT_PERFORMANCE_EXPERT,
   ]),
+  sec('lulynx-settings', 'advanced', 'Lulynx 实验核心 (Newbie)', 'SafeGuard、EMA、ResourceManager、SmartRank、AutoController。', S_LULYNX_SDXL),
   sec('log-settings', 'model', '日志设置', '', [
     { key: 'log_with', type: 'select', label: '日志模块（log_with）', desc: '日志模块', defaultValue: 'tensorboard', options: ['tensorboard', 'wandb'] },
     { key: 'logging_dir', type: 'folder', pickerType: 'folder', label: '日志保存文件夹（logging_dir）', desc: '日志保存文件夹', defaultValue: './logs' },

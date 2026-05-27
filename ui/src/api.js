@@ -244,6 +244,11 @@ export const api = {
   openFolder(folder) {
     return postJson('/api/local/open_folder', { folder: folder || 'output' });
   },
+
+  openAdvancedMonitor() {
+    return postJson('/api/system/open_advanced_monitor', {});
+  },
+
   runTraining(config) {
     return postJson('/api/run', config);
   },
