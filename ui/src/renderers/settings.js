@@ -57,6 +57,16 @@ export function createSettingsRenderer({ state, t, renderSlot, applyAndPersistLa
                 <span class="slider round"></span>
               </label>
             </div>
+            <div class="settings-row settings-sub-row ${state.configWaterfall ? '' : 'is-disabled'}">
+              <div>
+                <label>瀑布流紧凑双排</label>
+                <p class="field-desc">仅在瀑布流模式开启时生效。把参数分段按左右两列排列，提高宽屏下的信息密度。</p>
+              </div>
+              <label class="switch switch-compact">
+                <input type="checkbox" id="config-waterfall-two-column-toggle" ${state.configWaterfallTwoColumn ? 'checked' : ''} ${state.configWaterfall ? '' : 'disabled'}>
+                <span class="slider round"></span>
+              </label>
+            </div>
             <div class="settings-row settings-slider-row">
               <label>左侧资源管理器宽度</label>
               <div class="settings-slider-control">
@@ -109,7 +119,13 @@ export function createSettingsRenderer({ state, t, renderSlot, applyAndPersistLa
       state.configWaterfall = e.target.checked;
       localStorage.setItem('sd-rescripts:config-waterfall', state.configWaterfall ? 'true' : 'false');
       showToast(state.configWaterfall ? '已开启瀑布流模式' : '已关闭瀑布流模式');
+      renderView('settings');
       // 当前如果正在配置页，立即生效；否则下次进入配置页生效
+    });
+    $('#config-waterfall-two-column-toggle')?.addEventListener('change', (e) => {
+      state.configWaterfallTwoColumn = e.target.checked;
+      localStorage.setItem('sd-rescripts:config-waterfall-two-column', state.configWaterfallTwoColumn ? 'true' : 'false');
+      showToast(state.configWaterfallTwoColumn ? '已开启瀑布流紧凑双排' : '已关闭瀑布流紧凑双排');
     });
     $('#navigator-width-slider')?.addEventListener('input', (e) => window.updateLayoutWidth('navigator', e.target.value, false));
     $('#navigator-width-slider')?.addEventListener('change', (e) => window.updateLayoutWidth('navigator', e.target.value, true));

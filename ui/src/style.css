@@ -18,6 +18,11 @@
   --text-muted: #64748b;
   --border: #2d3748;
   --border-focus: #ffd700;
+  --toolbox-accent: #ffb84d;
+  --toolbox-accent-soft: rgba(255, 184, 77, 0.12);
+  --toolbox-blue-soft: rgba(93, 173, 226, 0.12);
+  --toolbox-stat-bg: rgba(10, 16, 27, 0.42);
+  --toolbox-icon-bg: rgba(255, 255, 255, 0.06);
 }
 
 /* Light Theme Overrides (Blue/Orange) */
@@ -37,6 +42,11 @@
   --text-muted: #94a3b8;
   --border: #e2e8f0;
   --border-focus: #1275e2;
+  --toolbox-accent: #b45309;
+  --toolbox-accent-soft: rgba(245, 158, 11, 0.16);
+  --toolbox-blue-soft: rgba(18, 117, 226, 0.10);
+  --toolbox-stat-bg: #f8fafc;
+  --toolbox-icon-bg: #eef2ff;
 }
 
 :root {
@@ -1863,6 +1873,18 @@ details[open] > summary .collapsible-caret {
 
 .settings-row select {
   width: 200px;
+}
+
+.settings-sub-row {
+  margin-left: 16px;
+  padding-left: 18px;
+  border-left: 2px solid var(--border);
+  background: color-mix(in srgb, var(--bg-panel) 82%, var(--bg-darker));
+  border-radius: 8px;
+}
+
+.settings-sub-row.is-disabled {
+  opacity: 0.55;
 }
 
 .settings-slider-row {
@@ -4351,6 +4373,11 @@ body.compact-layout .config-group.row {
   --border-focus: #8b7cf6;
   --bg-hover: rgba(139, 124, 246, 0.06);
   --danger: #ef8080;
+  --toolbox-accent: #8b7cf6;
+  --toolbox-accent-soft: rgba(139, 124, 246, 0.14);
+  --toolbox-blue-soft: rgba(196, 190, 240, 0.22);
+  --toolbox-stat-bg: #f8f6fc;
+  --toolbox-icon-bg: #f0eefb;
 }
 
 /* ── Sidebar ── */
@@ -5027,6 +5054,61 @@ body.compact-layout .config-group.row {
   max-width: 1100px;
 }
 
+.waterfall-content {
+  min-width: 0;
+}
+
+.form-container-waterfall-two-column {
+  max-width: 1500px;
+}
+
+.waterfall-content-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 18px;
+  align-items: start;
+}
+
+.waterfall-content-two-column > .waterfall-tab-anchor,
+.waterfall-content-two-column > .waterfall-wide-section {
+  grid-column: 1 / -1;
+}
+
+.waterfall-content-two-column > .form-section {
+  margin-bottom: 0;
+}
+
+/* 长 section（如网络设置）横跨整行后，内部字段再做双列分流，
+   避免整块长卡片被塞进单列导致另一列大量空白。 */
+.waterfall-content-two-column > .waterfall-wide-section .section-content {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.waterfall-content-two-column > .waterfall-wide-section .dataset-layout-full {
+  grid-column: span 1;
+}
+
+.waterfall-content-two-column > .waterfall-wide-section .network-group-panel,
+.waterfall-content-two-column > .waterfall-wide-section .collapsible-field-group {
+  grid-column: 1 / -1;
+}
+
+.waterfall-content-two-column > .waterfall-wide-section .text-area {
+  min-height: 96px;
+}
+
+@media (min-width: 1181px) {
+  .waterfall-content-two-column > .waterfall-wide-section .section-content {
+    gap: 14px 16px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .waterfall-content-two-column {
+    grid-template-columns: 1fr;
+  }
+}
+
 .form-container-waterfall .waterfall-tab-anchor {
   position: relative;
   margin: 28px 0 12px;
@@ -5083,8 +5165,8 @@ body.compact-layout .config-group.row {
   border: 1px solid var(--border);
   border-radius: 10px;
   background:
-    radial-gradient(circle at top right, rgba(255, 184, 77, 0.18), transparent 32%),
-    linear-gradient(135deg, rgba(93, 173, 226, 0.12), rgba(15, 23, 42, 0.12)),
+    radial-gradient(circle at top right, var(--toolbox-accent-soft), transparent 32%),
+    linear-gradient(135deg, var(--toolbox-blue-soft), transparent),
     var(--bg-panel);
 }
 
@@ -5095,7 +5177,7 @@ body.compact-layout .config-group.row {
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #ffb84d;
+  color: var(--toolbox-accent);
 }
 
 .toolbox-hero h2 {
@@ -5123,8 +5205,8 @@ body.compact-layout .config-group.row {
   justify-content: center;
   padding: 16px;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(10, 16, 27, 0.42);
+  border: 1px solid var(--border);
+  background: var(--toolbox-stat-bg);
 }
 
 .toolbox-hero-stats strong {
@@ -5185,13 +5267,13 @@ body.compact-layout .config-group.row {
 
 .toolbox-card:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 184, 77, 0.45);
+  border-color: color-mix(in srgb, var(--toolbox-accent) 58%, var(--border));
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
 }
 
 .toolbox-card.active {
-  border-color: #ffb84d;
-  background: linear-gradient(135deg, rgba(255, 184, 77, 0.12), rgba(93, 173, 226, 0.08)), var(--bg-panel);
+  border-color: var(--toolbox-accent);
+  background: linear-gradient(135deg, var(--toolbox-accent-soft), var(--toolbox-blue-soft)), var(--bg-panel);
 }
 
 .toolbox-card-icon {
@@ -5201,7 +5283,7 @@ body.compact-layout .config-group.row {
   width: 44px;
   height: 44px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.06);
+  background: var(--toolbox-icon-bg);
   font-size: 1.2rem;
 }
 
@@ -5228,7 +5310,7 @@ body.compact-layout .config-group.row {
   padding: 14px;
   border: 1px dashed var(--border);
   border-radius: 10px;
-  background: rgba(255,255,255,0.02);
+  background: var(--toolbox-stat-bg);
 }
 
 .toolbox-legacy summary {
@@ -5251,8 +5333,8 @@ body.compact-layout .config-group.row {
 .toolbox-welcome {
   padding: 28px;
   background:
-    radial-gradient(circle at top left, rgba(93, 173, 226, 0.18), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(255, 184, 77, 0.12), transparent 30%),
+    radial-gradient(circle at top left, var(--toolbox-blue-soft), transparent 28%),
+    radial-gradient(circle at bottom right, var(--toolbox-accent-soft), transparent 30%),
     var(--bg-panel);
 }
 
@@ -5287,7 +5369,7 @@ body.compact-layout .config-group.row {
   padding: 10px 14px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,0.03);
+  background: var(--toolbox-stat-bg);
   color: inherit;
   cursor: pointer;
   transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
@@ -5295,8 +5377,8 @@ body.compact-layout .config-group.row {
 
 .toolbox-chip:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 184, 77, 0.45);
-  background: rgba(255,184,77,0.10);
+  border-color: color-mix(in srgb, var(--toolbox-accent) 58%, var(--border));
+  background: var(--toolbox-accent-soft);
 }
 
 .toolbox-chip {
@@ -5306,8 +5388,8 @@ body.compact-layout .config-group.row {
 
 .toolbox-mini-btn:hover,
 .toolbox-preset-btn:hover {
-  border-color: rgba(255,184,77,0.45);
-  background: rgba(255,184,77,0.10);
+  border-color: color-mix(in srgb, var(--toolbox-accent) 58%, var(--border));
+  background: var(--toolbox-accent-soft);
 }
 
 .toolbox-detail-card {

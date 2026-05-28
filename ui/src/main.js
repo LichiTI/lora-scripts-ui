@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
 import { api } from './api.js';
 import {
   pluginStore,
@@ -111,6 +111,7 @@ const state = {
   roundedUI: uiPreferences.roundedUI,
   verticalTabs: uiPreferences.verticalTabs,
   configWaterfall: localStorage.getItem('sd-rescripts:config-waterfall') === 'true',
+  configWaterfallTwoColumn: localStorage.getItem('sd-rescripts:config-waterfall-two-column') === 'true',
   trainingAdvisorCollapsed: localStorage.getItem('sd-rescripts:training-advisor-collapsed') === 'true',
   trainingAdvisorPosition: savedTrainingAdvisorPosition,
   activeModule: 'config',
@@ -864,18 +865,21 @@ function renderConfig(container) {
     return prefix + renderSection(section);
   };
 
+  const waterfallTwoColumn = waterfall && !!state.configWaterfallTwoColumn;
+  const sectionHtml = visibleSections.map(renderSectionWithAnchor).join('');
+
   container.innerHTML = `
-    <div class="form-container${waterfall ? ' form-container-waterfall' : ''}">
+    <div class="form-container${waterfall ? ' form-container-waterfall' : ''}${waterfallTwoColumn ? ' form-container-waterfall-two-column' : ''}">
       <header class="section-title">
         <h2>${typeLabel} LoRA 模式</h2>
-        <p>${waterfall ? '<span style="color:var(--text-muted);font-size:0.82rem;">📜 瀑布流模式：所有参数在同一页展示，可通过顶部标签栏快速跳转。</span>' : ''}</p>
+        <p>${waterfall ? `<span style="color:var(--text-muted);font-size:0.82rem;">📜 瀑布流模式：所有参数在同一页展示，可通过顶部标签栏快速跳转。${waterfallTwoColumn ? ' 当前启用紧凑双排显示。' : ''}</span>` : ''}</p>
       </header>
       ${renderPreflightOverviewPanel()}
       ${renderPreflightReport()}
       ${renderSlot('training.preflight_panel')}
       ${renderSlot('config.after_status_deck')}
       ${renderExperimentalTrainingPanel()}
-      ${visibleSections.map(renderSectionWithAnchor).join('')}
+      ${waterfall ? `<div class="waterfall-content${waterfallTwoColumn ? ' waterfall-content-two-column' : ''}">${sectionHtml}</div>` : sectionHtml}
       ${renderFloatingTrainingAssistant()}
     </div>
   `;

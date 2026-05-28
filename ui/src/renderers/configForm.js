@@ -823,6 +823,10 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
       && fields.some((field) => String(field.key || '').startsWith('lulynx_ghost_'))
     );
     const contentWithHelpers = content + (showGhostReplayHelper ? renderGhostReplayHelperCard() : '');
+    const longSectionIds = new Set(['network-settings', 'optimizer-settings', 'training-settings', 'dataset-settings', 'caption-settings']);
+    const waterfallWideClass = (state.configWaterfall && state.configWaterfallTwoColumn && (longSectionIds.has(section.id) || realFieldCount >= 8))
+      ? ' waterfall-wide-section'
+      : '';
 
     if (section.id === 'data-aug-settings' || section.id === 'noise-settings' || section.id === 'validation-settings') {
       const panelClass = section.id === 'noise-settings'
@@ -841,7 +845,7 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
           ? '改善lora明暗度'
           : '';
       return `
-        <details class="form-section collapsible-panel ${panelClass}" id="${escapeHtml(section.id)}">
+        <details class="form-section collapsible-panel ${panelClass}${waterfallWideClass}" id="${escapeHtml(section.id)}">
           <summary class="section-header collapsible-summary ${summaryClass}">
             <span class="collapsible-summary-main">
               <span class="collapsible-title">${escapeHtml(section.title)}</span>
@@ -859,7 +863,7 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     }
 
     return `
-      <section class="form-section" id="${escapeHtml(section.id)}">
+      <section class="form-section${waterfallWideClass}" id="${escapeHtml(section.id)}">
         <header class="section-header">
           <h3>${escapeHtml(section.title)}</h3>
           <span class="section-meta">${realFieldCount} 项参数</span>
