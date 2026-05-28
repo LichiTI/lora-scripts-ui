@@ -42,7 +42,8 @@ export function createTrainingActions({
     const networkModule = String(c.network_module || '').trim().toLowerCase();
     const loraType = String(c.lora_type || '').trim().toLowerCase();
     const optimizerText = `${c.optimizer_type || ''} ${c.optimizer || ''}`.toLowerCase();
-    const isAnimaRoute = String(tt || '').startsWith('anima-') || String(c.model_train_type || '').toLowerCase().startsWith('anima-');
+    const routeText = String((tt || '') + ' ' + (c.model_train_type || '')).toLowerCase();
+    const isNativeDitSelectiveRoute = routeText.includes('anima') || routeText.includes('newbie');
     const swapGranularity = String(c.swap_granularity || 'off').trim().toLowerCase().replace('-', '_');
     const validSwapGranularities = new Set(['off', 'auto', 'block', 'merged_block', 'layer']);
     const swapRatio = toNum(c.swap_ratio);
@@ -60,7 +61,7 @@ export function createTrainingActions({
     const moduleOffloadPipelineRoute = String(tt || '').includes('controlnet') || String(tt || '').includes('ip-adapter') || String(tt || '').includes('lllite') || toBool(c.ip_adapter_enabled) || Boolean(String(c.controlnet_model || '').trim());
     const checkpointPolicy = String(c.checkpoint_policy || 'auto').trim().toLowerCase().replace('-', '_');
     const checkpointRequestsOffload = checkpointPolicy === 'offloaded' || (checkpointPolicy === 'auto' && toBool(c.cpu_offload_checkpointing));
-    const checkpointRequestsGradient = checkpointPolicy === 'full' || checkpointPolicy === 'selective' || (checkpointPolicy === 'auto' && toBool(c.gradient_checkpointing));
+    const checkpointRequestsGenericGradient = checkpointPolicy === 'full' || (checkpointPolicy === 'selective' && !isNativeDitSelectiveRoute) || (checkpointPolicy === 'auto' && toBool(c.gradient_checkpointing));
     const flowModel = String(c.flow_model || '').trim();
     const flowEnabled = flowModel === 'rectified_flow' || flowModel === 'cfm' || toBool(c.flow_model);
     const timestepSampling = String(c.timestep_sampling || c.flow_timestep_distribution || 'uniform');
@@ -197,8 +198,8 @@ export function createTrainingActions({
     if (memorySwapEnabled && (toBool(c.safe_fallback) || toBool(c.newbie_safe_fallback))) {
       errors.push('显存交换不能与 OOM 安全回退同时使用。请关闭其中一个。');
     }
-    if (swapGranularity === 'layer' && checkpointRequestsGradient) {
-      errors.push('Layer Swap 不能与梯度检查点同时使用。请改用 block/merged_block 或关闭梯度检查点。');
+    if (swapGranularity === 'layer' && checkpointRequestsGenericGradient) {
+      errors.push('Layer Swap 不能与通用梯度检查点同时使用。请改用 block/merged_block，或关闭 full / 会回退为 full 的 selective checkpoint。');
     }
     if (memorySwapEnabled && checkpointRequestsOffload) {
       warnings.push('显存交换与 cpu_offload_checkpointing 通常不建议同时使用。');
@@ -234,8 +235,8 @@ export function createTrainingActions({
     if (moduleOffloadRequested && moduleOffloadPipelineRoute) {
       errors.push('模块级 Offload v1 不能用于 ControlNet / IP-Adapter / LLLite 路线。');
     }
-    if (moduleOffloadRequested && checkpointRequestsGradient) {
-      errors.push('模块级 Offload v1 不能与梯度检查点同时使用。');
+    if (moduleOffloadRequested && checkpointRequestsGenericGradient) {
+      errors.push('模块级 Offload v1 不能与通用梯度检查点同时使用。');
     }
     if (moduleOffloadRequested && checkpointRequestsOffload) {
       errors.push('模块级 Offload 不能与 cpu_offload_checkpointing 同时使用。');
@@ -397,3 +398,6 @@ export function createTrainingActions({
 
   return { validateConfigConflicts, executeTraining };
 }
+
+
+

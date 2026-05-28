@@ -121,6 +121,19 @@ const WINDOW_ATTENTION_BACKEND_OPTIONS = [
   { value: 'torch_fallback', label: 'Torch Fallback（小序列调试）' },
 ];
 
+const LOSS_PRECISION_OPTIONS = [
+  { value: 'fp32_loss', label: 'FP32 Loss（默认）' },
+  { value: 'mixed_loss', label: 'Mixed Loss（实验）' },
+];
+
+const COMPILE_RUNTIME_OPTIONS = [
+  { value: 'off', label: '关闭（off）' },
+  { value: 'compile', label: 'torch.compile' },
+  { value: 'compile_cache', label: 'torch.compile + 本地缓存' },
+  { value: 'cudagraph', label: 'CUDAGraph 后端（实验）' },
+  { value: 'compile_cudagraph', label: 'Compile + CUDAGraph + 缓存（实验）' },
+];
+
 const SAFEGUARD_GRADIENT_SCAN_OPTIONS = [
   { value: 'batched', label: 'Batched（推荐）' },
   { value: 'foreach', label: 'Foreach' },
@@ -144,6 +157,15 @@ const OPTIMIZER_BACKEND_OPTIONS = [
   { value: 'lulynx_fused', label: 'Lulynx FusedAdamW（兼容后端）' },
 ];
 
+const ADVANCED_OPTIMIZER_STRATEGY_OPTIONS = [
+  { value: 'auto', label: '自动（尊重已有配置）' },
+  { value: 'off', label: '关闭新策略选择' },
+  { value: 'profile_only', label: '仅记录 Profile' },
+  { value: 'lora_plus', label: 'LoRA+（现有参数组）' },
+  { value: 'rs_lora', label: 'RS-LoRA' },
+  { value: 'galore', label: 'GaLore（SVD 投影实验）' },
+];
+
 const DATA_TRANSFER_PROFILE_MODE_OPTIONS = [
   { value: 'event', label: 'Event（推荐，延迟同步）' },
   { value: 'sync', label: 'Sync（精确调试，会变慢）' },
@@ -157,6 +179,14 @@ const IMAGE_DECODE_BACKEND_OPTIONS = [
   { value: 'torchvision_cpu', label: 'torchvision CPU（不占训练显存）' },
 ];
 
+const DATA_BACKEND_OPTIONS = [
+  { value: 'auto', label: '自动（当前保持 CaptionDataset）' },
+  { value: 'caption', label: 'CaptionDataset（当前稳定路径）' },
+  { value: 'raw', label: 'Raw/Caption 别名（归一到 CaptionDataset）' },
+  { value: 'webdataset', label: 'WebDataset（探测/Profile）' },
+  { value: 'dali', label: 'DALI（预留/Profile）' },
+];
+
 const CACHED_COLLATE_MODE_OPTIONS = [
   { value: 'auto', label: '自动（pad_sequence）' },
   { value: 'pad_sequence', label: 'PyTorch pad_sequence' },
@@ -168,7 +198,7 @@ const CHECKPOINT_POLICY_OPTIONS = [
   { value: 'off', label: '关闭' },
   { value: 'full', label: 'Full checkpointing' },
   { value: 'offloaded', label: 'CPU offloaded checkpointing' },
-  { value: 'selective', label: 'Selective recompute（实验/fallback）' },
+  { value: 'selective', label: 'Selective recompute（Anima 实验，其它回退）' },
 ];
 
 const BLOCK_SWAP_STRATEGY_OPTIONS = [
@@ -179,7 +209,7 @@ const BLOCK_SWAP_STRATEGY_OPTIONS = [
 ];
 
 const S_DIT_PERFORMANCE_EXPERT = [
-  { key: 'performance_expert_mode', type: 'boolean', label: '性能专家模式（performance_expert_mode）', desc: '显示实验性性能策略。默认保持自动策略；仅在 A/B、长序列或瓶颈诊断时调整。', defaultValue: false },
+  { key: 'performance_expert_mode', type: 'boolean', label: '性能专家模式（performance_expert_mode）', desc: '在训练 WebUI 中展开高级性能策略。默认保持自动策略；仅在 A/B、长序列或瓶颈诊断时调整。', defaultValue: false },
   { key: 'experimental_attention_profile_enabled', type: 'boolean', label: 'Sliding Window Attention（experimental_attention_profile_enabled）', desc: '实验性窗口注意力。auto 会优先尊重启动器/预检解析后的 attention backend；不支持窗口实现时再 fallback。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
   { key: 'experimental_attention_profile_window', type: 'number', label: '窗口大小（experimental_attention_profile_window）', desc: '每个 token 可关注的历史窗口大小。越大越接近全注意力，也越耗显存。', defaultValue: 100, min: 10, visibleWhen: all(when('performance_expert_mode', true), when('experimental_attention_profile_enabled', true)) },
   { key: 'experimental_attention_profile_backend', type: 'select', label: '窗口注意力后端（experimental_attention_profile_backend）', desc: 'auto 优先使用启动器/预检传入的 attention 参数；FlexAttention 需要 CUDA 与对应 PyTorch 支持。', defaultValue: 'auto', options: WINDOW_ATTENTION_BACKEND_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), when('experimental_attention_profile_enabled', true)) },
@@ -187,8 +217,11 @@ const S_DIT_PERFORMANCE_EXPERT = [
   { key: 'data_transfer_profile_enabled', type: 'boolean', label: '数据传输 Profiling（data_transfer_profile_enabled）', desc: '采样 CPU/GPU tensor 传输耗时。默认关闭；event 模式开销较低，sync 只用于精确排查。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
   { key: 'data_transfer_profile_mode', type: 'select', label: '传输计时模式（data_transfer_profile_mode）', desc: 'event 使用 CUDA events 延迟同步；sync 保留旧全局同步计时；off 忽略 profiling。', defaultValue: 'event', options: DATA_TRANSFER_PROFILE_MODE_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), when('data_transfer_profile_enabled', true)) },
   { key: 'data_transfer_profile_window', type: 'number', label: '传输采样窗口（data_transfer_profile_window）', desc: '每累计多少次传输输出一次汇总。', defaultValue: 50, min: 1, visibleWhen: all(when('performance_expert_mode', true), when('data_transfer_profile_enabled', true)) },
+  { key: 'loss_precision', type: 'select', label: 'Loss 精度策略（loss_precision）', desc: 'fp32_loss 保持当前稳定路径；mixed_loss 保留模型输出精度计算核心 loss，减少临时 FP32 副本，但属于实验选项。', defaultValue: 'fp32_loss', options: LOSS_PRECISION_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'compile_runtime', type: 'select', label: 'Compile 运行策略（compile_runtime）', desc: '统一表达编译意图；已有 torch_compile、scope 或启动参数显式启用时后端优先尊重显式参数。', defaultValue: 'off', options: COMPILE_RUNTIME_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
   { key: 'cached_collate_mode', type: 'select', label: '缓存数据 Collate（cached_collate_mode）', desc: '仅影响 Anima/Newbie cache-first 数据集。auto/pad_sequence 使用 PyTorch 原生序列 padding；legacy 保留旧预分配循环路径，用于对照或兼容排查。', defaultValue: 'auto', options: CACHED_COLLATE_MODE_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
-  { key: 'checkpoint_policy', type: 'select', label: 'Checkpoint 策略（checkpoint_policy）', desc: 'auto 尊重现有 gradient_checkpointing / cpu_offload_checkpointing；full 强制通用检查点；offloaded 使用 CPU saved-tensor/offload 路径；selective 先做能力探测，不可用或未接线时 fallback 并写入运行记录。', defaultValue: 'auto', options: CHECKPOINT_POLICY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'data_backend', type: 'select', label: '数据后端（data_backend）', desc: 'auto/caption 当前继续走 CaptionDataset；webdataset 会探测 Python 包与 tar shard 并写入运行记录，但暂不替换训练主路径；dali 目前只做预留 profile。', defaultValue: 'auto', options: DATA_BACKEND_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'checkpoint_policy', type: 'select', label: 'Checkpoint 策略（checkpoint_policy）', desc: 'auto 尊重现有 gradient_checkpointing / cpu_offload_checkpointing；full 强制通用检查点；offloaded 使用 CPU saved-tensor/offload 路径；selective 会先做能力探测，当前 Anima/Newbie native DiT 有实验性真实接线；其它路线仍会 fallback 并写入运行记录。', defaultValue: 'auto', options: CHECKPOINT_POLICY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
 ];
 
 const ditGradientCheckpointingField = (family, defaultValue = true) => ({
@@ -334,6 +367,7 @@ const S_LR = [
   ...S_LOSS_AWARE_LR,
   { key: 'optimizer_type', type: 'select', label: '优化器（optimizer_type）', desc: '优化器设置。pytorch_optimizer.* / bitsandbytes.optim.* 会按完整类路径传给后端', defaultValue: 'AdamW8bit', options: ALL_OPTIMIZERS },
   { key: 'optimizer_backend', type: 'select', label: 'AdamW 后端（optimizer_backend）', desc: '仅细化 AdamW / AdamW8bit 的实现路线；optimizer_args 中显式 foreach/fused 参数优先，后端不可用时训练器会 fallback 并写入运行记录。', defaultValue: 'auto', options: OPTIMIZER_BACKEND_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), adamwFamilyOptimizer) },
+  { key: 'advanced_optimizer_strategy', type: 'select', label: '高级优化策略（advanced_optimizer_strategy）', desc: '默认 auto 不改变训练；lora_plus 复用现有 LoRA+ 参数组；rs_lora 会让原生 LoRA/DoRA 路线启用 alpha/sqrt(rank) 的 adapter scaling；LyCORIS 既有 rs_lora/network_args 仍优先由它自己的字段处理；GaLore 会启用 SVD/GaLore-style 梯度投影 wrapper，仍需训练质量 A/B。', defaultValue: 'auto', options: ADVANCED_OPTIMIZER_STRATEGY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
   { key: 'min_snr_gamma', type: 'number', label: 'Min-SNR Gamma', desc: '最小信噪比伽马值, 如果启用推荐为 5', defaultValue: '', min: 0, step: 0.1 },
   { key: 'prodigy_d0', type: 'string', label: 'Prodigy d0', desc: 'Prodigy / ProdigyPlus 初始步长估计。留空使用默认值', defaultValue: '', visibleWhen: (cfg) => ['prodigy', 'prodigyplus.prodigyplusschedulefree'].includes(String(cfg.optimizer_type || '').trim().toLowerCase()) },
   { key: 'prodigy_d_coef', type: 'string', label: 'Prodigy d_coef', desc: 'Prodigy / ProdigyPlus d 系数，影响自适应学习率大小', defaultValue: '2.0', visibleWhen: (cfg) => ['prodigy', 'prodigyplus.prodigyplusschedulefree'].includes(String(cfg.optimizer_type || '').trim().toLowerCase()) },
@@ -612,7 +646,9 @@ const S_DATA_AUG = [
   { key: 'random_crop', type: 'boolean', label: '随机裁剪（random_crop）', desc: '启用随机剪裁数据增强', defaultValue: false },
 ];
 const S_VALIDATION = [
-  { key: 'validation_split', type: 'number', label: '验证集比例（validation_split）', desc: '验证集划分比例，从训练集自动切出一部分做验证', defaultValue: 0, min: 0, max: 1, step: 0.01 },
+  { key: 'eval_data_dir', type: 'folder', pickerType: 'folder', label: '自定义验证集路径（eval_data_dir）', desc: '独立验证集目录。填了这里就不会从训练集切图；用户可以手动复制一部分图片和 caption 到这个目录，用于计算验证 loss', defaultValue: '' },
+  { key: 'eval_batch_size', type: 'number', label: '验证批量大小（eval_batch_size）', desc: '验证集 batch。0 或留空时使用训练 batch', defaultValue: '', min: 0 },
+  { key: 'validation_split', type: 'number', label: '验证集比例（validation_split）', desc: '兼容旧用法：从训练集自动切出一部分做验证。若已填写自定义验证集路径，则不会切分训练集', defaultValue: 0, min: 0, max: 1, step: 0.01 },
   { key: 'validation_seed', type: 'number', label: '验证集种子（validation_seed）', desc: '验证集切分随机种子', defaultValue: '' },
   { key: 'validate_every_n_steps', type: 'number', label: '每 N 步验证（validate_every_n_steps）', desc: '每 N 步执行一次验证', defaultValue: '', min: 1 },
   { key: 'validate_every_n_epochs', type: 'number', label: '每 N 轮验证（validate_every_n_epochs）', desc: '每 N 个 epoch 执行一次验证', defaultValue: '', min: 1 },
@@ -654,6 +690,7 @@ const ds = (reso, bucketMax = 2048, bucketStep = 64, extra = []) => [
   { key: 'bucket_selection_mode', type: 'select', label: '分桶策略（bucket_selection_mode）', desc: 'legacy 为原始穷举桶，nearest_only 就近桶，custom_only 自定义桶列表', defaultValue: 'legacy', options: ['legacy', 'nearest_only', 'custom_only'] },
   { key: 'bucket_custom_resos', type: 'textarea', label: '自定义桶列表（bucket_custom_resos）', desc: '一行一个，支持 1024x1024、1024,1536。仅在 custom_only 时生效', defaultValue: '', visibleWhen: when('bucket_selection_mode', 'custom_only') },
   { key: 'image_decode_backend', type: 'select', label: '图片解码后端（image_decode_backend）', desc: 'pil 最兼容；pil_lru 会按文件 mtime/大小缓存已解码 RGB/Alpha；torchvision_cpu 使用 torchvision 在 CPU 解码后回到现有 PIL augment 链路，不提前占用训练显存。', defaultValue: 'pil', options: IMAGE_DECODE_BACKEND_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'data_backend', type: 'select', label: '数据后端（data_backend）', desc: 'auto/caption 当前继续走 CaptionDataset；webdataset 会探测 Python 包与 tar shard 并写入运行记录，但暂不替换训练主路径；dali 目前只做预留 profile。', defaultValue: 'auto', options: DATA_BACKEND_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
   { key: 'image_decode_cache_size', type: 'number', label: '图片解码缓存张数（image_decode_cache_size）', desc: '每个 DataLoader worker 的 PIL 解码 LRU 容量。0 关闭缓存；缓存越大内存占用越高。', defaultValue: 0, min: 0, visibleWhen: all(when('performance_expert_mode', true), oneOf('image_decode_backend', ['auto', 'pil_lru'])) },
   ...extra,
 ];
@@ -1559,6 +1596,7 @@ const cnDataset = (reso, bucketMax, bucketStep) => [
   { key: 'max_bucket_reso', type: 'number', label: '桶最大分辨率（max_bucket_reso）', desc: '桶最大分辨率', defaultValue: bucketMax },
   { key: 'bucket_reso_steps', type: 'number', label: '桶划分单位（bucket_reso_steps）', desc: '桶划分单位', defaultValue: bucketStep },
   { key: 'image_decode_backend', type: 'select', label: '图片解码后端（image_decode_backend）', desc: 'pil 最兼容；pil_lru 会缓存主图和条件图的已解码 RGB 结果；torchvision_cpu 使用 CPU tensor 解码后回到现有 PIL augment 链路，不提前占用训练显存。', defaultValue: 'pil', options: IMAGE_DECODE_BACKEND_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'data_backend', type: 'select', label: '数据后端（data_backend）', desc: 'auto/caption 当前继续走 CaptionDataset；webdataset 会探测 Python 包与 tar shard 并写入运行记录，但暂不替换训练主路径；dali 目前只做预留 profile。', defaultValue: 'auto', options: DATA_BACKEND_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
   { key: 'image_decode_cache_size', type: 'number', label: '图片解码缓存张数（image_decode_cache_size）', desc: '每个 DataLoader worker 的 PIL 解码 LRU 容量。0 关闭缓存；缓存越大内存占用越高。', defaultValue: 0, min: 0, visibleWhen: all(when('performance_expert_mode', true), oneOf('image_decode_backend', ['auto', 'pil_lru'])) },
 ];
 const cnTrainFields = [
@@ -1794,6 +1832,7 @@ const NEWBIE_LORA_SECTIONS = [
   sec('optimizer-settings', 'training', '优化器与学习率', '', [
     { key: 'optimizer_type', type: 'select', label: '优化器（optimizer_type）', desc: 'Newbie 当前后端仅正式支持 AdamW8bit / AdamW', defaultValue: 'AdamW8bit', options: ['AdamW8bit', 'AdamW'] },
     { key: 'optimizer_backend', type: 'select', label: 'AdamW 后端（optimizer_backend）', desc: '仅细化 AdamW / AdamW8bit 的实现路线；auto 会尊重 optimizer_type，显式 optimizer_args 优先。', defaultValue: 'auto', options: OPTIMIZER_BACKEND_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), adamwFamilyOptimizer) },
+    { key: 'advanced_optimizer_strategy', type: 'select', label: '高级优化策略（advanced_optimizer_strategy）', desc: '默认 auto 不改变训练；lora_plus 复用现有 LoRA+ 参数组；rs_lora 会让原生 LoRA/DoRA 路线启用 alpha/sqrt(rank) 的 adapter scaling；LyCORIS 既有 rs_lora/network_args 仍优先由它自己的字段处理；GaLore 会启用 SVD/GaLore-style 梯度投影 wrapper，仍需训练质量 A/B。', defaultValue: 'auto', options: ADVANCED_OPTIMIZER_STRATEGY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
     { key: 'learning_rate', type: 'string', label: '学习率（learning_rate）', desc: '学习率', defaultValue: '0.0001' },
     { key: 'weight_decay', type: 'number', label: '权重衰减（weight_decay）', desc: '权重衰减', defaultValue: 0.01, min: 0, step: 0.0001 },
     { key: 'lr_scheduler', type: 'select', label: '学习率调度器（lr_scheduler）', desc: 'Newbie 学习率调度器；Loss 门控余弦会在 loss 有效下降时保持当前余弦值，平台期再继续推进；Loss 加权退火余弦会越到后期越依赖 loss 信号。', defaultValue: 'cosine', options: schedulerOptions(['linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant', 'constant_with_warmup', 'piecewise_constant', 'loss_gated_cosine', 'loss_weighted_annealed_cosine']) },
@@ -2086,7 +2125,8 @@ export function buildRunConfig(config, typeId) {
   // 旧前端会自动生成 optimizer_args = ["decouple=True", "weight_decay=0.01", ...]
   // 新前端需要在这里复现相同逻辑，否则 Prodigy 训练结果全是噪点
   const rawOptimizerType = String(payload.optimizer_type || '').trim();
-  const pluginOptimizerMatch = rawOptimizerType.match(/^PytorchOptimizer[:/](.+)$/i);
+  const pluginOptimizerMatch = rawOptimizerType.match(/^PytorchOptimizer[:/](.+)$/i)
+    || rawOptimizerType.match(/^pytorch_optimizer\.(.+)$/i);
   if (pluginOptimizerMatch) {
     const pluginOptimizerName = pluginOptimizerMatch[1].trim();
     payload.optimizer_type = 'PytorchOptimizer';
@@ -2354,3 +2394,4 @@ export function buildRunConfig(config, typeId) {
 
   return payload;
 }
+

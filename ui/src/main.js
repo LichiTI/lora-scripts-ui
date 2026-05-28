@@ -3,6 +3,7 @@ import { api } from './api.js';
 import {
   pluginStore,
   loadPluginRuntime,
+  loadPluginSdkStatus,
   loadPluginCapabilities,
   loadPluginHooks,
   loadPluginAudit,
@@ -10,6 +11,7 @@ import {
   approvePlugin,
   revokePlugin,
   toggleDeveloperMode,
+  executePluginSdkRunner,
   renderSlot,
   getRegisteredSlots,
 } from './pluginHost.js';
@@ -144,9 +146,11 @@ const state = {
   interrogators: null,
   runtime: null,
   preflight: null,
+  pcieTransferBenchmark: null,
   datasetAnalysis: null,
   samplePrompt: null,
   runtimeError: '',
+  pcieTransferBenchmarkError: '',
   lastMessage: '',
   backendOffline: false,
   sysMonitor: null,
@@ -155,6 +159,7 @@ const state = {
   loading: {
     runtime: false,
     preflight: false,
+    pcieTransferBenchmark: false,
     samplePrompt: false,
     run: false,
   },
@@ -222,7 +227,7 @@ const {
   renderPlugins,
   _loadAndRenderPlugins,
   _formatPluginAuditDetail,
-} = createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegisteredSlots, api });
+} = createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPluginSdkStatus, getRegisteredSlots, api });
 // tools renderer
 const { renderTools, renderToolDetail } = createToolsRenderer({ state, renderSlot });
 // dataset renderer + actions
@@ -1194,6 +1199,7 @@ const {
   pluginReloadAll,
   pluginApprove,
   pluginRevoke,
+  pluginExecuteSdkRunner,
   pluginShowAudit,
   pluginSavePytorchOptimizerSettings,
   pluginResetPytorchOptimizerSettings,
@@ -1203,6 +1209,7 @@ const {
   reloadAllPlugins,
   approvePlugin,
   revokePlugin,
+  executePluginSdkRunner,
   loadPluginAudit,
   getPluginSettings: api.getPluginSettings,
   savePluginSettings: api.savePluginSettings,
@@ -1217,6 +1224,7 @@ window.pluginToggleDevMode = async function(enabled) {
 window.pluginReloadAll = pluginReloadAll;
 window.pluginApprove = pluginApprove;
 window.pluginRevoke = pluginRevoke;
+window.pluginExecuteSdkRunner = pluginExecuteSdkRunner;
 window.pluginShowAudit = pluginShowAudit;
 window.pluginSavePytorchOptimizerSettings = pluginSavePytorchOptimizerSettings;
 window.pluginResetPytorchOptimizerSettings = pluginResetPytorchOptimizerSettings;
@@ -1250,10 +1258,20 @@ const {
 window.dismissPreflightReport = dismissPreflightReport;
 window.dismissTrainingSummary = dismissTrainingSummary;
 // runtime actions
-const { runPreflight, refreshRuntime, applyTrainingAdvisorPatch } = createRuntimeActions({ state, api, showToast, renderView, updateJSONPreview, buildRunConfig });
+const { runPreflight, refreshRuntime, applyTrainingAdvisorPatch, runPcieTransferBenchmark } = createRuntimeActions({
+  state,
+  api,
+  showToast,
+  renderView,
+  updateJSONPreview,
+  buildRunConfig,
+  mergeConfigPatch,
+  saveDraft,
+});
 window.runPreflight = runPreflight;
 window.refreshRuntime = refreshRuntime;
 window.applyTrainingAdvisorPatch = applyTrainingAdvisorPatch;
+window.runPcieTransferBenchmark = runPcieTransferBenchmark;
 // terminate actions
 const { terminateAllTasks } = createTerminateActions({
   state, api, showToast, renderView,

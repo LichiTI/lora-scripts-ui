@@ -16,6 +16,7 @@ export const CONDITIONAL_KEYS = new Set([
   'lr_scheduler',
   'optimizer_type',
   'optimizer_backend',
+  'advanced_optimizer_strategy',
   'enable_preview',
   'preview_device',
   'randomly_choice_prompt',

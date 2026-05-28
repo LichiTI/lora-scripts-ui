@@ -6,6 +6,7 @@
 // 解决与 statusDeck 的循环依赖）
 
 import { escapeHtml, _ico } from '../utils/dom.js';
+import { renderPcieTransferBenchmarkCard, renderUnifiedRecommendationCard } from '../utils/trainingMetrics.js';
 
 export function createPreflightRenderer({ state, deps }) {
   function _renderStatusDeck() { return deps.renderStatusDeck ? deps.renderStatusDeck() : ''; }
@@ -22,6 +23,16 @@ export function createPreflightRenderer({ state, deps }) {
 
   function renderPreflightActionPanel() {
     const isRunning = state.loading.preflight;
+    const isBenchmarkRunning = state.loading.pcieTransferBenchmark;
+    const benchmarkCard = renderPcieTransferBenchmarkCard(state.pcieTransferBenchmark, {
+      loading: isBenchmarkRunning,
+      error: state.pcieTransferBenchmarkError,
+      title: 'PCIe 传输格式 Benchmark',
+    });
+    const recommendationCard = renderUnifiedRecommendationCard(
+      { pcieTransferBenchmark: state.pcieTransferBenchmark },
+      { title: '预检总推荐' },
+    );
     return `
       <div class="section-toolbar preflight-action-panel">
         <div class="toolbar-actions toolbar-check-actions">
@@ -29,7 +40,16 @@ export function createPreflightRenderer({ state, deps }) {
             <span class="btn-check-label">${isRunning ? '正在预检...' : '运行训练预检'}</span>
             <span class="btn-check-desc">检测运行环境 + 检查数据集路径、底模路径等参数</span>
           </button>
+          <button class="btn btn-outline btn-check" type="button" onclick="runPcieTransferBenchmark()" style="width:100%;margin-top:8px;" ${isBenchmarkRunning ? 'disabled' : ''}>
+            <span class="btn-check-label">${isBenchmarkRunning ? '正在测试...' : '运行 PCIe 传输格式 Benchmark'}</span>
+            <span class="btn-check-desc">手动测试本机 CPU→GPU 传输格式，给出推荐格式，不会自动改训练配置</span>
+          </button>
+          <button class="btn btn-outline btn-check" type="button" onclick="runPcieTransferBenchmark({ include_tensorcore_decode: true, tensorcore_decode_shape_preset: 'real_linear_short', tensorcore_decode_iters: 3, tensorcore_decode_warmup: 1, tensorcore_decode_pack_iters: 1 })" style="width:100%;margin-top:8px;" ${isBenchmarkRunning ? 'disabled' : ''}>
+            <span class="btn-check-label">${isBenchmarkRunning ? '正在测试...' : '运行 TC FP8 Decode 短测'}</span>
+            <span class="btn-check-desc">按真实 Linear 短形状测试 tc_fp8_tile_v1 原型，只显示研究结果，不参与推荐排序</span>
+          </button>
         </div>
+        ${benchmarkCard || recommendationCard ? `<div style="margin-top:8px;">${benchmarkCard}${recommendationCard}</div>` : ''}
       </div>
     `;
   }

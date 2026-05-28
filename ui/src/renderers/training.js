@@ -15,7 +15,7 @@
 
 import { escapeHtml, _ico } from '../utils/dom.js';
 import { schedulerOption } from '../features/settingsOptions.js';
-import { formatDuration, renderSummaryCard } from '../utils/trainingMetrics.js';
+import { formatDuration, getSmartSensingRecommendationItems, renderSummaryCard } from '../utils/trainingMetrics.js';
 
 export function createTrainingRenderer({ state, renderSlot, deps }) {
   function _renderPreflightPanel() {
@@ -48,7 +48,7 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       + '<header class="section-header" style="display:flex;justify-content:space-between;align-items:center;">'
       + '<h3>\ud83d\udcca \u8bad\u7ec3\u603b\u7ed3</h3>'
       + '<button type="button" onclick="dismissTrainingSummary()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;padding:2px 6px;line-height:1;" title="\u5173\u95ed">\u00d7</button></header>'
-      + '<div class="section-content" style="display:block;">' + renderSummaryCard(s) +'</div>'
+      + '<div class="section-content" style="display:block;">' + renderSummaryCard(s, { pcieTransferBenchmark: state.pcieTransferBenchmark }) +'</div>'
       + '</section>';
   }
 
@@ -206,9 +206,41 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       + '</div>';
   }
 
+  function renderPcieCacheV0RecommendationRuntimeCard(profile, cacheProfile) {
+    if (!profile || typeof profile !== 'object') return '';
+    var decisionMap = {
+      try_manually: '建议手动试验',
+      keep_observing: '继续观察',
+      not_recommended: '暂不推荐',
+      do_not_try_yet: '暂勿尝试',
+      recommend_only: '仅推荐',
+    };
+    var decision = decisionMap[profile.decision] || profile.decision || '观察中';
+    var color = profile.decision === 'try_manually' ? '#38bdf8' : (profile.decision === 'do_not_try_yet' ? '#ef4444' : 'var(--text)');
+    var actualEnabled = cacheProfile && typeof cacheProfile === 'object' ? !!cacheProfile.enabled : false;
+    return '<div class="train-side-section" id="train-pcie-cache-v0-recommendation-card">'
+      + '<div class="train-panel-title">PCIe Cache v0 推荐</div>'
+      + '<div class="train-hw-card">'
+      +   '<div class="train-hw-row"><span class="hw-label">路线</span><span class="hw-value">' + escapeHtml(String(profile.label || profile.family || '—')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">决策</span><span class="hw-value" style="color:' + color + ';">' + escapeHtml(decision) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">原因</span><span class="hw-value">' + escapeHtml(String(profile.reason || '—')) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">建议预算</span><span class="hw-value-accent">' + escapeHtml(Number(profile.suggested_budget_mb || 0).toFixed(1) + ' MB') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">自动启用</span><span class="hw-value">' + (profile.will_auto_enable ? '是' : '否') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">实际状态</span><span class="hw-value">' + (actualEnabled ? 'PCIe Cache v0 已启用' : 'PCIe Cache v0 未启用') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">候选 / 高价值</span><span class="hw-value">' + escapeHtml(String(profile.candidate_count || 0) + ' / ' + String(profile.high_value_count || 0)) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">当前模式</span><span class="hw-value">' + escapeHtml(String(profile.current_mode || 'observe')) + '</span></div>'
+      + '</div>'
+      + '<div style="margin-top:8px;font-size:0.68rem;color:var(--text-muted);line-height:1.45;">推荐只用于下次或手动对比，不会在本次训练中自动切换 Cache v0。</div>'
+      + '</div>';
+  }
+
   function renderSmartSensingRuntimeCard(profile) {
     if (!profile || typeof profile !== 'object') return '';
     var slowdown = profile.phase === 'runtime_slowdown';
+    var recommendationItems = getSmartSensingRecommendationItems(profile);
+    var recommendationHtml = slowdown && recommendationItems.length
+      ? '<div class="train-hw-row"><span class="hw-label">下次推荐配置</span><span class="hw-value">' + escapeHtml(recommendationItems.join('；')) + '</span></div>'
+      : '';
     return '<div class="train-side-section" id="train-vram-smart-sensing-card">'
       + '<div class="train-panel-title">显存智能感知</div>'
       + '<div class="train-hw-card">'
@@ -217,7 +249,8 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       +   '<div class="train-hw-row"><span class="hw-label">基线 / 窗口</span><span class="hw-value">' + escapeHtml(Number(profile.baseline_avg_step_seconds || 0).toFixed(3) + ' / ' + Number(profile.window_avg_step_seconds || 0).toFixed(3) + ' s') + '</span></div>'
       +   '<div class="train-hw-row"><span class="hw-label">变慢倍率</span><span class="hw-value" style="color:' + (slowdown ? '#f59e0b' : 'var(--text)') + ';">' + escapeHtml(Number(profile.slowdown_ratio || 0).toFixed(2) + 'x') + '</span></div>'
       +   '<div class="train-hw-row"><span class="hw-label">显存压力</span><span class="hw-value">' + (profile.shared_vram_suspected ? '疑似' : '未触发') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">说明</span><span class="hw-value">只输出建议，不中途改策略</span></div>'
+      +   recommendationHtml
+      +   '<div class="train-hw-row"><span class="hw-label">说明</span><span class="hw-value">本次不会自动改策略；建议用于下次启动训练前手动配置</span></div>'
       + '</div>'
       + '</div>';
   }
@@ -258,6 +291,7 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
     var cudaCacheRelease = m.cudaCacheRelease || null;
     var pcieDeltaCache = m.pcieDeltaCache || (state.trainingSummary && state.trainingSummary.pcieDeltaCache) || null;
     var pcieCacheV0 = m.pcieCacheV0 || (state.trainingSummary && state.trainingSummary.pcieCacheV0) || null;
+    var pcieCacheV0Recommendation = m.pcieCacheV0Recommendation || (state.trainingSummary && state.trainingSummary.pcieCacheV0Recommendation) || null;
     var smartSensingRuntime = m.vramSmartSensingRuntime || (state.trainingSummary && state.trainingSummary.vramSmartSensingRuntime) || null;
     var showGhostCard = !!(state.config.lulynx_ghost_replay || ghost);
     var ghostStatus = ghost && ghost.last_status ? String(ghost.last_status) : 'idle';
@@ -488,6 +522,8 @@ var statusDot = '', statusText = '';
 
     +     renderPcieDeltaCacheRuntimeCard(pcieDeltaCache)
 
+    +     renderPcieCacheV0RecommendationRuntimeCard(pcieCacheV0Recommendation, pcieCacheV0)
+
     +     renderPcieCacheV0RuntimeCard(pcieCacheV0)
 
     +     renderSmartSensingRuntimeCard(smartSensingRuntime)
@@ -540,7 +576,7 @@ var statusDot = '', statusText = '';
         + '</div>'
         + '</div>'
         + (metaStr ? '<div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px;">' + escapeHtml(metaStr) + '</div>' :'')
-        + '<div id="task-summary-' + task.id + '" style="display:none;" data-loaded="' + (hasCached ? 'true' : 'false') + '">' + (hasCached ? renderSummaryCard(state.taskSummaries[task.id]) : '') + '</div>'
+        + '<div id="task-summary-' + task.id + '" style="display:none;" data-loaded="' + (hasCached ? 'true' : 'false') + '">' + (hasCached ? renderSummaryCard(state.taskSummaries[task.id], { pcieTransferBenchmark: state.pcieTransferBenchmark }) : '') + '</div>'
         + '</div>';
     }).join(''))
     + '</div>'

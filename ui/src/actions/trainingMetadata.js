@@ -96,6 +96,10 @@ export function createTrainingMetadataActions({
     return _generateSummaryFromMetrics(state.trainingMetrics);
   }
 
+  function summaryRenderOptions() {
+    return { pcieTransferBenchmark: state.pcieTransferBenchmark || null };
+  }
+
   async function fetchTaskLogLines(taskId, preferredTail = 5000) {
     let tail = Math.max(1, Number(preferredTail || 5000) || 5000);
     let resp = await api.getTaskOutput(taskId, tail);
@@ -177,7 +181,7 @@ await saveLocalTaskHistory();
 
   // Check cache first
     if (state.taskSummaries[taskId] && state.taskSummaries[taskId]._v >= 2) {
-      panel.innerHTML = renderSummaryCard(state.taskSummaries[taskId]);
+      panel.innerHTML = renderSummaryCard(state.taskSummaries[taskId], summaryRenderOptions());
       panel.style.display = 'block';
       panel.dataset.loaded = 'true';
       return;
@@ -193,7 +197,7 @@ await saveLocalTaskHistory();
         panel.dataset.loaded = 'true';
         return;
       }
-      panel.innerHTML = renderSummaryCard(summary);
+      panel.innerHTML = renderSummaryCard(summary, summaryRenderOptions());
       panel.dataset.loaded = 'true';
   } catch (e) {
       panel.innerHTML= '<span style="color:#ef4444;font-size:0.82rem;">\u65e5\u5fd7\u83b7\u53d6\u5931\u8d25</span>';

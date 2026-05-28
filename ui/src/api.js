@@ -199,6 +199,10 @@ export const api = {
     return postJson('/api/train/preflight', config);
   },
 
+  runPcieTransferBenchmark(params = {}) {
+    return postJson('/api/train/pcie-transfer-benchmark', params || {});
+  },
+
   previewSamplePrompt(config) {
     return postJson('/api/train/sample_prompt', config);
   },
@@ -544,6 +548,18 @@ export const api = {
   /** 获取插件审计日志 */
   getPluginAudit(limit) {
     return request('/api/plugins/audit' + (limit ? '?limit=' + limit : ''));
+  },
+
+  getPluginSdkStatus() {
+    return request('/api/plugins/sdk/status');
+  },
+
+  executePluginSdkRunner(runnerId, payload = {}, requestedBy = 'ui-user') {
+    return postJson('/api/plugins/sdk/execute', {
+      runner_id: runnerId,
+      payload,
+      requested_by: requestedBy,
+    });
   },
 
   getPluginSettings(pluginId) {

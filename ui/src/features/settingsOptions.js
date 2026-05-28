@@ -30,8 +30,16 @@ export const BASE_OPTIMIZERS = [
   'Prodigy',
   'prodigyplus.ProdigyPlusScheduleFree',
   'pytorch_optimizer.CAME',
+  'pytorch_optimizer.StableAdamW',
+  'pytorch_optimizer.SCION',
   'bitsandbytes.optim.AdEMAMix8bit',
   'bitsandbytes.optim.PagedAdEMAMix8bit',
+];
+
+export const CURATED_PYTORCH_OPTIMIZER_NAMES = [
+  'CAME',
+  'StableAdamW',
+  'SCION',
 ];
 
 export const PYTORCH_OPTIMIZER_NAMES = [
@@ -189,7 +197,7 @@ const BASE_OPTIMIZER_BASE_NAMES = new Set(BASE_OPTIMIZERS.map(optimizerBaseName)
 
 export const ALL_OPTIMIZERS = dedupeKeepOrder([
   ...BASE_OPTIMIZERS,
-  ...PYTORCH_OPTIMIZER_NAMES
+  ...CURATED_PYTORCH_OPTIMIZER_NAMES
     .filter((name) => !BASE_OPTIMIZER_BASE_NAMES.has(name.toLowerCase()))
     .map((name) => `pytorch_optimizer.${name}`),
 ]);
