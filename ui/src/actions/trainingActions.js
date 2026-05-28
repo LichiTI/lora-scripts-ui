@@ -39,6 +39,7 @@ export function createTrainingActions({
     const isSageEnv = (state.runtime?.runtime?.environment || '').includes('sageattention');
     const toBool = (v) => v === true || v === 'true' || v === 1;
     const toNum = (v) => { const n = Number(v); return Number.isNaN(n) ? 0 : n; };
+    const structuredCaptionMix = toBool(c.caption_source_mix_enabled);
     const networkModule = String(c.network_module || '').trim().toLowerCase();
     const loraType = String(c.lora_type || '').trim().toLowerCase();
     const optimizerText = `${c.optimizer_type || ''} ${c.optimizer || ''}`.toLowerCase();
@@ -89,6 +90,9 @@ export function createTrainingActions({
       if (toNum(c.token_warmup_step) > 0) conflicts.push('Token 预热步数');
       if (conflicts.length > 0) {
         errors.push(`缓存文本编码器输出时不能同时使用「${conflicts.join('」「')}」。请关闭「缓存文本编码器输出」或关闭「${conflicts.join('」「')}」。`);
+      }
+      if (structuredCaptionMix) {
+        warnings.push('Tag/NL 混合采样可以配合缓存文本编码器输出，但需要重建文本缓存生成 caption_variant_* 变体；旧缓存会回退为原始文本 embedding。');
       }
     }
 

@@ -78,6 +78,16 @@ export function createTrainingMetadataActions({
       speeds: [], losses: [], epochs: [],
       startTime: null, lastStep: 0, totalSteps: 0,
       bTier: null, ghostReplay: null,
+      memoryOptimization: null,
+      precisionSwapProfile: null,
+      nativeUnet: null,
+      peakVramDiagnostics: null,
+      cudaCacheRelease: null,
+      pcieDeltaCache: null,
+      pcieCacheV0: null,
+      pcieCacheV0Recommendation: null,
+      vramSmartSensingRuntime: null,
+      compileRuntime: null,
     };
     _resetTrainingLogCursor();
     state.trainingSummary = null;
@@ -97,7 +107,10 @@ export function createTrainingMetadataActions({
   }
 
   function summaryRenderOptions() {
-    return { pcieTransferBenchmark: state.pcieTransferBenchmark || null };
+    return {
+      pcieTransferBenchmark: state.pcieTransferBenchmark || null,
+      showCompileRuntime: true,
+    };
   }
 
   async function fetchTaskLogLines(taskId, preferredTail = 5000) {

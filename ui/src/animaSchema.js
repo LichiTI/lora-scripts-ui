@@ -80,11 +80,25 @@ const LOSS_PRECISION_OPTIONS = [
 ];
 
 const COMPILE_RUNTIME_OPTIONS = [
+  { value: 'auto', label: '自动收敛（显式参数优先）' },
   { value: 'off', label: '关闭（off）' },
   { value: 'compile', label: 'torch.compile' },
   { value: 'compile_cache', label: 'torch.compile + 本地缓存' },
   { value: 'cudagraph', label: 'CUDAGraph 后端（实验）' },
   { value: 'compile_cudagraph', label: 'Compile + CUDAGraph + 缓存（实验）' },
+];
+
+const COMPILE_SHAPE_STRATEGY_OPTIONS = [
+  { value: 'auto', label: '自动（按路由探测）' },
+  { value: 'fixed_pad', label: 'Fixed Pad（固定视觉 token）' },
+  { value: 'token_flatten', label: 'Token Flatten（原生 token bucket）' },
+  { value: 'native', label: 'Native（同 token_flatten）' },
+];
+
+const COMPILE_TARGET_STRATEGY_OPTIONS = [
+  { value: 'auto', label: '自动（按模块探测）' },
+  { value: 'block', label: 'Block（整块编译）' },
+  { value: 'inner_forward', label: 'Inner Forward（优先稳定内核路径）' },
 ];
 
 const SAFEGUARD_GRADIENT_SCAN_OPTIONS = [
@@ -116,7 +130,6 @@ const ADVANCED_OPTIMIZER_STRATEGY_OPTIONS = [
   { value: 'profile_only', label: '仅记录 Profile' },
   { value: 'lora_plus', label: 'LoRA+（现有参数组）' },
   { value: 'rs_lora', label: 'RS-LoRA' },
-  { value: 'galore', label: 'GaLore（SVD 投影实验）' },
 ];
 
 const DATA_TRANSFER_PROFILE_MODE_OPTIONS = [
@@ -166,7 +179,6 @@ const BLOCK_SWAP_STRATEGY_OPTIONS = [
   { value: 'auto', label: '自动（尊重后端解析）' },
   { value: 'sync', label: '同步（保守/调试）' },
   { value: 'async', label: '异步预取' },
-  { value: 'pipeline', label: 'Pipeline（实验）' },
 ];
 
 const ANIMA_SECTIONS = [
@@ -273,6 +285,12 @@ const ANIMA_SECTIONS = [
       { key: 'shuffle_caption_tags_only', type: 'boolean', label: '仅打乱 Tag 部分', desc: '结构化 JSON 标注时只打乱 tags，保留自然语言描述顺序', defaultValue: false },
       { key: 'keep_tokens', type: 'number', label: '保留前 N 个 token', defaultValue: 0, min: 0, max: 255 },
       { key: 'caption_tag_dropout_rate', type: 'number', label: '标签丢弃概率', defaultValue: '', min: 0, step: 0.01 },
+      { key: 'caption_source_mix_enabled', type: 'boolean', label: '启用 Tag/NL 混合采样', desc: '仅对同时含 tags 与 nl 的结构化 JSON caption 生效。按 NL / Tag / 仅触发词 / 空文本四路抽样；cache-first 需要重建文本缓存以生成 caption_variant_* 变体。', defaultValue: false },
+      { key: 'caption_source_nl_ratio', type: 'number', label: 'NL 比例 (%)', desc: '默认 65。选中自然语言描述时，会输出「触发词 + NL」。', defaultValue: 65, min: 0, max: 100, step: 1, visibleWhen: when('caption_source_mix_enabled', true) },
+      { key: 'caption_source_tag_ratio', type: 'number', label: 'Tag 比例 (%)', desc: '默认 20。选中标签时，会输出「触发词 + Tag」。', defaultValue: 20, min: 0, max: 100, step: 1, visibleWhen: when('caption_source_mix_enabled', true) },
+      { key: 'caption_source_trigger_only_ratio', type: 'number', label: '仅触发词比例 (%)', desc: '默认 10。只保留触发词，用来增强触发稳定性。', defaultValue: 10, min: 0, max: 100, step: 1, visibleWhen: when('caption_source_mix_enabled', true) },
+      { key: 'caption_source_empty_ratio', type: 'number', label: '空文本比例 (%)', desc: '默认 5。完全不输入文本，用作轻量 caption dropout。', defaultValue: 5, min: 0, max: 100, step: 1, visibleWhen: when('caption_source_mix_enabled', true) },
+      { key: 'caption_source_trigger_tokens', type: 'textarea', label: '触发词列表', desc: '逗号或换行分隔。留空时会优先尝试使用 JSON 中的 concept / identity / trigger 字段。', defaultValue: '', visibleWhen: when('caption_source_mix_enabled', true) },
     ],
   },
   {
@@ -337,9 +355,9 @@ const ANIMA_SECTIONS = [
       { key: 'lr_warmup_steps', type: 'number', label: '预热步数', defaultValue: 0, min: 0 },
       { key: 'lr_scheduler_num_cycles', type: 'number', label: '重启次数', defaultValue: 1, min: 1, visibleWhen: when('lr_scheduler', 'cosine_with_restarts') },
       ...LOSS_AWARE_LR_FIELDS,
-      { key: 'optimizer_type', type: 'select', label: '优化器', defaultValue: 'AdamW8bit', options: ['AdamW', 'AdamW8bit', 'AdamW8bitKahan', 'PagedAdamW8bit', 'Lion', 'Lion8bit', 'DAdaptation', 'DAdaptAdam', 'DAdaptLion', 'AdaFactor', 'Prodigy', 'prodigyplus.ProdigyPlusScheduleFree', 'pytorch_optimizer.CAME', 'pytorch_optimizer.StableAdamW', 'pytorch_optimizer.SCION'] },
+      { key: 'optimizer_type', type: 'select', label: '优化器', defaultValue: 'pytorch_optimizer.CAME', options: ['AdamW', 'AdamW8bit', 'AdamW8bitKahan', 'PagedAdamW8bit', 'Lion', 'Lion8bit', 'DAdaptation', 'DAdaptAdam', 'DAdaptLion', 'AdaFactor', 'Prodigy', 'prodigyplus.ProdigyPlusScheduleFree', 'pytorch_optimizer.CAME', 'pytorch_optimizer.StableAdamW', 'pytorch_optimizer.SCION'] },
       { key: 'optimizer_backend', type: 'select', label: 'AdamW 后端', desc: '仅细化 AdamW / AdamW8bit 的实现路线；optimizer_args 中显式 foreach/fused 参数优先，后端不可用时训练器会 fallback 并写入运行记录。', defaultValue: 'auto', options: OPTIMIZER_BACKEND_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), adamwFamilyOptimizer) },
-      { key: 'advanced_optimizer_strategy', type: 'select', label: '高级优化策略', desc: '默认 auto 不改变训练；lora_plus 复用现有 LoRA+ 参数组；rs_lora 会让原生 LoRA/DoRA 路线启用 alpha/sqrt(rank) 的 adapter scaling；LyCORIS 既有 rs_lora/network_args 仍优先由它自己的字段处理；GaLore 会启用 SVD/GaLore-style 梯度投影 wrapper，仍需训练质量 A/B。', defaultValue: 'auto', options: ADVANCED_OPTIMIZER_STRATEGY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'advanced_optimizer_strategy', type: 'select', label: '高级优化策略', desc: '默认 auto 不改变训练；lora_plus 复用现有 LoRA+ 参数组；rs_lora 会让原生 LoRA/DoRA 路线启用 alpha/sqrt(rank) 的 adapter scaling；LyCORIS 既有 rs_lora/network_args 仍优先由它自己的字段处理。', defaultValue: 'auto', options: ADVANCED_OPTIMIZER_STRATEGY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
       { key: 'min_snr_gamma', type: 'number', label: 'Min-SNR Gamma', defaultValue: '', min: 0, step: 0.1 },
     ],
   },
@@ -454,7 +472,7 @@ const ANIMA_SECTIONS = [
       { key: 'swap_ratio', type: 'slider', label: '显存交换比例', desc: '按原始 block/layer 总数计算交换比例。0 表示只在 auto 或 swap_count 下生效。', defaultValue: 0, min: 0, max: 1, step: 0.05, visibleWhen: swapEnabled },
       { key: 'swap_count', type: 'number', label: '显存交换数量', desc: '高级：绝对交换数量。大于 0 时优先于比例。', defaultValue: 0, min: 0, visibleWhen: swapEnabled },
       { key: 'block_merge_size', type: 'number', label: '合并 Block 大小', desc: 'merged_block 模式下每组包含的 block 数。', defaultValue: 2, min: 2, visibleWhen: when('swap_granularity', 'merged_block') },
-      { key: 'block_swap_strategy', type: 'select', label: 'BlockSwap 搬运策略', desc: 'auto 使用后端解析；sync 保守同步；async 使用现有异步预取；pipeline 为 CUDA 实验策略，不适配时会由后端 fallback。', defaultValue: 'auto', options: BLOCK_SWAP_STRATEGY_OPTIONS, visibleWhen: all(swapEnabled, when('performance_expert_mode', true)) },
+      { key: 'block_swap_strategy', type: 'select', label: 'BlockSwap 搬运策略', desc: 'auto 使用后端解析；sync 保守同步；async 使用现有异步预取。', defaultValue: 'auto', options: BLOCK_SWAP_STRATEGY_OPTIONS, visibleWhen: all(swapEnabled, when('performance_expert_mode', true)) },
       { key: 'module_offload_enabled', type: 'boolean', label: '模块级 Offload', desc: 'clean-room 新路线：按比例让冻结的 Linear / Conv 模块常驻 CPU，训练时按需临时回到 GPU。与现有 swap 互斥。', defaultValue: false },
       { key: 'module_offload_profile_enabled', type: 'boolean', label: '使用 Offload Profile', desc: '启用后可用 conservative / balanced / aggressive 预设填充主干与文本编码器比例；显式覆盖比例仍优先。', defaultValue: false, visibleWhen: when('module_offload_enabled', true) },
       { key: 'module_offload_profile', type: 'select', label: 'Offload Profile', desc: 'conservative: 主干25%/文本0%；balanced: 主干50%/文本25%；aggressive: 主干75%/文本50%。', defaultValue: 'custom', options: ['custom', 'conservative', 'balanced', 'aggressive'], visibleWhen: v => v.module_offload_enabled === true && v.module_offload_profile_enabled === true },
@@ -468,6 +486,8 @@ const ANIMA_SECTIONS = [
       { key: 'module_offload_prefetch_mode', type: 'select', label: 'Prefetch 模式', desc: '高级实验入口；当前仅 experimental。', defaultValue: 'experimental', options: ['experimental'], visibleWhen: v => v.module_offload_enabled === true && v.module_offload_prefetch_enabled === true },
       { key: 'blocks_to_swap', type: 'number', label: '旧版 Block 交换数量', desc: '兼容旧配置。新配置建议使用上方显存交换模式、比例和数量。', defaultValue: '', min: 1 },
       { key: 'performance_expert_mode', type: 'boolean', label: '性能专家模式', desc: '在训练 WebUI 中展开高级性能策略。默认保持自动策略；仅在 A/B、长序列或瓶颈诊断时调整。', defaultValue: false },
+      { key: 'compile_runtime', type: 'select', label: 'Compile 运行策略', desc: '统一表达编译意图；短训和低显存建议保持 off/auto。长训练或复训可尝试 compile_cache；Anima 短测中 compile_cache + token_flatten + inner_forward 稳定段更快，但首步更慢且峰值显存更高。已有 torch_compile、scope 或启动参数显式启用时后端优先尊重显式参数。', defaultValue: 'off', options: COMPILE_RUNTIME_OPTIONS },
+      { key: '__ui_group_compile_expert_collapsed', type: 'ui_group', label: '高级 Compile 策略已收起', desc: '基础 Compile 运行策略可在普通模式选择；shape / target / cudagraph 等复杂覆盖项仍收在专家模式。关闭专家模式时不会发送 shape/target 等复杂覆盖项，后端会继续按显式启动参数优先并自动 fallback。', visibleWhen: when('performance_expert_mode', false) },
       { key: 'cross_attn_fused_kv', type: 'boolean', label: 'Anima Fused K/V', desc: '融合 Anima cross-attention 的 K/V projection。默认保留原始层；显存模式需在专家模式中选择。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
       { key: 'anima_fused_qkv', type: 'boolean', label: 'Anima Fused Q/K/V', desc: '融合 Anima self-attention 的 Q/K/V projection。默认保留原始层；LoRA 包裹层会自动跳过。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
       { key: 'fused_projection_memory_mode', type: 'select', label: 'Fused Projection 显存模式', desc: 'keep_original 最兼容；drop_original 会移除原始 Q/K/V 层以节省显存；materialize_on_save 训练中移除，state_dict 保存时从 fused 权重补回原始 key。', defaultValue: 'keep_original', options: FUSED_PROJECTION_MEMORY_MODE_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), (c) => c.cross_attn_fused_kv === true || c.anima_fused_qkv === true) },
@@ -479,7 +499,8 @@ const ANIMA_SECTIONS = [
       { key: 'data_transfer_profile_mode', type: 'select', label: '传输计时模式', desc: 'event 使用 CUDA events 延迟同步；sync 保留旧全局同步计时；off 忽略 profiling。', defaultValue: 'event', options: DATA_TRANSFER_PROFILE_MODE_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), when('data_transfer_profile_enabled', true)) },
       { key: 'data_transfer_profile_window', type: 'number', label: '传输采样窗口', desc: '每累计多少次传输输出一次汇总。', defaultValue: 50, min: 1, visibleWhen: all(when('performance_expert_mode', true), when('data_transfer_profile_enabled', true)) },
       { key: 'loss_precision', type: 'select', label: 'Loss 精度策略', desc: 'fp32_loss 保持当前稳定路径；mixed_loss 保留模型输出精度计算核心 loss，减少临时 FP32 副本，但属于实验选项。', defaultValue: 'fp32_loss', options: LOSS_PRECISION_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
-      { key: 'compile_runtime', type: 'select', label: 'Compile 运行策略', desc: '统一表达编译意图；已有 torch_compile、scope 或启动参数显式启用时后端优先尊重显式参数。', defaultValue: 'off', options: COMPILE_RUNTIME_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'compile_shape_strategy', type: 'select', label: 'Compile Shape 策略', desc: 'auto 会按路由自动选择；token_flatten/native 主要用于 Anima/Newbie cache-first + no-pad token bucket。长训练可与 compile_cache 搭配优先尝试 token_flatten；若启动参数或其他显式配置冲突，后端优先尊重显式参数，再做 fallback。', defaultValue: 'auto', options: COMPILE_SHAPE_STRATEGY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'compile_target_strategy', type: 'select', label: 'Compile Target 策略', desc: 'auto 由后端按模块能力探测；inner_forward 会优先 block 内稳定 forward 路径，block 保留整块编译。Anima 矩阵短测中 inner_forward 优于 block；与启动参数冲突时先尊重显式参数。', defaultValue: 'auto', options: COMPILE_TARGET_STRATEGY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
       { key: 'cached_collate_mode', type: 'select', label: '缓存数据 Collate', desc: '仅影响 Anima/Newbie cache-first 数据集。auto/pad_sequence 使用 PyTorch 原生序列 padding；legacy 保留旧预分配循环路径，用于对照或兼容排查。', defaultValue: 'auto', options: CACHED_COLLATE_MODE_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
       { key: 'checkpoint_policy', type: 'select', label: 'Checkpoint 策略', desc: 'auto 尊重现有 gradient_checkpointing / cpu_offload_checkpointing；full 强制通用检查点；offloaded 使用 CPU saved-tensor/offload 路径；selective 会先做能力探测，当前 Anima/Newbie native DiT 有实验性真实接线；其它路线仍会 fallback 并写入运行记录。', defaultValue: 'auto', options: CHECKPOINT_POLICY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
       { key: 'cuda_cache_release_strategy', type: 'select', label: 'CUDA 缓存释放策略', desc: 'oom_only 仅在 OOM 恢复时释放；phase_boundary 在 TE/VAE / 组件下 CPU 边界释放；after_optimizer 保留旧低显存稳妥档；aggressive 会把阶段边界和训练步释放都打开。旧 every_step 配置会自动按 aggressive 兼容。', defaultValue: 'oom_only', options: CUDA_CACHE_RELEASE_OPTIONS },
@@ -583,6 +604,7 @@ const ANIMA_CONDITIONAL_KEYS = new Set([
   'anima_block_residency',
   'anima_block_prefetch',
   'performance_expert_mode',
+  '__ui_group_compile_expert_collapsed',
   'cross_attn_fused_kv',
   'anima_fused_qkv',
   'fused_projection_memory_mode',
@@ -590,6 +612,8 @@ const ANIMA_CONDITIONAL_KEYS = new Set([
   'data_backend',
   'loss_precision',
   'compile_runtime',
+  'compile_shape_strategy',
+  'compile_target_strategy',
   'cached_collate_mode',
   'checkpoint_policy',
   'experimental_attention_profile_enabled',

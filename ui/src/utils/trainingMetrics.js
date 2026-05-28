@@ -35,6 +35,7 @@ function createEmptyMetrics() {
     pcieCacheV0: null,
     pcieCacheV0Recommendation: null,
     vramSmartSensingRuntime: null,
+    compileRuntime: null,
   };
 }
 
@@ -464,17 +465,23 @@ export function renderUnifiedRecommendationCard(context = {}, options = {}) {
   const rows = [];
   if (benchmarkExperiment?.recommended_first) {
     const ranked = Array.isArray(benchmarkExperiment.ranked_formats) ? benchmarkExperiment.ranked_formats.slice(0, 3) : [];
+    const reuseFactor = Number(benchmarkExperiment.reuse_factor || 1);
     rows.push({
       label: 'PCIe 传输格式',
       value: '优先 ' + getTransferFormatDisplayName(benchmarkExperiment.recommended_first),
-      detail: ranked.length ? 'Top3：' + ranked.map(function (row) { return getTransferFormatDisplayName(row?.format); }).join(' → ') : '',
+      detail: (ranked.length ? 'Top3：' + ranked.map(function (row) { return getTransferFormatDisplayName(row?.format); }).join(' → ') : '')
+        + (reuseFactor > 1 ? '；pack 成本按约 ' + reuseFactor.toFixed(0) + ' 次复用摊销' : ''),
     });
   }
   if (cacheV0Recommendation) {
+    const reuse = Number(cacheV0Recommendation.reuse_factor || 0);
+    const amortizedMb = Number(cacheV0Recommendation.amortized_transfer_mb_per_step || 0);
     rows.push({
       label: 'Cache v0',
       value: getPcieCacheV0DecisionLabel(cacheV0Recommendation),
-      detail: '建议预算 ' + Number(cacheV0Recommendation.suggested_budget_mb || 0).toFixed(1) + ' MB，当前模式 ' + String(cacheV0Recommendation.current_mode || 'observe'),
+      detail: '建议预算 ' + Number(cacheV0Recommendation.suggested_budget_mb || 0).toFixed(1) + ' MB，当前模式 ' + String(cacheV0Recommendation.current_mode || 'observe')
+        + (reuse > 1 ? '，约 ' + reuse.toFixed(0) + ' 步摊销' : '')
+        + (amortizedMb > 0 ? '，每步约 ' + amortizedMb.toFixed(2) + ' MB' : ''),
     });
   }
   if (tcComparison || tcSummary) {
@@ -602,6 +609,9 @@ function applyProgressJson(metrics, data, now) {
   }
   if (data.vram_smart_sensing_runtime && typeof data.vram_smart_sensing_runtime === 'object') {
     metrics.vramSmartSensingRuntime = data.vram_smart_sensing_runtime;
+  }
+  if (data.compile_runtime && typeof data.compile_runtime === 'object') {
+    metrics.compileRuntime = data.compile_runtime;
   }
   return true;
 }
@@ -920,6 +930,7 @@ export function buildSummaryFromMetrics(m, elapsedMs) {
     pcieCacheV0: m.pcieCacheV0 || null,
     pcieCacheV0Recommendation: m.pcieCacheV0Recommendation || null,
     vramSmartSensingRuntime: m.vramSmartSensingRuntime || null,
+    compileRuntime: m.compileRuntime || null,
   };
 }
 
@@ -947,6 +958,7 @@ export function generateSummaryFromTaskLog(lines) {
  */
 export function renderSummaryCard(s, extra = {}) {
   if (!s) return '';
+  const showCompileRuntime = !!extra.showCompileRuntime;
   let lossRange = (s.firstLoss > 0 ? s.firstLoss.toFixed(4) : '\u2014')
     + ' \u2192 ' + (s.lastLoss > 0 ? s.lastLoss.toFixed(4) : '\u2014');
   if (s.minLoss < Infinity && s.minLoss > 0) {
@@ -956,6 +968,7 @@ export function renderSummaryCard(s, extra = {}) {
   const cacheV0 = s.pcieCacheV0 && typeof s.pcieCacheV0 === 'object' ? s.pcieCacheV0 : null;
   const cacheV0Recommendation = s.pcieCacheV0Recommendation && typeof s.pcieCacheV0Recommendation === 'object' ? s.pcieCacheV0Recommendation : null;
   const smart = s.vramSmartSensingRuntime && typeof s.vramSmartSensingRuntime === 'object' ? s.vramSmartSensingRuntime : null;
+  const compileRuntime = s.compileRuntime && typeof s.compileRuntime === 'object' ? s.compileRuntime : null;
   const pcieTransferBenchmark = extra.pcieTransferBenchmark || null;
   const pcieNextLabel = pcie ? getPcieDeltaCacheNextLabel(pcie) : '';
   const pcieCard = pcie ? (
@@ -1029,6 +1042,27 @@ export function renderSummaryCard(s, extra = {}) {
     + '</div>'
     + '</div>'
   ) : '';
+  const compileCard = showCompileRuntime && compileRuntime ? (
+    '<div style="margin-top:8px;">'
+    + '<div class="status-card" style="border-left:3px solid #38bdf8;">'
+    + '<div class="status-label">Compile Runtime</div>'
+    + '<div style="font-size:0.95rem;font-weight:700;color:var(--text);margin:4px 0;">'
+    + 'route ' + escapeHtml(String(compileRuntime.route || 'unknown'))
+    + ' / ' + escapeHtml(String(compileRuntime.resolved || 'eager'))
+    + '</div>'
+    + '<div class="status-sub">'
+    + 'scope ' + escapeHtml(String(compileRuntime.torch_compile_scope || 'off'))
+    + '，shape ' + escapeHtml(String(compileRuntime.compile_shape_strategy || 'auto'))
+    + '，target ' + escapeHtml(String(compileRuntime.compile_target_strategy || 'auto'))
+    + '</div>'
+    + '<div class="status-sub" style="margin-top:4px;">'
+    + '静态 shape 来源：' + escapeHtml(String(compileRuntime.effective_static_shape_source || 'unknown'))
+    + '；警告 ' + escapeHtml(String(compileRuntime.warning_count || 0))
+    + '；编译命中 ' + escapeHtml(String(compileRuntime.compiled_target_messages || 0))
+    + '</div>'
+    + '</div>'
+    + '</div>'
+  ) : '';
   const benchmarkCard = renderPcieTransferBenchmarkCard(pcieTransferBenchmark);
   const recommendationCard = renderUnifiedRecommendationCard({
     pcieTransferBenchmark,
@@ -1068,6 +1102,7 @@ export function renderSummaryCard(s, extra = {}) {
     + cacheV0RecommendationCard
     + cacheV0Card
     + smartCard
+    + compileCard
     + benchmarkCard
     + recommendationCard;
 }

@@ -48,7 +48,12 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       + '<header class="section-header" style="display:flex;justify-content:space-between;align-items:center;">'
       + '<h3>\ud83d\udcca \u8bad\u7ec3\u603b\u7ed3</h3>'
       + '<button type="button" onclick="dismissTrainingSummary()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;padding:2px 6px;line-height:1;" title="\u5173\u95ed">\u00d7</button></header>'
-      + '<div class="section-content" style="display:block;">' + renderSummaryCard(s, { pcieTransferBenchmark: state.pcieTransferBenchmark }) +'</div>'
+      + '<div class="section-content" style="display:block;">'
+      + renderSummaryCard(s, {
+        pcieTransferBenchmark: state.pcieTransferBenchmark,
+        showCompileRuntime: true,
+      })
+      + '</div>'
       + '</section>';
   }
 
@@ -255,6 +260,32 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       + '</div>';
   }
 
+  function renderCompileRuntimeCard(profile) {
+    if (!profile || typeof profile !== 'object') return '';
+    var route = String(profile.route || 'unknown');
+    var resolved = String(profile.resolved || 'eager');
+    var compileEnabled = !!profile.torch_compile;
+    var scope = String(profile.torch_compile_scope || 'off');
+    var shape = String(profile.compile_shape_strategy || 'auto');
+    var target = String(profile.compile_target_strategy || 'auto');
+    var shapeSource = String(profile.effective_static_shape_source || 'unknown');
+    var warningCount = Number(profile.warning_count || 0);
+    var compiledTargets = Number(profile.compiled_target_messages || 0);
+    return '<div class="train-side-section" id="train-compile-runtime-card">'
+      + '<div class="train-panel-title">Compile Runtime</div>'
+      + '<div class="train-hw-card">'
+      +   '<div class="train-hw-row"><span class="hw-label">路由</span><span class="hw-value">' + escapeHtml(route) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">解析结果</span><span class="hw-value">' + escapeHtml(resolved) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">torch.compile</span><span class="hw-value">' + (compileEnabled ? '开启' : '关闭') + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">scope</span><span class="hw-value">' + escapeHtml(scope) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">shape/target</span><span class="hw-value">' + escapeHtml(shape + ' / ' + target) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">静态 shape 来源</span><span class="hw-value">' + escapeHtml(shapeSource) + '</span></div>'
+      +   '<div class="train-hw-row"><span class="hw-label">告警 / 命中</span><span class="hw-value">' + escapeHtml(String(warningCount) + ' / ' + String(compiledTargets)) + '</span></div>'
+      + '</div>'
+      + '<div style="margin-top:8px;font-size:0.68rem;color:var(--text-muted);line-height:1.45;">启动参数或显式配置优先，shape/target 策略只用于解析与回退。</div>'
+      + '</div>';
+  }
+
   function renderTraining(container) {
     var running = state.tasks.filter(function(t) { return t.status === 'RUNNING'; });
     var finished = state.tasks.filter(function(t) { return ['FINISHED', 'COMPLETED'].includes(String(t.status || '').toUpperCase()); });
@@ -293,6 +324,8 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
     var pcieCacheV0 = m.pcieCacheV0 || (state.trainingSummary && state.trainingSummary.pcieCacheV0) || null;
     var pcieCacheV0Recommendation = m.pcieCacheV0Recommendation || (state.trainingSummary && state.trainingSummary.pcieCacheV0Recommendation) || null;
     var smartSensingRuntime = m.vramSmartSensingRuntime || (state.trainingSummary && state.trainingSummary.vramSmartSensingRuntime) || null;
+    var compileRuntime = m.compileRuntime || (state.trainingSummary && state.trainingSummary.compileRuntime) || null;
+    var showCompileRuntimeCard = !!compileRuntime;
     var showGhostCard = !!(state.config.lulynx_ghost_replay || ghost);
     var ghostStatus = ghost && ghost.last_status ? String(ghost.last_status) : 'idle';
     var ghostStatusMap = {
@@ -528,6 +561,8 @@ var statusDot = '', statusText = '';
 
     +     renderSmartSensingRuntimeCard(smartSensingRuntime)
 
+    +     (showCompileRuntimeCard ? renderCompileRuntimeCard(compileRuntime) : '')
+
     +     renderPrecisionSwapRuntimeCard(precisionSwapProfile)
 
     // Active params
@@ -576,7 +611,14 @@ var statusDot = '', statusText = '';
         + '</div>'
         + '</div>'
         + (metaStr ? '<div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px;">' + escapeHtml(metaStr) + '</div>' :'')
-        + '<div id="task-summary-' + task.id + '" style="display:none;" data-loaded="' + (hasCached ? 'true' : 'false') + '">' + (hasCached ? renderSummaryCard(state.taskSummaries[task.id], { pcieTransferBenchmark: state.pcieTransferBenchmark }) : '') + '</div>'
+        + '<div id="task-summary-' + task.id + '" style="display:none;" data-loaded="' + (hasCached ? 'true' : 'false') + '">'
+        + (hasCached
+          ? renderSummaryCard(state.taskSummaries[task.id], {
+            pcieTransferBenchmark: state.pcieTransferBenchmark,
+            showCompileRuntime: true,
+          })
+          : '')
+        + '</div>'
         + '</div>';
     }).join(''))
     + '</div>'

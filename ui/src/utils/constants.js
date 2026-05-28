@@ -92,6 +92,7 @@ export const CONDITIONAL_KEYS = new Set([
   'caption_dropout_rate',
   'caption_tag_dropout_rate',
   'caption_dropout_every_n_epochs',
+  'caption_source_mix_enabled',
   'token_warmup_step',
   'noise_offset',
   'multires_noise_iterations',

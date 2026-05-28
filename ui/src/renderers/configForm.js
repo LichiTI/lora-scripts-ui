@@ -157,6 +157,7 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     const captionDropout = toNum(config.caption_dropout_rate) > 0;
     const captionTagDropout = toNum(config.caption_tag_dropout_rate) > 0;
     const captionDropoutEvery = toNum(config.caption_dropout_every_n_epochs) > 0;
+    const structuredCaptionMix = toBool(config.caption_source_mix_enabled);
     const tokenWarmup = toNum(config.token_warmup_step) > 0;
     const trainsTextEncoder = !toBool(config.network_train_unet_only);
     const unetOnly = toBool(config.network_train_unet_only);
@@ -590,6 +591,12 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     pushField('keep_tokens');
     pushField('keep_tokens_separator');
     pushField('caption_tag_dropout_rate', 'dataset-layout-full');
+    pushField('caption_source_mix_enabled', 'dataset-layout-full');
+    pushField('caption_source_nl_ratio');
+    pushField('caption_source_tag_ratio');
+    pushField('caption_source_trigger_only_ratio');
+    pushField('caption_source_empty_ratio');
+    pushField('caption_source_trigger_tokens', 'dataset-layout-full');
 
     const tagDropoutKeys = [
       'caption_dropout_rate',

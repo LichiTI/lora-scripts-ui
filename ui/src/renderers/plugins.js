@@ -187,13 +187,23 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPlug
 
   function _renderSdkRunnerCard(runner) {
     runner = runner || {};
+    var review = runner.permission_review && typeof runner.permission_review === 'object'
+      ? runner.permission_review
+      : null;
     var runnerId = String(runner.runner_id || runner.id || '').trim();
-    var pluginId = String(runner.plugin_id || '').trim();
-    var schemas = Array.isArray(runner.request_schema_ids) ? runner.request_schema_ids : [];
+    var pluginId = String((review && review.plugin_id) || runner.plugin_id || '').trim();
+    var schemas = Array.isArray(runner.schema_ids) ? runner.schema_ids : [];
+    if (schemas.length === 0 && Array.isArray(runner.request_schema_ids)) schemas = runner.request_schema_ids;
     if (schemas.length === 0 && runner.request_schema_id) schemas = [runner.request_schema_id];
+    if (schemas.length === 0 && review && review.request_schema_id) schemas = [review.request_schema_id];
     var permissions = Array.isArray(runner.permissions) ? runner.permissions : [];
+    if (permissions.length === 0 && review && Array.isArray(review.required_permissions)) permissions = review.required_permissions;
+    var artifacts = review && Array.isArray(review.artifact_types) ? review.artifact_types : [];
+    var warnings = review && Array.isArray(review.warnings) ? review.warnings : [];
     var approvalReady = runner.approval_ready === true || runner.approved === true;
+    if (review && typeof review.approval_ready === 'boolean') approvalReady = review.approval_ready;
     var executionAvailable = runner.execution_available !== false;
+    if (review && typeof review.execution_available === 'boolean') executionAvailable = review.execution_available;
     var statusText = approvalReady && executionAvailable ? '可试运行' : (approvalReady ? '等待执行环境' : '待审批');
     var statusColor = approvalReady && executionAvailable ? '#22c55e' : (approvalReady ? '#f59e0b' : '#ef4444');
     var schemaForRun = schemas.length > 0 ? schemas[0] : '';
@@ -222,6 +232,20 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPlug
 
     html += '<div class="plugin-card-tags"><span class="plugin-tag-label">Schema:</span>' + _formatListTags(schemas) + '</div>';
     html += '<div class="plugin-card-tags"><span class="plugin-tag-label">权限:</span>' + _formatListTags(permissions) + '</div>';
+    if (artifacts.length > 0) {
+      html += '<div class="plugin-card-tags"><span class="plugin-tag-label">产物:</span>' + _formatListTags(artifacts) + '</div>';
+    }
+    if (review && review.request_schema && review.request_schema.schema_path) {
+      html += '<div class="plugin-card-meta"><span>Schema 文件: <code>'
+        + escapeHtml(review.request_schema.schema_path)
+        + '</code></span></div>';
+    }
+    if (warnings.length > 0) {
+      html += '<div class="plugin-card-meta" style="color:var(--warning,#f59e0b);">'
+        + _ico('alert-tri', 12) + ' '
+        + escapeHtml(String(warnings[0].message || warnings[0].code || '需要检查插件声明'))
+        + '</div>';
+    }
     return html + '</div>';
   }
 
