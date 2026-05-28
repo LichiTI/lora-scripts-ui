@@ -2,7 +2,7 @@
 
 import { escapeHtml, _ico } from '../utils/dom.js';
 
-export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegisteredSlots, api }) {
+export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPluginSdkStatus, getRegisteredSlots, api }) {
   function renderPlugins(container) {
     container.innerHTML = '<div class="form-container">'
       + '<header class="section-title">'
@@ -21,6 +21,9 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
     if (!el) return;
 
     await loadPluginRuntime();
+    if (typeof loadPluginSdkStatus === 'function') {
+      await loadPluginSdkStatus();
+    }
 
     var pytorchOptimizerSettings = null;
     try {
@@ -111,6 +114,8 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
     }
     html += '</div></section>';
 
+    html += _renderSdkRunnerSection(pluginStore.sdk);
+
     var slots = getRegisteredSlots();
     html += '<section class="form-section">'
       + '<header class="section-header"><h3>' + _ico('layout', 16) + ' UI 扩展挂载点</h3></header>'
@@ -140,6 +145,108 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegis
 
   function _pluginOnClickArg(value) {
     return escapeHtml(JSON.stringify(String(value ?? '')));
+  }
+
+  function _formatListTags(items) {
+    if (!Array.isArray(items) || items.length === 0) return '<span class="plugin-tag">无</span>';
+    var html = '';
+    for (var i = 0; i < items.length; i++) {
+      var label = String(items[i] || '').trim();
+      if (!label) continue;
+      html += '<span class="plugin-tag">' + escapeHtml(label) + '</span>';
+    }
+    return html || '<span class="plugin-tag">无</span>';
+  }
+
+  function _renderSdkRunnerSection(sdkStatus) {
+    var runners = [];
+    if (sdkStatus && Array.isArray(sdkStatus.runner_capabilities)) {
+      runners = sdkStatus.runner_capabilities;
+    } else if (sdkStatus && Array.isArray(sdkStatus.runners)) {
+      runners = sdkStatus.runners;
+    }
+
+    var html = '<section class="form-section">'
+      + '<header class="section-header"><h3>' + _ico('terminal', 16) + ' SDK Runner</h3></header>'
+      + '<div class="section-content" style="display:block;">';
+
+    if (!sdkStatus) {
+      html += '<p style="color:var(--text-muted);font-size:0.78rem;">SDK 状态暂不可用。后端未启动或插件 SDK 接口未就绪时会显示此状态。</p>';
+    } else if (runners.length === 0) {
+      html += '<p style="color:var(--text-muted);font-size:0.78rem;">当前没有插件声明 SDK Runner。</p>';
+    } else {
+      html += '<div class="plugin-list">';
+      for (var i = 0; i < runners.length; i++) {
+        html += _renderSdkRunnerCard(runners[i]);
+      }
+      html += '</div>';
+    }
+    html += '</div></section>';
+    return html;
+  }
+
+  function _renderSdkRunnerCard(runner) {
+    runner = runner || {};
+    var review = runner.permission_review && typeof runner.permission_review === 'object'
+      ? runner.permission_review
+      : null;
+    var runnerId = String(runner.runner_id || runner.id || '').trim();
+    var pluginId = String((review && review.plugin_id) || runner.plugin_id || '').trim();
+    var schemas = Array.isArray(runner.schema_ids) ? runner.schema_ids : [];
+    if (schemas.length === 0 && Array.isArray(runner.request_schema_ids)) schemas = runner.request_schema_ids;
+    if (schemas.length === 0 && runner.request_schema_id) schemas = [runner.request_schema_id];
+    if (schemas.length === 0 && review && review.request_schema_id) schemas = [review.request_schema_id];
+    var permissions = Array.isArray(runner.permissions) ? runner.permissions : [];
+    if (permissions.length === 0 && review && Array.isArray(review.required_permissions)) permissions = review.required_permissions;
+    var artifacts = review && Array.isArray(review.artifact_types) ? review.artifact_types : [];
+    var warnings = review && Array.isArray(review.warnings) ? review.warnings : [];
+    var approvalReady = runner.approval_ready === true || runner.approved === true;
+    if (review && typeof review.approval_ready === 'boolean') approvalReady = review.approval_ready;
+    var executionAvailable = runner.execution_available !== false;
+    if (review && typeof review.execution_available === 'boolean') executionAvailable = review.execution_available;
+    var statusText = approvalReady && executionAvailable ? '可试运行' : (approvalReady ? '等待执行环境' : '待审批');
+    var statusColor = approvalReady && executionAvailable ? '#22c55e' : (approvalReady ? '#f59e0b' : '#ef4444');
+    var schemaForRun = schemas.length > 0 ? schemas[0] : '';
+
+    var html = '<div class="plugin-card">'
+      + '<div class="plugin-card-header">'
+      + '<div class="plugin-card-title">'
+      + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + statusColor + ';"></span> '
+      + '<strong>' + escapeHtml(runnerId || 'unnamed.runner') + '</strong>'
+      + '<span class="plugin-version">' + escapeHtml(statusText) + '</span>'
+      + '</div>'
+      + '<div class="plugin-card-actions">';
+
+    if (!approvalReady && pluginId) {
+      html += '<button class="btn btn-sm" style="background:#22c55e;color:#fff;font-size:0.7rem;padding:2px 8px;" type="button" onclick="pluginApprove(' + _pluginOnClickArg(pluginId) + ')">审批插件</button>';
+    }
+    if (approvalReady && executionAvailable && runnerId) {
+      html += '<button class="btn btn-outline btn-sm" style="font-size:0.7rem;padding:2px 8px;" type="button" onclick="pluginExecuteSdkRunner(' + _pluginOnClickArg(runnerId) + ', ' + _pluginOnClickArg(schemaForRun) + ')">提交试运行</button>';
+    }
+    html += '</div></div>';
+
+    html += '<div class="plugin-card-meta">'
+      + '<span>插件: <code>' + escapeHtml(pluginId || '—') + '</code></span>'
+      + '<span>执行: ' + escapeHtml(executionAvailable ? '可用' : '不可用') + '</span>'
+      + '</div>';
+
+    html += '<div class="plugin-card-tags"><span class="plugin-tag-label">Schema:</span>' + _formatListTags(schemas) + '</div>';
+    html += '<div class="plugin-card-tags"><span class="plugin-tag-label">权限:</span>' + _formatListTags(permissions) + '</div>';
+    if (artifacts.length > 0) {
+      html += '<div class="plugin-card-tags"><span class="plugin-tag-label">产物:</span>' + _formatListTags(artifacts) + '</div>';
+    }
+    if (review && review.request_schema && review.request_schema.schema_path) {
+      html += '<div class="plugin-card-meta"><span>Schema 文件: <code>'
+        + escapeHtml(review.request_schema.schema_path)
+        + '</code></span></div>';
+    }
+    if (warnings.length > 0) {
+      html += '<div class="plugin-card-meta" style="color:var(--warning,#f59e0b);">'
+        + _ico('alert-tri', 12) + ' '
+        + escapeHtml(String(warnings[0].message || warnings[0].code || '需要检查插件声明'))
+        + '</div>';
+    }
+    return html + '</div>';
   }
 
   function _pluginReasonLabel(reason) {

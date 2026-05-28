@@ -18,5 +18,6 @@ export { createToolsRenderer } from './tools.js';
 export { createDatasetRenderer } from './dataset.js';
 export { createSysMonitorRenderer } from './sysMonitor.js';
 export { createTrainingRenderer } from './training.js';
+export { createExperimentalTrainingRenderer } from './experimentalTraining.js';
 export { renderTurboCore, turboCoreProbeStatus, turboCoreCopyFlags } from './turboCore.js';
 

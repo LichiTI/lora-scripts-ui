@@ -603,7 +603,7 @@ export function createToolsRenderer({ state, renderSlot }) {
             <div class="config-group">
               <label>${escapeHtml(f.label)}</label>
               <div class="input-picker">
-                <button class="picker-icon" type="button" onclick="pickPathForInput('${inputId}', '${pickerTypeForField(f)}')">
+                <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('${inputId}', '${pickerTypeForField(f)}')">
                   <svg class="icon"><use href="#icon-folder"></use></svg>
                 </button>
                 <input class="text-input" type="${f.type}" id="${inputId}" placeholder="${escapeHtml(f.placeholder || '')}">

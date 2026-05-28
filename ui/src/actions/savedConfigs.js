@@ -163,7 +163,7 @@ export function createSavedConfigsActions({
     }
   }
 
-  function saveCurrentParams() {
+  async function saveCurrentParams() {
     const defaultName = state.config.output_name || state.config.pretrained_model_name_or_path?.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || '';
     const modal = $('#builtin-picker-modal');
     const title = $('#builtin-picker-title');
@@ -183,12 +183,38 @@ export function createSavedConfigsActions({
 
     const nameInput = $('#save-params-name');
    const confirmBtn = $('#save-params-confirm');
+
+    // 预加载已存在的名称集合，用于同名检测
+    const existingNames = new Set();
+    try {
+      const listResp = await api.listSavedConfigs();
+      const configs = listResp?.data?.configs || [];
+      for (const item of configs) {
+        if (item && typeof item.name === 'string') existingNames.add(item.name);
+      }
+    } catch (_) {
+      // 获取列表失败不阻断保存流程，后端仍会接收请求
+    }
+
     const submit = async () => {
       const name = nameInput?.value?.trim();
       if (!name) {
         if (pathEl) pathEl.textContent = '请输入保存名称。';
         nameInput?.focus();
         return;
+      }
+      // 同名双重确认，避免静默覆盖已保存的参数
+      const safeName = name.replace(/[<>:"/\\|?*]/g, '_').trim();
+      if (existingNames.has(name) || existingNames.has(safeName)) {
+        const confirmed = window.confirm(`已存在同名参数：“${name}”。\n是否覆盖原有保存内容？\n如需保留原有参数，请取消后修改名称。`);
+        if (!confirmed) {
+          if (pathEl) pathEl.textContent = '为避免覆盖原有参数，请修改名称后重试。';
+          if (nameInput) {
+            nameInput.focus();
+            nameInput.select();
+          }
+          return;
+        }
       }
       try {
         // 保存原始 UI 状态（而非 buildRunConfig 转换后的后端 payload），
@@ -218,13 +244,13 @@ for (const [k, v] of Object.entries(state.config)) {
       }
     };
 
-   confirmBtn?.addEventListener('click', submit, { once: true });
+   confirmBtn?.addEventListener('click', submit);
    nameInput?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
         submit();
       }
-    }, { once: true });
+    });
     nameInput?.focus();
     nameInput?.select();
   }

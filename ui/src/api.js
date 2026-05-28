@@ -2,6 +2,36 @@ const JSON_HEADERS = {
   'Content-Type': 'application/json',
 };
 
+function formatApiMessage(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value !== 'object') return String(value);
+
+  if (Array.isArray(value)) {
+    return value.map(formatApiMessage).filter(Boolean).join('; ');
+  }
+
+  for (const key of ['message', 'detail', 'error', 'reason']) {
+    const text = formatApiMessage(value[key]);
+    if (text) return text;
+  }
+
+  if (Array.isArray(value.errors) && value.errors.length) {
+    const text = value.errors.map(formatApiMessage).filter(Boolean).join('; ');
+    if (text) return text;
+  }
+  if (Array.isArray(value.issues) && value.issues.length) {
+    const text = value.issues.map(formatApiMessage).filter(Boolean).join('; ');
+    if (text) return text;
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch (_error) {
+    return String(value);
+  }
+}
+
 async function request(path, options = {}) {
   let response;
   try {
@@ -24,7 +54,7 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(payload?.detail || payload?.message || `请求失败：${response.status}`);
+    throw new Error(formatApiMessage(payload?.detail || payload?.message || payload) || `请求失败：${response.status}`);
   }
 
   return payload;
@@ -74,6 +104,10 @@ export const api = {
 
   getSavedParams() {
     return request('/api/config/saved_params');
+  },
+
+  getConfigOptions() {
+    return request('/api/config/options');
   },
 
   getTasks() {
@@ -165,6 +199,10 @@ export const api = {
     return postJson('/api/train/preflight', config);
   },
 
+  runPcieTransferBenchmark(params = {}) {
+    return postJson('/api/train/pcie-transfer-benchmark', params || {});
+  },
+
   previewSamplePrompt(config) {
     return postJson('/api/train/sample_prompt', config);
   },
@@ -210,8 +248,40 @@ export const api = {
   openFolder(folder) {
     return postJson('/api/local/open_folder', { folder: folder || 'output' });
   },
+
+  openAdvancedMonitor() {
+    return postJson('/api/system/open_advanced_monitor', {});
+  },
+
   runTraining(config) {
     return postJson('/api/run', config);
+  },
+
+  startLabDistiller(config) {
+    return postJson('/api/lulynx-lab/distiller/start', { config });
+  },
+
+  startTurboLora(config) {
+    return postJson('/api/lulynx-lab/turbo-lora/start', { config });
+  },
+
+  startDitFewStepLora(config) {
+    return postJson('/api/lulynx-lab/dit-few-step-lora/start', { config });
+  },
+
+  validateTurboLoraOutput(outputPath, runtimeId = '') {
+    return postJson('/api/lulynx-lab/turbo-lora/validate', {
+      output_path: outputPath,
+      runtime_id: runtimeId,
+    });
+  },
+
+  reportTurboLoraSamples(outputPath, samplesDir = '', runtimeId = '') {
+    return postJson('/api/lulynx-lab/turbo-lora/report-samples', {
+      output_path: outputPath,
+      samples_dir: samplesDir,
+      runtime_id: runtimeId,
+    });
   },
 
   getTensorBoardStatus(logdir = '') {
@@ -478,6 +548,18 @@ export const api = {
   /** 获取插件审计日志 */
   getPluginAudit(limit) {
     return request('/api/plugins/audit' + (limit ? '?limit=' + limit : ''));
+  },
+
+  getPluginSdkStatus() {
+    return request('/api/plugins/sdk/status');
+  },
+
+  executePluginSdkRunner(runnerId, payload = {}, requestedBy = 'ui-user') {
+    return postJson('/api/plugins/sdk/execute', {
+      runner_id: runnerId,
+      payload,
+      requested_by: requestedBy,
+    });
   },
 
   getPluginSettings(pluginId) {

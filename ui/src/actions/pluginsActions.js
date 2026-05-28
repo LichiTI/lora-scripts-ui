@@ -13,6 +13,7 @@ export function createPluginsActions({
   reloadAllPlugins,
   approvePlugin,
   revokePlugin,
+  executePluginSdkRunner,
   loadPluginAudit,
   getPluginSettings,
   savePluginSettings,
@@ -58,6 +59,25 @@ export function createPluginsActions({
       showToast('✓ 已撤销插件 ' + pluginId + ' 的审批');
     } else {
       showToast('⚠ 撤销失败: ' + (result.error || '未知错误'));
+    }
+    _loadAndRenderPlugins();
+  }
+
+  async function pluginExecuteSdkRunner(runnerId, schemaId) {
+    var payload = {
+      dry_run: true,
+      title: 'WebUI SDK probe',
+    };
+    if (schemaId) payload.schema_id = schemaId;
+
+    showToast(_ico('loader', 12) + ' 正在提交 SDK Runner 试运行...');
+    var result = await executePluginSdkRunner(runnerId, payload);
+    if (result.ok) {
+      var data = result.data || {};
+      var jobId = data.job_id || data.task_id || data.id || '';
+      showToast('✓ SDK Runner 已提交' + (jobId ? ': ' + jobId : ''));
+    } else {
+      showToast('⚠ SDK Runner 提交失败: ' + (result.error || '未知错误'));
     }
     _loadAndRenderPlugins();
   }
@@ -158,6 +178,7 @@ export function createPluginsActions({
     pluginReloadAll,
     pluginApprove,
     pluginRevoke,
+    pluginExecuteSdkRunner,
     pluginShowAudit,
     pluginSavePytorchOptimizerSettings,
     pluginResetPytorchOptimizerSettings,

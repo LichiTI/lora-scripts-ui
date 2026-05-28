@@ -78,6 +78,16 @@ export function createTrainingMetadataActions({
       speeds: [], losses: [], epochs: [],
       startTime: null, lastStep: 0, totalSteps: 0,
       bTier: null, ghostReplay: null,
+      memoryOptimization: null,
+      precisionSwapProfile: null,
+      nativeUnet: null,
+      peakVramDiagnostics: null,
+      cudaCacheRelease: null,
+      pcieDeltaCache: null,
+      pcieCacheV0: null,
+      pcieCacheV0Recommendation: null,
+      vramSmartSensingRuntime: null,
+      compileRuntime: null,
     };
     _resetTrainingLogCursor();
     state.trainingSummary = null;
@@ -94,6 +104,13 @@ export function createTrainingMetadataActions({
   // 主要工具函数已搬到 utils/trainingMetrics.js。此处保留 0参数封装。
   function generateTrainingSummary() {
     return _generateSummaryFromMetrics(state.trainingMetrics);
+  }
+
+  function summaryRenderOptions() {
+    return {
+      pcieTransferBenchmark: state.pcieTransferBenchmark || null,
+      showCompileRuntime: true,
+    };
   }
 
   async function fetchTaskLogLines(taskId, preferredTail = 5000) {
@@ -177,7 +194,7 @@ await saveLocalTaskHistory();
 
   // Check cache first
     if (state.taskSummaries[taskId] && state.taskSummaries[taskId]._v >= 2) {
-      panel.innerHTML = renderSummaryCard(state.taskSummaries[taskId]);
+      panel.innerHTML = renderSummaryCard(state.taskSummaries[taskId], summaryRenderOptions());
       panel.style.display = 'block';
       panel.dataset.loaded = 'true';
       return;
@@ -193,7 +210,7 @@ await saveLocalTaskHistory();
         panel.dataset.loaded = 'true';
         return;
       }
-      panel.innerHTML = renderSummaryCard(summary);
+      panel.innerHTML = renderSummaryCard(summary, summaryRenderOptions());
       panel.dataset.loaded = 'true';
   } catch (e) {
       panel.innerHTML= '<span style="color:#ef4444;font-size:0.82rem;">\u65e5\u5fd7\u83b7\u53d6\u5931\u8d25</span>';

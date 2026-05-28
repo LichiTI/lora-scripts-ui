@@ -102,6 +102,7 @@ export function getRegisteredSlots() {
 
 export var pluginStore = {
   runtime: null,       // /api/plugins/runtime 返回的完整数据
+  sdk: null,           // /api/plugins/sdk/status
   capabilities: null,  // /api/plugins/capabilities
   hooks: null,         // /api/plugins/hooks
   audit: null,         // /api/plugins/audit
@@ -185,9 +186,20 @@ export async function reloadAllPlugins() {
   try {
     await api.reloadPlugins();
     await loadPluginRuntime();
+    await loadPluginSdkStatus();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
+  }
+}
+
+/** 加载插件 SDK 状态 */
+export async function loadPluginSdkStatus() {
+  try {
+    var resp = await api.getPluginSdkStatus();
+    pluginStore.sdk = _unwrapApiPayload(resp);
+  } catch (e) {
+    pluginStore.sdk = null;
   }
 }
 
@@ -196,6 +208,7 @@ export async function approvePlugin(pluginId) {
   try {
     await api.approvePlugin(pluginId);
     await loadPluginRuntime();
+    await loadPluginSdkStatus();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -207,6 +220,7 @@ export async function revokePlugin(pluginId) {
   try {
     await api.revokePluginApproval(pluginId);
     await loadPluginRuntime();
+    await loadPluginSdkStatus();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -218,8 +232,19 @@ export async function toggleDeveloperMode(enabled) {
   try {
     await api.setPluginDeveloperMode(enabled);
     await loadPluginRuntime();
+    await loadPluginSdkStatus();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
+  }
+}
+
+/** 提交插件 SDK runner Job */
+export async function executePluginSdkRunner(runnerId, payload) {
+  try {
+    var resp = await api.executePluginSdkRunner(runnerId, payload || {}, 'ui-user');
+    return { ok: true, data: _unwrapApiPayload(resp) };
+  } catch (e) {
+    return { ok: false, error: e.message || '提交插件 Runner 失败' };
   }
 }

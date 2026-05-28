@@ -12,7 +12,10 @@ export function createBuiltinPickerRenderer(state) {
   const path = $('#builtin-picker-path');
   const list = $('#builtin-picker-list');
   const footer = document.querySelector('.builtin-picker-footer');
+  const pt = state.builtinPicker.pickerType;
+  const canSelectCurrent = pt === 'folder' || pt === 'output-folder' || pt === 'train-dir';
   if (footer) footer.innerHTML = `
+    ${canSelectCurrent ? '<button class="btn btn-outline btn-sm" type="button" onclick="selectBuiltinPickerCurrentRoot()">选择当前目录</button>' : ''}
     <button class="btn btn-outline btn-sm" type="button" onclick="refreshBuiltinPicker()">🔄 刷新</button>
     <button class="btn btn-outline btn-sm" type="button" onclick="closeBuiltinPicker()">取消</button>
   `;
@@ -23,7 +26,6 @@ export function createBuiltinPickerRenderer(state) {
   if (!state.builtinPicker.open) {
     return;
   }
-  const pt = state.builtinPicker.pickerType;
   title.textContent = (pt === 'folder' || pt === 'output-folder') ? '请选择目录' : '请选择模型文件';
   path.textContent = state.builtinPicker.rootLabel;
   if (state.builtinPicker.loading) {

@@ -3,6 +3,7 @@ import { api } from './api.js';
 import {
   pluginStore,
   loadPluginRuntime,
+  loadPluginSdkStatus,
   loadPluginCapabilities,
   loadPluginHooks,
   loadPluginAudit,
@@ -10,6 +11,7 @@ import {
   approvePlugin,
   revokePlugin,
   toggleDeveloperMode,
+  executePluginSdkRunner,
   renderSlot,
   getRegisteredSlots,
 } from './pluginHost.js';
@@ -63,11 +65,22 @@ import {
   _appendSageEnvNote,
 } from './utils/trainingMetrics.js';
 
-import { renderAbout, renderGuide, renderLogs, refreshTensorBoardStatus, startTensorBoardFromLogs, stopTensorBoardFromLogs, createBuiltinPickerRenderer, createStatusDeckRenderer, createNavigatorRenderer, createSettingsRenderer, createConfigFormRenderer, createPreflightRenderer, createSamplesRenderer, createWizardRenderer, createPluginsRenderer, createToolsRenderer, createDatasetRenderer, createSysMonitorRenderer, createTrainingRenderer, renderTurboCore, turboCoreProbeStatus, turboCoreCopyFlags } from './renderers/index.js';
+import { renderAbout, renderGuide, renderLogs, refreshTensorBoardStatus, startTensorBoardFromLogs, stopTensorBoardFromLogs, createBuiltinPickerRenderer, createStatusDeckRenderer, createNavigatorRenderer, createSettingsRenderer, createConfigFormRenderer, createPreflightRenderer, createSamplesRenderer, createWizardRenderer, createPluginsRenderer, createToolsRenderer, createDatasetRenderer, createSysMonitorRenderer, createTrainingRenderer, createExperimentalTrainingRenderer, renderTurboCore, turboCoreProbeStatus, turboCoreCopyFlags } from './renderers/index.js';
 import { createThemeActions, createTrainTabsActions, createJsonPanelActions, createFieldMenuActions, createTaskHistoryActions, createSearchActions, createPickerActions, createLayoutActions, createConfigActions, createSampleActions, createWizardActions, createPluginsActions, createToolsActions, createNavActions, createRuntimeActions, createTerminateActions, createSavedConfigsActions, createTrainingActions, createTrainingMetadataActions } from './actions/index.js';
 
 
 const uiPreferences = readUiPreferences();
+const savedTrainingAdvisorPosition = (() => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('sd-rescripts:training-advisor-position') || 'null');
+    if (!parsed || typeof parsed !== 'object') return null;
+    const x = Number(parsed.x);
+    const y = Number(parsed.y);
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+  } catch (_e) {
+    return null;
+  }
+})();
 
 const state = {
   compactLayout: false,
@@ -98,6 +111,8 @@ const state = {
   roundedUI: uiPreferences.roundedUI,
   verticalTabs: uiPreferences.verticalTabs,
   configWaterfall: localStorage.getItem('sd-rescripts:config-waterfall') === 'true',
+  trainingAdvisorCollapsed: localStorage.getItem('sd-rescripts:training-advisor-collapsed') === 'true',
+  trainingAdvisorPosition: savedTrainingAdvisorPosition,
   activeModule: 'config',
   activeTab: uiPreferences.activeTab,
   navigatorCollapsed: uiPreferences.navigatorCollapsed,
@@ -131,9 +146,11 @@ const state = {
   interrogators: null,
   runtime: null,
   preflight: null,
+  pcieTransferBenchmark: null,
   datasetAnalysis: null,
   samplePrompt: null,
   runtimeError: '',
+  pcieTransferBenchmarkError: '',
   lastMessage: '',
   backendOffline: false,
   sysMonitor: null,
@@ -142,6 +159,7 @@ const state = {
   loading: {
     runtime: false,
     preflight: false,
+    pcieTransferBenchmark: false,
     samplePrompt: false,
     run: false,
   },
@@ -183,6 +201,10 @@ const {
   renderCaptionTagDropoutGroup,
   renderRegularizationFieldGroup,
 } = createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVisible, COLLAPSIBLE_FIELD_KEYS });
+const {
+  renderExperimentalTrainingPanel,
+  renderFloatingTrainingAssistant,
+} = createExperimentalTrainingRenderer({ state });
 // samples renderer（含 5 个渲染函数 + 3 个 action，状态在闭包内维护）
 const {
   renderSamplesPanel,
@@ -205,7 +227,7 @@ const {
   renderPlugins,
   _loadAndRenderPlugins,
   _formatPluginAuditDetail,
-} = createPluginsRenderer({ pluginStore, loadPluginRuntime, getRegisteredSlots, api });
+} = createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPluginSdkStatus, getRegisteredSlots, api });
 // tools renderer
 const { renderTools, renderToolDetail } = createToolsRenderer({ state, renderSlot });
 // dataset renderer + actions
@@ -322,8 +344,9 @@ const {
   pickPathForInput,
   openNativePicker,
   closeBuiltinPicker,
- refreshBuiltinPicker,
+  refreshBuiltinPicker,
   selectBuiltinPickerItem,
+  selectBuiltinPickerCurrentRoot,
   openBuiltinPickerForInput,
   setupNativePicker,
 } = createPickerActions({ state, api, showToast, renderView, renderBuiltinPickerModal });
@@ -333,6 +356,7 @@ window.openNativePicker = openNativePicker;
 window.closeBuiltinPicker = closeBuiltinPicker;
 window.refreshBuiltinPicker = refreshBuiltinPicker;
 window.selectBuiltinPickerItem = selectBuiltinPickerItem;
+window.selectBuiltinPickerCurrentRoot = selectBuiltinPickerCurrentRoot;
 window.openBuiltinPickerForInput = openBuiltinPickerForInput;
 
 
@@ -413,6 +437,7 @@ function init() {
   loadTaskSummariesFromCache();
   renderView(state.activeModule);
   startTaskPolling();
+  startBackendHeartbeat();
   setupTopbarSearch();
   refreshDeveloperModeChrome();
 
@@ -431,10 +456,17 @@ function init() {
 
 
 // 草稿读写：底层 IO 在 utils/storage.js，这里只做 state 合并/写入
+function migrateLegacyDefaultOutputName(config) {
+  if (!config || typeof config !== 'object') return config;
+  const outputName = String(config.output_name ?? '').trim();
+  if (outputName !== 'aki' && outputName !== 'aki_') return config;
+  return { ...config, output_name: 'lulynx_' };
+}
+
 function loadDraft() {
   const parsed = readDraftFromStorage();
   if (!parsed) return;
-  mergeConfigPatch(parsed);
+  mergeConfigPatch(migrateLegacyDefaultOutputName(parsed));
   state.hasLocalDraft = true;
 }
 
@@ -480,7 +512,7 @@ async function loadBootstrapData() {
   }
 
   if (savedParamsResult.status === 'fulfilled' && !state.hasLocalDraft) {
-    mergeConfigPatch(savedParamsResult.value.data || {});
+    mergeConfigPatch(migrateLegacyDefaultOutputName(savedParamsResult.value.data || {}));
     saveDraft();
   }
 
@@ -525,6 +557,82 @@ async function refreshBackendConfigOptions() {
 window.refreshBackendConfigOptions = refreshBackendConfigOptions;
 
 
+const BACKEND_OFFLINE_MESSAGE = '未连接到后端,可能是因为VPN/防火墙或未启动后端';
+let backendOfflineDismissed = false;
+
+function ensureBackendOfflineOverlay() {
+  let overlay = document.getElementById('backend-offline-overlay');
+  if (overlay) {
+    return overlay;
+  }
+
+  overlay = document.createElement('div');
+  overlay.id = 'backend-offline-overlay';
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.innerHTML = `
+    <div class="backend-offline-panel" role="alert" aria-live="assertive">
+      <button class="backend-offline-close" type="button" aria-label="关闭">×</button>
+      <div class="backend-offline-title">${BACKEND_OFFLINE_MESSAGE}</div>
+    </div>
+  `;
+  overlay.querySelector('.backend-offline-close')?.addEventListener('click', () => {
+    backendOfflineDismissed = true;
+    overlay.classList.remove('visible');
+    overlay.setAttribute('aria-hidden', 'true');
+  });
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function setBackendOffline(offline) {
+  const nextOffline = Boolean(offline);
+  const changed = state.backendOffline !== nextOffline;
+  state.backendOffline = nextOffline;
+  if (!nextOffline) {
+    backendOfflineDismissed = false;
+  }
+
+  const overlay = ensureBackendOfflineOverlay();
+  const visible = nextOffline && !backendOfflineDismissed;
+  overlay.classList.toggle('visible', visible);
+  overlay.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+  if (changed) {
+    renderTaskStatus();
+    syncFooterAction();
+  }
+}
+
+function startBackendHeartbeat() {
+  const INTERVAL = 3000;
+  let inFlight = false;
+
+  async function probe() {
+    if (inFlight) {
+      return;
+    }
+    inFlight = true;
+    try {
+      const response = await fetch('/health', { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`health check failed: ${response.status}`);
+      }
+      setBackendOffline(false);
+    } catch (error) {
+      if (!state.backendOffline) {
+        console.warn('[BackendHeartbeat] 后端不可达。', error?.message || '');
+      }
+      setBackendOffline(true);
+    } finally {
+      inFlight = false;
+    }
+  }
+
+  ensureBackendOfflineOverlay();
+  probe();
+  window.setInterval(probe, INTERVAL);
+}
+
 function startTaskPolling() {
   let _pollFailCount = 0;
   const BASE_INTERVAL = 3000;
@@ -546,7 +654,7 @@ function startTaskPolling() {
       // 后端恢复在线
       if (_pollFailCount > 0) {
         _pollFailCount = 0;
-        state.backendOffline = false;
+        setBackendOffline(false);
         showToast('✓ 后端服务已连接');
         renderTaskStatus();
       }
@@ -612,7 +720,7 @@ function startTaskPolling() {
       if (_pollFailCount === 1) {
         // 首次失败时提示（之后静默，避免刷屏）
         console.warn('[TaskPoll] 后端不可达，轮询将自动降频重试。', error.message || '');
-        state.backendOffline = true;
+        setBackendOffline(true);
         renderTaskStatus();
         syncFooterAction();
       }
@@ -766,7 +874,9 @@ function renderConfig(container) {
       ${renderPreflightReport()}
       ${renderSlot('training.preflight_panel')}
       ${renderSlot('config.after_status_deck')}
+      ${renderExperimentalTrainingPanel()}
       ${visibleSections.map(renderSectionWithAnchor).join('')}
+      ${renderFloatingTrainingAssistant()}
     </div>
   `;
 
@@ -780,6 +890,54 @@ function renderConfig(container) {
     _setupWaterfallScrollSpy(container);
   }
 }
+
+window.validateTurboLoraOutputFromConfig = async function() {
+  const outputPath = String(state.config?.output_path || '').trim();
+  if (!outputPath) {
+    showToast('请先填写输出 LoRA 路径。');
+    return;
+  }
+  try {
+    showToast('正在提交输出 sidecar 验证任务...');
+    const response = await api.validateTurboLoraOutput(outputPath, state.config?.runtime_id || state.config?.execution_profile_id || '');
+    if (response.status !== 'success') {
+      showToast(response.message || '输出验证任务提交失败。');
+      return;
+    }
+    showToast(response.message || '输出验证任务已提交，可在训练监控/日志中查看。');
+    state.trainSubTab = 'monitor';
+    state.activeModule = 'training';
+    renderView('training');
+  } catch (error) {
+    showToast(error.message || '输出验证请求失败。');
+  }
+};
+
+window.reportTurboLoraSamplesFromConfig = async function() {
+  const outputPath = String(state.config?.output_path || '').trim();
+  if (!outputPath) {
+    showToast('请先填写输出 LoRA 路径。');
+    return;
+  }
+  try {
+    showToast('正在提交样张报告任务...');
+    const response = await api.reportTurboLoraSamples(
+      outputPath,
+      String(state.config?.samples_dir || '').trim(),
+      state.config?.runtime_id || state.config?.execution_profile_id || '',
+    );
+    if (response.status !== 'success') {
+      showToast(response.message || '样张报告任务提交失败。');
+      return;
+    }
+    showToast(response.message || '样张报告任务已提交，可在训练监控/日志中查看。');
+    state.trainSubTab = 'monitor';
+    state.activeModule = 'training';
+    renderView('training');
+  } catch (error) {
+    showToast(error.message || '样张报告请求失败。');
+  }
+};
 
 // ---- 瀑布流滚动联动 ----
 let _waterfallScrollHandler = null;
@@ -824,6 +982,59 @@ window.toggleTrainingGroup = function(group) {
   renderNavigator();
 };
 
+window.toggleTrainingAdvisor = function() {
+  state.trainingAdvisorCollapsed = !state.trainingAdvisorCollapsed;
+  localStorage.setItem('sd-rescripts:training-advisor-collapsed', state.trainingAdvisorCollapsed ? 'true' : 'false');
+  renderView(state.activeModule || 'config');
+};
+
+window.startTrainingAdvisorDrag = function(event) {
+  if (event.button !== 0 || event.target?.closest?.('button')) return;
+  const panel = event.currentTarget?.closest?.('.floating-training-advisor');
+  if (!panel) return;
+  event.preventDefault();
+
+  const rect = panel.getBoundingClientRect();
+  const offsetX = event.clientX - rect.left;
+  const offsetY = event.clientY - rect.top;
+  const margin = 12;
+
+  panel.classList.add('is-dragging');
+  panel.style.right = 'auto';
+  panel.style.bottom = 'auto';
+  panel.style.left = `${rect.left}px`;
+  panel.style.top = `${rect.top}px`;
+
+  const clampPosition = (clientX, clientY) => {
+    const maxX = Math.max(margin, window.innerWidth - panel.offsetWidth - margin);
+    const maxY = Math.max(margin, window.innerHeight - panel.offsetHeight - margin);
+    return {
+      x: Math.min(Math.max(margin, clientX - offsetX), maxX),
+      y: Math.min(Math.max(margin, clientY - offsetY), maxY),
+    };
+  };
+
+  const move = (moveEvent) => {
+    const pos = clampPosition(moveEvent.clientX, moveEvent.clientY);
+    panel.style.left = `${pos.x}px`;
+    panel.style.top = `${pos.y}px`;
+  };
+
+  const stop = (upEvent) => {
+    const pos = clampPosition(upEvent.clientX, upEvent.clientY);
+    state.trainingAdvisorPosition = pos;
+    localStorage.setItem('sd-rescripts:training-advisor-position', JSON.stringify(pos));
+    panel.classList.remove('is-dragging');
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', stop);
+    window.removeEventListener('pointercancel', stop);
+  };
+
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', stop);
+  window.addEventListener('pointercancel', stop);
+};
+
 function _persistTrainingGroupsCollapsed() {
   try {
     const arr = Array.from(state._collapsedTrainingGroups || []);
@@ -866,6 +1077,72 @@ const {
   renderView,
  resetTransientState,
 });
+function _previewGroupsForEdit() {
+  const raw = state.config.preview_groups;
+  if (Array.isArray(raw)) return raw.map((group) => ({ ...(group || {}) }));
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map((group) => ({ ...(group || {}) }));
+    } catch (_e) { /* ignore invalid legacy string */ }
+  }
+  const prompts = String(state.config.positive_prompts || state.config.sample_prompts || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const negative = String(state.config.negative_prompts || state.config.sample_negative || '');
+  return (prompts.length ? prompts : ['']).map((prompt, index) => ({
+    name: index === 0 ? 'LoRA 对照' : `测试组 ${index + 1}`,
+    mode: 'lora',
+    prompt,
+    negative_prompt: negative,
+    seed: state.config.sample_seed || '',
+    lora_weight: 1,
+    start_epoch: '',
+    start_after_epochs: '',
+  }));
+}
+
+function _commitPreviewGroups(groups) {
+  state.config.preview_groups = groups;
+  syncConfigState();
+  saveDraft();
+  updateJSONPreview();
+  renderView('config');
+}
+
+window.addPreviewGroup = function() {
+  const groups = _previewGroupsForEdit();
+  groups.push({
+    name: `测试组 ${groups.length + 1}`,
+    mode: groups.length === 0 ? 'lora' : 'base',
+    prompt: String(state.config.positive_prompts || state.config.sample_prompts || ''),
+    negative_prompt: String(state.config.negative_prompts || state.config.sample_negative || ''),
+    seed: state.config.sample_seed || '',
+    lora_weight: 1,
+    start_epoch: '',
+    start_after_epochs: '',
+  });
+  _commitPreviewGroups(groups);
+};
+
+window.removePreviewGroup = function(index) {
+  const groups = _previewGroupsForEdit();
+  groups.splice(Number(index), 1);
+  _commitPreviewGroups(groups);
+};
+
+window.updatePreviewGroup = function(index, key, value) {
+  const groups = _previewGroupsForEdit();
+  const i = Number(index);
+  if (!Number.isInteger(i) || i < 0 || i >= groups.length) return;
+  groups[i] = { ...(groups[i] || {}), [key]: value };
+  state.config.preview_groups = groups;
+  syncConfigState();
+  saveDraft();
+  updateJSONPreview();
+};
+
 window.updateConfigValue = updateConfigValue;
 window.resetAllParams = resetAllParams;
 window.resetFieldValue = resetFieldValue;
@@ -897,6 +1174,16 @@ window.scanDataset = scanDataset;
 window.toggleFolderPreview = toggleFolderPreview;
 window.loadMoreThumbs = loadMoreThumbs;
 window.runTrainingPreflight = runTrainingPreflight;
+
+window.openAdvancedMonitor = async function() {
+  try {
+    await api.openAdvancedMonitor();
+    showToast('高级监控器已打开。');
+  } catch (error) {
+    showToast(error?.message || '打开高级监控器失败。');
+  }
+};
+
 // wizard / plugins / tools actions
 // wizard.executeTraining 指向 main.js 中 window.executeTraining（后续 Stage 3.16 迁到 actions/training.js）
 const { wizardSet, wizardStartTraining } = createWizardActions({
@@ -912,6 +1199,7 @@ const {
   pluginReloadAll,
   pluginApprove,
   pluginRevoke,
+  pluginExecuteSdkRunner,
   pluginShowAudit,
   pluginSavePytorchOptimizerSettings,
   pluginResetPytorchOptimizerSettings,
@@ -921,6 +1209,7 @@ const {
   reloadAllPlugins,
   approvePlugin,
   revokePlugin,
+  executePluginSdkRunner,
   loadPluginAudit,
   getPluginSettings: api.getPluginSettings,
   savePluginSettings: api.savePluginSettings,
@@ -935,6 +1224,7 @@ window.pluginToggleDevMode = async function(enabled) {
 window.pluginReloadAll = pluginReloadAll;
 window.pluginApprove = pluginApprove;
 window.pluginRevoke = pluginRevoke;
+window.pluginExecuteSdkRunner = pluginExecuteSdkRunner;
 window.pluginShowAudit = pluginShowAudit;
 window.pluginSavePytorchOptimizerSettings = pluginSavePytorchOptimizerSettings;
 window.pluginResetPytorchOptimizerSettings = pluginResetPytorchOptimizerSettings;
@@ -968,9 +1258,20 @@ const {
 window.dismissPreflightReport = dismissPreflightReport;
 window.dismissTrainingSummary = dismissTrainingSummary;
 // runtime actions
-const { runPreflight, refreshRuntime } = createRuntimeActions({ state, api, showToast, renderView, updateJSONPreview, buildRunConfig });
+const { runPreflight, refreshRuntime, applyTrainingAdvisorPatch, runPcieTransferBenchmark } = createRuntimeActions({
+  state,
+  api,
+  showToast,
+  renderView,
+  updateJSONPreview,
+  buildRunConfig,
+  mergeConfigPatch,
+  saveDraft,
+});
 window.runPreflight = runPreflight;
 window.refreshRuntime = refreshRuntime;
+window.applyTrainingAdvisorPatch = applyTrainingAdvisorPatch;
+window.runPcieTransferBenchmark = runPcieTransferBenchmark;
 // terminate actions
 const { terminateAllTasks } = createTerminateActions({
   state, api, showToast, renderView,

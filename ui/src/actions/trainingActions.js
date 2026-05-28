@@ -23,6 +23,14 @@ export function createTrainingActions({
   startTrainingLogPolling,
   startSysMonitorPolling,
 }) {
+  function switchToTrainingMonitor() {
+    state.activeModule = 'training';
+    state.trainSubTab = 'monitor';
+    document.querySelectorAll('.nav-item').forEach((item) => {
+      item.classList.toggle('active', item.dataset.module === 'training');
+    });
+  }
+
   function validateConfigConflicts() {
     const c = state.config;
     const tt = state.activeTrainingType;
@@ -31,10 +39,12 @@ export function createTrainingActions({
     const isSageEnv = (state.runtime?.runtime?.environment || '').includes('sageattention');
     const toBool = (v) => v === true || v === 'true' || v === 1;
     const toNum = (v) => { const n = Number(v); return Number.isNaN(n) ? 0 : n; };
+    const structuredCaptionMix = toBool(c.caption_source_mix_enabled);
     const networkModule = String(c.network_module || '').trim().toLowerCase();
     const loraType = String(c.lora_type || '').trim().toLowerCase();
     const optimizerText = `${c.optimizer_type || ''} ${c.optimizer || ''}`.toLowerCase();
-    const isAnimaRoute = String(tt || '').startsWith('anima-') || String(c.model_train_type || '').toLowerCase().startsWith('anima-');
+    const routeText = String((tt || '') + ' ' + (c.model_train_type || '')).toLowerCase();
+    const isNativeDitSelectiveRoute = routeText.includes('anima') || routeText.includes('newbie');
     const swapGranularity = String(c.swap_granularity || 'off').trim().toLowerCase().replace('-', '_');
     const validSwapGranularities = new Set(['off', 'auto', 'block', 'merged_block', 'layer']);
     const swapRatio = toNum(c.swap_ratio);
@@ -50,6 +60,9 @@ export function createTrainingActions({
     const moduleOffloadRequested = moduleOffloadEnabled && (effectiveModuleOffloadBackboneRatio > 0 || effectiveModuleOffloadTextEncoderRatio > 0);
     const distributedEnabled = toBool(c.enable_distributed_training) || toBool(c.enable_distributed) || toBool(c.multi_gpu) || toNum(c.num_processes) > 1 || toNum(c.num_machines) > 1;
     const moduleOffloadPipelineRoute = String(tt || '').includes('controlnet') || String(tt || '').includes('ip-adapter') || String(tt || '').includes('lllite') || toBool(c.ip_adapter_enabled) || Boolean(String(c.controlnet_model || '').trim());
+    const checkpointPolicy = String(c.checkpoint_policy || 'auto').trim().toLowerCase().replace('-', '_');
+    const checkpointRequestsOffload = checkpointPolicy === 'offloaded' || (checkpointPolicy === 'auto' && toBool(c.cpu_offload_checkpointing));
+    const checkpointRequestsGenericGradient = checkpointPolicy === 'full' || (checkpointPolicy === 'selective' && !isNativeDitSelectiveRoute) || (checkpointPolicy === 'auto' && toBool(c.gradient_checkpointing));
     const flowModel = String(c.flow_model || '').trim();
     const flowEnabled = flowModel === 'rectified_flow' || flowModel === 'cfm' || toBool(c.flow_model);
     const timestepSampling = String(c.timestep_sampling || c.flow_timestep_distribution || 'uniform');
@@ -77,6 +90,9 @@ export function createTrainingActions({
       if (toNum(c.token_warmup_step) > 0) conflicts.push('Token 预热步数');
       if (conflicts.length > 0) {
         errors.push(`缓存文本编码器输出时不能同时使用「${conflicts.join('」「')}」。请关闭「缓存文本编码器输出」或关闭「${conflicts.join('」「')}」。`);
+      }
+      if (structuredCaptionMix) {
+        warnings.push('Tag/NL 混合采样可以配合缓存文本编码器输出，但需要重建文本缓存生成 caption_variant_* 变体；旧缓存会回退为原始文本 embedding。');
       }
     }
 
@@ -186,10 +202,10 @@ export function createTrainingActions({
     if (memorySwapEnabled && (toBool(c.safe_fallback) || toBool(c.newbie_safe_fallback))) {
       errors.push('显存交换不能与 OOM 安全回退同时使用。请关闭其中一个。');
     }
-    if (swapGranularity === 'layer' && toBool(c.gradient_checkpointing)) {
-      errors.push('Layer Swap 不能与梯度检查点同时使用。请改用 block/merged_block 或关闭梯度检查点。');
+    if (swapGranularity === 'layer' && checkpointRequestsGenericGradient) {
+      errors.push('Layer Swap 不能与通用梯度检查点同时使用。请改用 block/merged_block，或关闭 full / 会回退为 full 的 selective checkpoint。');
     }
-    if (memorySwapEnabled && toBool(c.cpu_offload_checkpointing)) {
+    if (memorySwapEnabled && checkpointRequestsOffload) {
       warnings.push('显存交换与 cpu_offload_checkpointing 通常不建议同时使用。');
     }
 
@@ -223,10 +239,10 @@ export function createTrainingActions({
     if (moduleOffloadRequested && moduleOffloadPipelineRoute) {
       errors.push('模块级 Offload v1 不能用于 ControlNet / IP-Adapter / LLLite 路线。');
     }
-    if (moduleOffloadRequested && toBool(c.gradient_checkpointing)) {
-      errors.push('模块级 Offload v1 不能与梯度检查点同时使用。');
+    if (moduleOffloadRequested && checkpointRequestsGenericGradient) {
+      errors.push('模块级 Offload v1 不能与通用梯度检查点同时使用。');
     }
-    if (moduleOffloadRequested && toBool(c.cpu_offload_checkpointing)) {
+    if (moduleOffloadRequested && checkpointRequestsOffload) {
       errors.push('模块级 Offload 不能与 cpu_offload_checkpointing 同时使用。');
     }
 
@@ -254,10 +270,20 @@ export function createTrainingActions({
     return { errors,warnings };
   }
 
+  function getLabLaunchApi(trainingType) {
+    if (trainingType === 'lab-distiller') return api.startLabDistiller;
+    if (trainingType === 'sdxl-turbo-lora') return api.startTurboLora;
+    if (trainingType === 'anima-few-step-lora' || trainingType === 'newbie-few-step-lora') {
+      return api.startDitFewStepLora;
+    }
+    return null;
+  }
+
   async function executeTraining() {
     state.loading.run = true;
     const runConfig = buildRunConfig(state.config, state.activeTrainingType);
     const launchMetadata = buildTaskMetadataFromConfig(runConfig, state.activeTrainingType);
+    const labLaunchApi = getLabLaunchApi(state.activeTrainingType);
     syncFooterAction();
     resetTrainingMetrics();
     let trainingLaunched = false;
@@ -266,6 +292,7 @@ export function createTrainingActions({
       showToast(clientCheck.errors[0]);
       state.preflight = { can_start: false, errors: clientCheck.errors, warnings: clientCheck.warnings };
       state.loading.run = false;
+      syncFooterAction();
       if (state.activeModule === 'config') renderView('config');
       return;
     }
@@ -280,21 +307,37 @@ export function createTrainingActions({
     }
 
     try {
-      const preflightResponse =await api.runPreflight(runConfig);
-      if (preflightResponse.status !== 'success' || !preflightResponse.data?.can_start) {
-        state.preflight = preflightResponse.data || {
-          can_start: false,
-      errors: [preflightResponse.message || '训练预检阻止了本次训练。'],
-          warnings: [],
-        };
-        showToast('预检未通过，请先修正错误。');
-        return;
-      }
+      if (!labLaunchApi) {
+        const preflightResponse =await api.runPreflight(runConfig);
+        if (preflightResponse.status !== 'success' || !preflightResponse.data?.can_start) {
+          state.preflight = preflightResponse.data || {
+            can_start: false,
+        errors: [preflightResponse.message || '训练预检阻止了本次训练。'],
+            warnings: [],
+          };
+          state.loading.run = false;
+          syncFooterAction();
+          showToast('预检未通过，请先修正错误。');
+          return;
+        }
 
-      state.preflight = preflightResponse.data;
+        state.preflight = preflightResponse.data;
+        if (state.preflight?.execution_profile_id) {
+          runConfig.execution_profile_id = state.preflight.execution_profile_id;
+        }
+        if (state.preflight?.resolved_attention_backend) {
+          runConfig.attention_backend = state.preflight.resolved_attention_backend;
+        }
+      } else {
+        state.preflight = {
+          can_start: true,
+          errors: [],
+          warnings: ['实验训练由 Lulynx LAB 后端路由校验，已跳过普通 sd-scripts 预检。'],
+        };
+      }
       state._pendingTrainingMetadata = launchMetadata;
       state.activeTrainingTaskId = '';
-      const response = await api.runTraining(runConfig);
+      const response = labLaunchApi ? await labLaunchApi(runConfig) : await api.runTraining(runConfig);
       if (response.status !== 'success') {
         state._pendingTrainingMetadata = null;
       state.activeTrainingTaskId = '';
@@ -304,11 +347,20 @@ export function createTrainingActions({
       trainingLaunched = true;
 
       state.trainingFailed = false;
-      state.lastMessage = response.message || '训练已启动。';
+      state.lastMessage = response.message || (labLaunchApi ? '实验训练任务已提交。' : '训练已启动。');
       showToast(state.lastMessage);
       resetTrainingMetrics();
       const responseTaskId = response?.data?.task_id || response?.data?.id || '';
+      if (response?.data?.execution_profile_id) {
+        launchMetadata.execution_profile_id = response.data.execution_profile_id;
+      }
+      if (response?.data?.resolved_attention_backend) {
+        launchMetadata.attention_backend = response.data.resolved_attention_backend;
+      }
+      if (responseTaskId) state.activeTrainingTaskId = responseTaskId;
       if (responseTaskId) rememberTrainingTaskMetadata(responseTaskId, launchMetadata);
+      switchToTrainingMonitor();
+      renderView('training');
       const tasksResponse = await api.getTasks();
       const freshTasks = tasksResponse?.data?.tasks || [];
       const localHistory = await loadLocalTaskHistory();
@@ -337,6 +389,7 @@ export function createTrainingActions({
       showToast(error.message || '训练请求失败。');
     } finally {
       state.loading.run = false;
+      syncFooterAction();
       if (state.activeModule === 'training') {
         renderView('training');
       } else if (state.activeModule === 'config') {
@@ -349,3 +402,6 @@ export function createTrainingActions({
 
   return { validateConfigConflicts, executeTraining };
 }
+
+
+

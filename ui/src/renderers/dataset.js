@@ -1098,10 +1098,10 @@ export function createDatasetRenderer({ state, api, showToast, renderView }) {
           <div class="config-group" style="grid-column:1/-1;">
             <label>数据集 / 图片目录</label>
             <div class="input-picker">
-              <button class="picker-icon" type="button" onclick="pickPathForInput('bbox-path', 'folder')">
+              <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('bbox-path', 'folder')">
                 <svg class="icon"><use href="#icon-folder"></use></svg>
               </button>
-              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（train 目录）" onclick="openBuiltinPickerForInput('bbox-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('bbox-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
               <input class="text-input" type="text" id="bbox-path" placeholder="./datasets/yolo/images/train" value="${escapeHtml(bboxState.datasetPath || '')}">
             </div>
           </div>
@@ -1208,10 +1208,10 @@ const defaultModel = 'wd-eva02-large-v3';
           <div class="config-group" style="grid-column:1/-1;">
             <label>数据集路径</label>
             <div class="input-picker">
-              <button class="picker-icon" type="button" onclick="pickPathForInput('tagger-path', 'folder')">
+              <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('tagger-path', 'folder')">
                 <svg class="icon"><use href="#icon-folder"></use></svg>
               </button>
-              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（train 目录）" onclick="openBuiltinPickerForInput('tagger-path', 'folder')"><svgclass="icon"><use href="#icon-folder"></use></svg></button>
+              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('tagger-path', 'folder')"><svgclass="icon"><use href="#icon-folder"></use></svg></button>
               <input class="text-input" type="text" id="tagger-path" placeholder="./train/your_dataset">
             </div>
           </div>
@@ -1267,10 +1267,10 @@ const defaultModel = 'wd-eva02-large-v3';
           <div class="config-group" style="grid-column:1/-1;">
             <label>数据集路径</label>
             <div class="input-picker">
-              <button class="picker-icon" type="button" onclick="pickPathForInput('llm-tagger-path', 'folder')">
+              <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('llm-tagger-path', 'folder')">
             <svg class="icon"><use href="#icon-folder"></use></svg>
               </button>
-              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（train 目录）" onclick="openBuiltinPickerForInput('llm-tagger-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('llm-tagger-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
               <input class="text-input" type="text" id="llm-tagger-path" placeholder="./train/your_dataset">
             </div>
           </div>
@@ -1555,10 +1555,10 @@ llm_model: model,
           <div class="config-group" style="grid-column:1/-1;">
             <label>输入目录</label>
             <div class="input-picker">
-              <button class="picker-icon" type="button" onclick="pickPathForInput('resize-input-path', 'folder')">
+              <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('resize-input-path', 'folder')">
                 <svg class="icon"><use href="#icon-folder"></use></svg>
               </button>
-              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（train 目录）" onclick="openBuiltinPickerForInput('resize-input-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('resize-input-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
     <input class="text-input" type="text" id="resize-input-path" placeholder="选择或输入数据集文件夹路径">
             </div>
             <p class="field-desc">选择或手动输入 train 目录下的数据集文件夹路径。</p>
@@ -1566,7 +1566,7 @@ llm_model: model,
           <div class="config-group" style="grid-column:1/-1;">
             <label>输出目录（留空则生成 resized 子目录）</label>
             <div class="input-picker">
-              <button class="picker-icon" type="button" onclick="pickPathForInput('resize-output', 'folder')">
+              <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('resize-output', 'folder')">
                 <svg class="icon"><use href="#icon-folder"></use></svg>
               </button>
               <input class="text-input" type="text" id="resize-output" placeholder="留空则生成 输入目录/resized">
@@ -1710,10 +1710,10 @@ llm_model: model,
             <div class="config-group" style="grid-column:1/-1;">
               <label>数据集路径</label>
               <div class="input-picker">
-                <button class="picker-icon" type="button" onclick="pickPathForInput('analysis-path', 'folder')">
+                <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('analysis-path', 'folder')">
                   <svg class="icon"><use href="#icon-folder"></use></svg>
                 </button>
-                <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（train 目录）" onclick="openBuiltinPickerForInput('analysis-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+                <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('analysis-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
                 <input class="text-input" type="text" id="analysis-path" placeholder="./train/your_dataset">
               </div>
             </div>
@@ -2000,8 +2000,8 @@ llm_model: model,
             <div class="config-group" style="grid-column:1/-1;">
               <label>数据集路径</label>
               <div class="input-picker">
-                <button class="picker-icon" type="button" onclick="pickPathForInput('suggest-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
-                <button class="picker-mode-icon-btn" type="button" onclick="openBuiltinPickerForInput('suggest-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+                <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('suggest-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+                <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('suggest-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
                 <input class="text-input" type="text" id="suggest-path" placeholder="./train/your_dataset">
               </div>
             </div>
@@ -2168,10 +2168,10 @@ llm_model: model,
           <div class="config-group" style="grid-column:1/-1;">
             <label>数据集路径</label>
             <div class="input-picker">
-              <button class="picker-icon" type="button" onclick="pickPathForInput('cleanup-path', 'folder')">
+              <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('cleanup-path', 'folder')">
                 <svg class="icon"><use href="#icon-folder"></use></svg>
               </button>
-              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（train 目录）" onclick="openBuiltinPickerForInput('cleanup-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('cleanup-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
               <input class="text-input" type="text" id="cleanup-path" placeholder="./train/your_dataset">
             </div>
           </div>
@@ -2386,10 +2386,10 @@ llm_model: model,
           <div class="config-group" style="grid-column:1/-1;">
             <label>数据集路径</label>
             <div class="input-picker">
-              <button class="picker-icon" type="button" onclick="pickPathForInput('tagmanager-path', 'folder')">
+              <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('tagmanager-path', 'folder')">
                 <svg class="icon"><use href="#icon-folder"></use></svg>
               </button>
-              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（train 目录）" onclick="openBuiltinPickerForInput('tagmanager-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('tagmanager-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
               <input class="text-input" type="text" id="tagmanager-path" placeholder="./train/your_dataset">
             </div>
           </div>
@@ -2654,10 +2654,10 @@ llm_model: model,
           <div class="config-group" style="grid-column:1/-1;">
             <label>数据集路径</label>
             <div class="input-picker">
-              <button class="picker-icon" type="button" onclick="pickPathForInput('backup-path', 'folder')">
+              <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('backup-path', 'folder')">
                 <svg class="icon"><use href="#icon-folder"></use></svg>
               </button>
-              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（train 目录）" onclick="openBuiltinPickerForInput('backup-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('backup-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
              <input class="text-input" type="text"id="backup-path" placeholder="./train/your_dataset">
             </div>
           </div>
@@ -2754,10 +2754,10 @@ llm_model: model,
           <div class="config-group" style="grid-column:1/-1;">
             <label>数据集路径</label>
             <div class="input-picker">
-              <button class="picker-icon" type="button" onclick="pickPathForInput('maskedloss-path', 'folder')">
+              <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('maskedloss-path', 'folder')">
                 <svg class="icon"><use href="#icon-folder"></use></svg>
               </button>
-              <button class="picker-mode-icon-btn"type="button" title="内置文件选择器（train 目录）" onclick="openBuiltinPickerForInput('maskedloss-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
+              <button class="picker-mode-icon-btn"type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('maskedloss-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
               <input class="text-input" type="text" id="maskedloss-path" placeholder="./train/your_dataset">
             </div>
          </div>
@@ -2848,3 +2848,4 @@ const result = $('#maskedloss-result');
     runMaskedLossAudit,
   };
 }
+
