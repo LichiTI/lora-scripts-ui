@@ -1211,7 +1211,7 @@ const defaultModel = 'wd-eva02-large-v3';
               <button class="picker-icon" type="button" title="系统文件选择器（Windows 资源管理器风格）" onclick="pickPathForInput('tagger-path', 'folder')">
                 <svg class="icon"><use href="#icon-folder"></use></svg>
               </button>
-              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('tagger-path', 'folder')"><svgclass="icon"><use href="#icon-folder"></use></svg></button>
+              <button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器 · train 目录）" onclick="openBuiltinPickerForInput('tagger-path', 'folder')"><svg class="icon"><use href="#icon-folder"></use></svg></button>
               <input class="text-input" type="text" id="tagger-path" placeholder="./train/your_dataset">
             </div>
           </div>

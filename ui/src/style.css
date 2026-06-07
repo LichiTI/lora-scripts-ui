@@ -1478,8 +1478,9 @@ input[type="range"]::-webkit-slider-thumb {
   padding: 0 16px;
   background: var(--bg-card);
   color: var(--text-main);
-  border: 1px solid var(--border);
+  border: 2px solid var(--accent);
   border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--accent-glow), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4176,6 +4177,7 @@ body.compact-layout .config-group.row {
   background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
   padding: 10px;
+  -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   transition: width 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
@@ -4183,6 +4185,7 @@ body.compact-layout .config-group.row {
 .floating-training-advisor.is-dragging {
   box-shadow: 0 22px 54px rgba(0, 0, 0, 0.26);
   transition: none;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -5062,20 +5065,29 @@ body.compact-layout .config-group.row {
   max-width: 1500px;
 }
 
+/* 内容瀑布流：双排时使用 CSS columns，让短卡片自动补位，
+   不再按 tab 大段分栏。顶部 tab 只作为滚动锚点导航存在。 */
 .waterfall-content-two-column {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 18px;
-  align-items: start;
+  column-count: 2;
+  column-gap: 18px;
+}
+
+.waterfall-content-two-column > .form-section,
+.waterfall-content-two-column > .waterfall-tab-anchor {
+  display: inline-block;
+  width: 100%;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .waterfall-content-two-column > .waterfall-tab-anchor,
 .waterfall-content-two-column > .waterfall-wide-section {
-  grid-column: 1 / -1;
+  display: block;
+  column-span: all;
 }
 
 .waterfall-content-two-column > .form-section {
-  margin-bottom: 0;
+  margin-bottom: 16px;
 }
 
 /* 长 section（如网络设置）横跨整行后，内部字段再做双列分流，
@@ -5105,22 +5117,34 @@ body.compact-layout .config-group.row {
 
 @media (max-width: 1180px) {
   .waterfall-content-two-column {
-    grid-template-columns: 1fr;
+    column-count: 1;
   }
 }
 
 .form-container-waterfall .waterfall-tab-anchor {
   position: relative;
-  margin: 28px 0 12px;
-  padding: 14px 0 10px;
-  border-top: 2px solid var(--accent, #5b8cff);
-  /* 注意：.content-area 是独立滚动容器，topbar 是它的兄弟元素，
-     不会遮挡其内部内容，因此不需要 scroll-margin-top 补偿。
-     设为 0 才能保证「点击 tab 直接跳到该分段顶部」。 */
   scroll-margin-top: 0;
 }
 
-.form-container-waterfall .waterfall-tab-anchor:first-of-type {
+.form-container-waterfall .waterfall-tab-anchor-compact {
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.form-container-waterfall .waterfall-tab-anchor-compact::after {
+  display: none;
+}
+
+.form-container-waterfall:not(.form-container-waterfall-content) .waterfall-tab-anchor {
+  margin: 28px 0 12px;
+  padding: 14px 0 10px;
+  border-top: 2px solid var(--accent, #5b8cff);
+}
+
+.form-container-waterfall:not(.form-container-waterfall-content) .waterfall-tab-anchor:first-of-type {
   margin-top: 8px;
 }
 
@@ -5135,7 +5159,7 @@ body.compact-layout .config-group.row {
   display: inline-block;
 }
 
-.form-container-waterfall .waterfall-tab-anchor::after {
+.form-container-waterfall:not(.form-container-waterfall-content) .waterfall-tab-anchor::after {
   content: '';
   display: block;
   height: 2px;
@@ -5149,6 +5173,188 @@ body.compact-layout .config-group.row {
 /* 瀑布流模式下 form-section 减小间距，更接近一页式 */
 .form-container-waterfall .form-section {
   margin-bottom: 16px;
+}
+
+.waterfall-mini-nav {
+  position: fixed;
+  top: 92px;
+  right: calc(var(--json-panel-width, 280px) + 18px);
+  z-index: 120;
+  width: min(260px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 150px));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-panel);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.waterfall-mini-nav.is-dragging {
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.26);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.waterfall-mini-nav.is-collapsed {
+  width: min(230px, calc(100vw - 32px));
+}
+
+.waterfall-mini-nav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+}
+
+.waterfall-mini-nav.is-dragging .waterfall-mini-nav-head {
+  cursor: grabbing;
+}
+
+.waterfall-mini-nav-head > div:first-child {
+  min-width: 0;
+}
+
+.waterfall-mini-nav-head strong,
+.waterfall-mini-nav-head span {
+  display: block;
+}
+
+.waterfall-mini-nav-head strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 0.84rem;
+}
+
+.waterfall-mini-nav-head span {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.waterfall-mini-nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-main);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.waterfall-mini-nav-toggle:hover {
+  background: var(--bg-hover, rgba(255,255,255,0.05));
+}
+
+.waterfall-mini-nav.is-collapsed .waterfall-mini-nav-toggle svg {
+  transform: rotate(180deg);
+}
+
+.waterfall-mini-nav-collapsed-row {
+  display: none;
+  padding: 8px 12px 10px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.waterfall-mini-nav.is-collapsed .waterfall-mini-nav-collapsed-row {
+  display: block;
+}
+
+.waterfall-mini-nav.is-collapsed .waterfall-mini-nav-body {
+  display: none;
+}
+
+.waterfall-mini-nav-body {
+  max-height: min(470px, calc(100vh - 220px));
+  overflow: auto;
+  padding: 10px;
+}
+
+.waterfall-mini-nav-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.waterfall-mini-nav-group {
+  position: relative;
+}
+
+.waterfall-mini-nav-parent,
+.waterfall-mini-nav-child {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.waterfall-mini-nav-parent {
+  padding: 6px 7px;
+  border-radius: 7px;
+  color: var(--accent);
+  font-size: 0.96rem;
+  font-weight: 850;
+}
+
+.waterfall-mini-nav-parent:hover,
+.waterfall-mini-nav-child:hover {
+  background: var(--bg-hover, rgba(255,255,255,0.05));
+}
+
+.waterfall-mini-nav-children {
+  position: relative;
+  margin-left: 10px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.waterfall-mini-nav-child {
+  position: relative;
+  display: block;
+  padding: 5px 6px 5px 10px;
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.waterfall-mini-nav-child::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 9px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 860px) {
+  .waterfall-mini-nav {
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+
+  .waterfall-mini-nav.is-collapsed {
+    width: auto;
+  }
 }
 
 /* Toolbox workbench */

@@ -54,7 +54,7 @@ export function createLayoutActions({ state, getAvailableTabs }) {
     const hasFailedRecent = state.trainingFailed;
     const monitorButton = ''
       + '<button class="btn btn-monitor" type="button" onclick="openAdvancedMonitor()" title="打开 Lulynx 高级监控器">'
-      +   '<span class="btn-main">' + _ico('activity') + ' 高级监控器</span>'
+      +   '<span class="btn-main">' + _ico('bar-chart') + ' 高级监控器</span>'
       + '</button>';
 
     if (hasRunningTask) {

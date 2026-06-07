@@ -391,9 +391,11 @@ try {
         if (typeExists) {
           state.activeTrainingType = savedType;
           localStorage.setItem('sd-rescripts:training-type', savedType);
-          state.config = createDefaultConfig(savedType);
         }
       }
+      // 载入已保存参数时必须先回到当前训练类型默认配置，
+      // 否则保存文件中缺失的字段会沿用当前草稿中的旧值（例如 reg_data_dir）。
+      state.config = createDefaultConfig(state.activeTrainingType);
       mergeConfigPatch(data);
       state.hasLocalDraft = true;
       resetTransientState();

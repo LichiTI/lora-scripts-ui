@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
 import { api } from './api.js';
 import {
   pluginStore,
@@ -70,9 +70,9 @@ import { createThemeActions, createTrainTabsActions, createJsonPanelActions, cre
 
 
 const uiPreferences = readUiPreferences();
-const savedTrainingAdvisorPosition = (() => {
+const readFloatingPosition = (storageKey) => {
   try {
-    const parsed = JSON.parse(localStorage.getItem('sd-rescripts:training-advisor-position') || 'null');
+    const parsed = JSON.parse(localStorage.getItem(storageKey) || 'null');
     if (!parsed || typeof parsed !== 'object') return null;
     const x = Number(parsed.x);
     const y = Number(parsed.y);
@@ -80,7 +80,10 @@ const savedTrainingAdvisorPosition = (() => {
   } catch (_e) {
     return null;
   }
-})();
+};
+
+const savedTrainingAdvisorPosition = readFloatingPosition('sd-rescripts:training-advisor-position');
+const savedWaterfallNavPosition = readFloatingPosition('sd-rescripts:waterfall-mini-nav-position');
 
 const state = {
   compactLayout: false,
@@ -114,6 +117,8 @@ const state = {
   configWaterfallTwoColumn: localStorage.getItem('sd-rescripts:config-waterfall-two-column') === 'true',
   trainingAdvisorCollapsed: localStorage.getItem('sd-rescripts:training-advisor-collapsed') === 'true',
   trainingAdvisorPosition: savedTrainingAdvisorPosition,
+  waterfallMiniNavCollapsed: localStorage.getItem('sd-rescripts:waterfall-mini-nav-collapsed') === 'true',
+  waterfallMiniNavPosition: savedWaterfallNavPosition,
   activeModule: 'config',
   activeTab: uiPreferences.activeTab,
   navigatorCollapsed: uiPreferences.navigatorCollapsed,
@@ -858,18 +863,67 @@ function renderConfig(container) {
     let prefix = '';
     if (section._tabKey && section._tabKey !== lastRenderedTab) {
       lastRenderedTab = section._tabKey;
-      prefix = `<div class="waterfall-tab-anchor" id="waterfall-tab-${escapeHtml(section._tabKey)}" data-waterfall-tab="${escapeHtml(section._tabKey)}">
-        <h2 class="waterfall-tab-title">${escapeHtml(section._tabLabel)}</h2>
-      </div>`;
+      // 内容瀑布流模式下不再把 Tab 作为可见大分组标题；
+      // 这里只保留轻量锚点，供顶部 tab 点击滚动与 scroll-spy 高亮使用。
+      prefix = `<div class="waterfall-tab-anchor waterfall-tab-anchor-compact" id="waterfall-tab-${escapeHtml(section._tabKey)}" data-waterfall-tab="${escapeHtml(section._tabKey)}" aria-label="${escapeHtml(section._tabLabel)}"></div>`;
     }
     return prefix + renderSection(section);
   };
 
+  const renderWaterfallMiniNav = () => {
+    if (!waterfall || !visibleSections.length) return '';
+    const groups = [];
+    const groupMap = new Map();
+    for (const section of visibleSections) {
+      const key = section._tabKey || state.activeTab || 'config';
+      if (!groupMap.has(key)) {
+        const group = { key, label: section._tabLabel || key, sections: [] };
+        groupMap.set(key, group);
+        groups.push(group);
+      }
+      groupMap.get(key).sections.push(section);
+    }
+    const collapsed = !!state.waterfallMiniNavCollapsed;
+    const pos = state.waterfallMiniNavPosition;
+    const positionStyle = pos
+      ? ` style="left:${Math.max(0, Number(pos.x) || 0)}px;top:${Math.max(0, Number(pos.y) || 0)}px;right:auto;bottom:auto;"`
+      : '';
+    return `
+      <aside class="waterfall-mini-nav ${collapsed ? 'is-collapsed' : ''}" aria-label="配置瀑布流导航"${positionStyle}>
+        <div class="waterfall-mini-nav-head" onpointerdown="startWaterfallMiniNavDrag(event)">
+          <div>
+            <strong>${_ico('book-open', 14)} 参数导航</strong>
+            <span>${groups.length} 类 · ${visibleSections.length} 段</span>
+          </div>
+          <button class="waterfall-mini-nav-toggle" type="button" onclick="toggleWaterfallMiniNav()" title="${collapsed ? '展开参数导航' : '收起参数导航'}" aria-label="${collapsed ? '展开参数导航' : '收起参数导航'}">${_ico('chevron-down', 14)}</button>
+        </div>
+        <div class="waterfall-mini-nav-collapsed-row">
+          <span>${visibleSections.length} 个分段</span>
+        </div>
+        <div class="waterfall-mini-nav-body">
+          <div class="waterfall-mini-nav-tree">
+            ${groups.map((group) => `
+              <div class="waterfall-mini-nav-group">
+                <button class="waterfall-mini-nav-parent" type="button" onclick="document.getElementById('waterfall-tab-${escapeHtml(group.key)}')?.scrollIntoView({ behavior: 'smooth', block: 'start' })">${escapeHtml(group.label)}</button>
+                <div class="waterfall-mini-nav-children">
+                  ${group.sections.map((section) => `
+                    <button class="waterfall-mini-nav-child" type="button" onclick="document.getElementById('${escapeHtml(section.id)}')?.scrollIntoView({ behavior: 'smooth', block: 'start' })">${escapeHtml(section.title)}</button>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </aside>
+    `;
+  };
+
   const waterfallTwoColumn = waterfall && !!state.configWaterfallTwoColumn;
   const sectionHtml = visibleSections.map(renderSectionWithAnchor).join('');
+  const waterfallMiniNav = renderWaterfallMiniNav();
 
   container.innerHTML = `
-    <div class="form-container${waterfall ? ' form-container-waterfall' : ''}${waterfallTwoColumn ? ' form-container-waterfall-two-column' : ''}">
+    <div class="form-container${waterfall ? ' form-container-waterfall form-container-waterfall-content' : ''}${waterfallTwoColumn ? ' form-container-waterfall-two-column' : ''}">
       <header class="section-title">
         <h2>${typeLabel} LoRA 模式</h2>
         <p>${waterfall ? `<span style="color:var(--text-muted);font-size:0.82rem;">📜 瀑布流模式：所有参数在同一页展示，可通过顶部标签栏快速跳转。${waterfallTwoColumn ? ' 当前启用紧凑双排显示。' : ''}</span>` : ''}</p>
@@ -879,6 +933,7 @@ function renderConfig(container) {
       ${renderSlot('training.preflight_panel')}
       ${renderSlot('config.after_status_deck')}
       ${renderExperimentalTrainingPanel()}
+      ${waterfallMiniNav}
       ${waterfall ? `<div class="waterfall-content${waterfallTwoColumn ? ' waterfall-content-two-column' : ''}">${sectionHtml}</div>` : sectionHtml}
       ${renderFloatingTrainingAssistant()}
     </div>
@@ -888,6 +943,20 @@ function renderConfig(container) {
   syncTopbarState();
   syncFooterAction();
   updateJSONPreview();
+
+  // 浮动面板可能因折叠/展开或窗口尺寸变化而超出视口，渲染后立即收回可视范围。
+  requestAnimationFrame(() => {
+    _clampFloatingPanelIntoViewport('.floating-training-advisor', (pos) => {
+      state.trainingAdvisorPosition = pos;
+      localStorage.setItem('sd-rescripts:training-advisor-position', JSON.stringify(pos));
+    });
+    if (waterfall) {
+      _clampFloatingPanelIntoViewport('.waterfall-mini-nav', (pos) => {
+        state.waterfallMiniNavPosition = pos;
+        localStorage.setItem('sd-rescripts:waterfall-mini-nav-position', JSON.stringify(pos));
+      });
+    }
+  });
 
   // 瀑布流模式：监听滚动来高亮顶部 tab
   if (waterfall) {
@@ -986,15 +1055,50 @@ window.toggleTrainingGroup = function(group) {
   renderNavigator();
 };
 
+function _clampFloatingPanelIntoViewport(selector, onPersist) {
+  const panel = document.querySelector(selector);
+  if (!panel) return;
+  const margin = 12;
+  const rect = panel.getBoundingClientRect();
+  const maxX = Math.max(margin, window.innerWidth - rect.width - margin);
+  const maxY = Math.max(margin, window.innerHeight - rect.height - margin);
+  const nextX = Math.min(Math.max(margin, rect.left), maxX);
+  const nextY = Math.min(Math.max(margin, rect.top), maxY);
+  if (Math.abs(nextX - rect.left) < 0.5 && Math.abs(nextY - rect.top) < 0.5) return;
+  panel.style.right = 'auto';
+  panel.style.bottom = 'auto';
+  panel.style.left = `${nextX}px`;
+  panel.style.top = `${nextY}px`;
+  onPersist({ x: nextX, y: nextY });
+}
+
 window.toggleTrainingAdvisor = function() {
   state.trainingAdvisorCollapsed = !state.trainingAdvisorCollapsed;
   localStorage.setItem('sd-rescripts:training-advisor-collapsed', state.trainingAdvisorCollapsed ? 'true' : 'false');
   renderView(state.activeModule || 'config');
+  requestAnimationFrame(() => {
+    _clampFloatingPanelIntoViewport('.floating-training-advisor', (pos) => {
+      state.trainingAdvisorPosition = pos;
+      localStorage.setItem('sd-rescripts:training-advisor-position', JSON.stringify(pos));
+    });
+  });
 };
 
-window.startTrainingAdvisorDrag = function(event) {
+window.toggleWaterfallMiniNav = function() {
+  state.waterfallMiniNavCollapsed = !state.waterfallMiniNavCollapsed;
+  localStorage.setItem('sd-rescripts:waterfall-mini-nav-collapsed', state.waterfallMiniNavCollapsed ? 'true' : 'false');
+  renderView(state.activeModule || 'config');
+  requestAnimationFrame(() => {
+    _clampFloatingPanelIntoViewport('.waterfall-mini-nav', (pos) => {
+      state.waterfallMiniNavPosition = pos;
+      localStorage.setItem('sd-rescripts:waterfall-mini-nav-position', JSON.stringify(pos));
+    });
+  });
+};
+
+function _startFloatingPanelDrag(event, selector, onPersist) {
   if (event.button !== 0 || event.target?.closest?.('button')) return;
-  const panel = event.currentTarget?.closest?.('.floating-training-advisor');
+  const panel = event.currentTarget?.closest?.(selector);
   if (!panel) return;
   event.preventDefault();
 
@@ -1026,8 +1130,7 @@ window.startTrainingAdvisorDrag = function(event) {
 
   const stop = (upEvent) => {
     const pos = clampPosition(upEvent.clientX, upEvent.clientY);
-    state.trainingAdvisorPosition = pos;
-    localStorage.setItem('sd-rescripts:training-advisor-position', JSON.stringify(pos));
+    onPersist(pos);
     panel.classList.remove('is-dragging');
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', stop);
@@ -1037,6 +1140,20 @@ window.startTrainingAdvisorDrag = function(event) {
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', stop);
   window.addEventListener('pointercancel', stop);
+}
+
+window.startTrainingAdvisorDrag = function(event) {
+  _startFloatingPanelDrag(event, '.floating-training-advisor', (pos) => {
+    state.trainingAdvisorPosition = pos;
+    localStorage.setItem('sd-rescripts:training-advisor-position', JSON.stringify(pos));
+  });
+};
+
+window.startWaterfallMiniNavDrag = function(event) {
+  _startFloatingPanelDrag(event, '.waterfall-mini-nav', (pos) => {
+    state.waterfallMiniNavPosition = pos;
+    localStorage.setItem('sd-rescripts:waterfall-mini-nav-position', JSON.stringify(pos));
+  });
 };
 
 function _persistTrainingGroupsCollapsed() {
