@@ -288,11 +288,26 @@ body.developer-mode-enabled .nav-item.developer-only {
 .sidebar-footer {
   width: 100%;
   border-top: 1px solid var(--border);
-  padding-top: 20px;
+  padding-top: 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 10px;
+}
+
+.nav-item-about {
+  padding: 7px 0;
+  opacity: 0.86;
+}
+
+.nav-item-about svg.icon {
+  width: 16px;
+  height: 16px;
+}
+
+.nav-item-about span {
+  font-size: 8px;
+  margin-top: 4px;
 }
 
 .expand-toggle-btn {
@@ -313,27 +328,43 @@ body.developer-mode-enabled .nav-item.developer-only {
   text-shadow: 0 0 10px var(--accent-glow);
 }
 
+.theme-toggles-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
 .theme-toggle {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: var(--text-main);
-  transition: background 0.2s, color 0.2s;
-  background: rgba(255, 255, 255, 0.05);
-  /* Added subtle background for visibility */
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  background: color-mix(in srgb, var(--bg-panel) 70%, transparent);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
+}
+
+.theme-toggle svg.icon {
+  width: 16px;
+  height: 16px;
 }
 
 .theme-toggle:hover {
   background: var(--bg-panel);
+  border-color: var(--accent);
   color: var(--accent);
+  transform: translateY(-1px);
 }
 
 .light-theme .theme-toggle {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 /* Navigator */
@@ -630,6 +661,7 @@ body.developer-mode-enabled .nav-item.developer-only {
   min-width: 0;
   /* Crucial for responsive flex layout */
 }
+
 
 .topbar {
   height: var(--header-height);
@@ -2862,9 +2894,66 @@ body.compact-layout .config-group.row {
   min-height: 0;
   overflow: hidden;
   background: var(--bg-darker);
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
 }
 
 /* ── Header Bar ── */
+
+.train-tip-ticker {
+  height: 30px;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(90deg, var(--bg-darker) 0%, transparent 12%, transparent 88%, var(--bg-darker) 100%),
+    color-mix(in srgb, var(--bg-panel) 58%, var(--bg-darker));
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  letter-spacing: 0.2px;
+  position: relative;
+}
+
+.train-tip-track {
+  display: inline-flex;
+  align-items: center;
+  gap: 30px;
+  white-space: nowrap;
+  will-change: transform;
+  animation: trainTipsMarquee 46s linear infinite;
+}
+
+.train-tip-ticker:hover .train-tip-track {
+  animation-play-state: paused;
+}
+
+.train-tip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.train-tip-item::before {
+  content: "✦";
+  color: var(--accent);
+  text-shadow: 0 0 8px var(--accent-glow);
+}
+
+@keyframes trainTipsMarquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .train-tip-track {
+    animation: none;
+  }
+}
+
+
 .train-exec-header {
   display: flex;
   justify-content: space-between;
@@ -2919,6 +3008,9 @@ body.compact-layout .config-group.row {
   white-space: pre-wrap;
   word-break: break-all;
   box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
 }
 .train-terminal::-webkit-scrollbar { width: 5px; }
 .train-terminal::-webkit-scrollbar-track { background: transparent; }
@@ -3020,7 +3112,7 @@ body.compact-layout .config-group.row {
 
 /* Responsive */
 @media (max-width: 960px) {
-  .train-body { flex-direction: column; }
+  .train-body { flex-direction: column; overflow-y: auto; }
   .train-side-panel {
     width: 100%; border-left: none; border-top: 1px solid var(--border);
     max-height: 320px; flex-direction: row; flex-wrap: wrap; gap: 16px;
@@ -3028,6 +3120,16 @@ body.compact-layout .config-group.row {
   .train-side-section { flex: 1; min-width: 220px; }
   .train-loss-big { font-size: 1.6rem; }
   .train-chart-box { height: 100px; }
+  .train-pf-scroll { padding: 14px 14px 18px; }
+}
+
+@media (max-height: 760px) {
+  .train-exec-header { padding: 8px 18px; }
+  .train-tabs { padding: 0 14px; }
+  .train-tab { padding: 7px 12px; }
+  .train-pf-scroll { padding-top: 12px; padding-bottom: 16px; }
+  .train-pf-card,
+  .train-pf-table-wrap { flex-shrink: 0; }
 }
 
 /* ── Training Tabs ── */
@@ -3062,15 +3164,24 @@ body.compact-layout .config-group.row {
 
 /* ── Preflight View ── */
 .train-pf-scroll {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px 24px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
+.train-pf-scroll::-webkit-scrollbar { width: 6px; }
+.train-pf-scroll::-webkit-scrollbar-track { background: transparent; }
+.train-pf-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 .train-pf-empty {
   flex: 1;
+  min-height: min(420px, 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3080,6 +3191,8 @@ body.compact-layout .config-group.row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .train-pf-collapse-summary {
@@ -3321,6 +3434,26 @@ body.compact-layout .config-group.row {
 .log-line { min-height: 1.4em; }
 .log-line:hover { background: rgba(255,255,255,0.02); }
 .train-terminal { background: #080a0e !important; }
+
+/* 训练系统执行日志保持终端式不透明背景，不受液态玻璃背景光效影响 */
+:root[data-lx-theme="glass"] .train-dashboard {
+  background: var(--bg-darker) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+:root[data-lx-theme="glass"] .train-logs-area {
+  background: var(--bg-darker);
+}
+
+:root[data-lx-theme="glass"] .train-terminal,
+:root[data-lx-theme="glass"] #training-log-container {
+  background: #080a0e !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.25) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
 
 
 /* Picker overlay — shown while server-side file dialog is open */
@@ -4856,6 +4989,38 @@ body.compact-layout .config-group.row {
 
 /* ── Global transition softening ── */
 .clay-theme,
+
+:root {
+  --ripple-cx: 50%;
+  --ripple-cy: 50%;
+  --ripple-radius: 100vmax;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+  animation: frontendThemeRipple 0.56s ease-in-out forwards;
+}
+
+@keyframes frontendThemeRipple {
+  from { clip-path: circle(0px at var(--ripple-cx) var(--ripple-cy)); }
+  to { clip-path: circle(var(--ripple-radius) at var(--ripple-cx) var(--ripple-cy)); }
+}
+
+.theme-ripple-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
+  transition: clip-path 0.52s ease-out;
+}
+
+
 .clay-theme *,
 .clay-theme *::before,
 .clay-theme *::after {
@@ -4867,6 +5032,405 @@ body.compact-layout .config-group.row {
 .clay-theme [class*="spin"] {
   transition-duration: 0s !important;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   Launcher Style Themes — 经典 / 粗野 / 活泼 / 玻璃
+   风格主题只控制表现效果，可与深色 / 浅色 / 薰衣草配色叠加
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --lx-radius: 8px;
+  --lx-radius-sm: 6px;
+  --lx-radius-lg: 12px;
+  --lx-duration-fast: 150ms;
+  --lx-duration-normal: 250ms;
+  --lx-ease-spring: cubic-bezier(0.23, 1, 0.32, 1);
+  --lx-ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --lx-shadow-card: 0 4px 18px rgba(0, 0, 0, 0.18);
+  --lx-shadow-card-hover: 0 10px 30px rgba(0, 0, 0, 0.24);
+}
+
+/* 通用：对可交互组件补齐启动器式细腻动效 */
+.btn,
+.nav-item,
+.top-nav-item,
+.form-section,
+.config-group.row,
+.status-card,
+.workspace-item,
+.plugin-card,
+.theme-toggle,
+.collapse-btn,
+.group-list li,
+.preset-item,
+.topbar-search-item,
+select,
+.text-input,
+.text-area,
+.input-picker {
+  transition:
+    transform var(--lx-duration-normal) var(--lx-ease-spring),
+    box-shadow var(--lx-duration-normal) var(--lx-ease-spring),
+    background-color var(--lx-duration-normal) ease,
+    border-color var(--lx-duration-normal) ease,
+    color var(--lx-duration-fast) ease;
+}
+
+.btn:active,
+.nav-item:active,
+.top-nav-item:active,
+.workspace-item:active,
+.plugin-card:active,
+.status-card:active,
+.theme-toggle:active {
+  transform: scale(0.98);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Glass Theme — 液态玻璃
+   重度毛玻璃 (backdrop-filter) + 动态水波与流体渐变层，性能开销大
+   ═══════════════════════════════════════════════════════════════ */
+:root[data-lx-theme="glass"] {
+  --glass-surface: rgba(255, 255, 255, 0.15);
+  --glass-surface-strong: rgba(255, 255, 255, 0.25);
+  --glass-edge: rgba(255, 255, 255, 0.40);
+  --glass-shadow: rgba(15, 23, 42, 0.15);
+}
+
+:root[data-theme="dark"][data-lx-theme="glass"]{
+  --glass-surface: rgba(15, 17, 26, 0.50);
+  --glass-surface-strong: rgba(255, 255, 255, 0.08);
+  --glass-edge: rgba(255, 255, 255, 0.15);
+  --glass-shadow: rgba(0, 0, 0, 0.50);
+}
+
+:root[data-theme="light"][data-lx-theme="glass"] {
+  --glass-surface: rgba(255, 255, 255, 0.40);
+  --glass-surface-strong: rgba(255, 255, 255, 0.60);
+  --glass-edge: rgba(255, 255, 255, 0.90);
+  --glass-shadow: rgba(0, 0, 0, 0.08);
+  --glass-secondary-blob: rgba(191, 219, 254, 0.34);
+}
+
+:root[data-theme="clay"][data-lx-theme="glass"] {
+  --glass-surface: rgba(255, 255, 255, 0.42);
+  --glass-surface-strong: rgba(255, 255, 255, 0.62);
+  --glass-edge: rgba(255, 255, 255, 0.92);
+  --glass-shadow: rgba(83, 73, 124, 0.06);
+  --glass-secondary-blob: rgba(221, 214, 254, 0.18);
+}
+
+/* 基础底层背景 */
+:root[data-lx-theme="glass"] body {
+  background: var(--bg-dark);
+}
+
+/* 动态流体色块 (Liquid Blobs) */
+:root[data-lx-theme="glass"] body::before,
+:root[data-lx-theme="glass"] body::after {
+  content: "";
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+  animation: liquidGlassDrift 20s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root[data-lx-theme="glass"] body::before {
+  top: -10%; left: -10%;
+  width: 50vw; height: 50vw;
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  animation-duration: 25s;
+}
+
+:root[data-lx-theme="glass"] body::after {
+  bottom: -20%; right: -10%;
+  width: 60vw; height: 60vw;
+  background: color-mix(in srgb, var(--tertiary) 30%, transparent);
+  animation-delay: -10s;
+  animation-duration: 30s;
+}
+
+:root[data-theme="light"][data-lx-theme="glass"] body::after,
+:root[data-theme="clay"][data-lx-theme="glass"] body::after {
+  background: var(--glass-secondary-blob);
+}
+
+/* 动态水波扩散 (Water Ripple)，由 JS 注入 inline style 随机位置 */
+:root[data-lx-theme="glass"] .workspace::before {
+  content: "";
+  position: absolute;
+  top: var(--glass-ripple-y, 50%); left: var(--glass-ripple-x, 50%);
+  width: var(--glass-ripple-size, 10vw); height: var(--glass-ripple-size, 10vw);
+  margin-top: calc(var(--glass-ripple-size, 10vw) * -0.5); margin-left: calc(var(--glass-ripple-size, 10vw) * -0.5);
+  border-radius: 50%;
+  background: transparent;
+  animation: liquidRipple 10s infinite cubic-bezier(0.1, 0.8, 0.3, 1);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 1;
+}
+
+/* 噪点纹理增加质感 */
+:root[data-lx-theme="glass"] .workspace::after {
+  content: "";
+  position: absolute;
+  inset: -100px;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+  animation: none;
+}
+
+@keyframes liquidGlassDrift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(10vw, 15vh) scale(1.3); }
+  100% { transform: translate(-15vw, 5vh) scale(0.9); }
+}
+
+@keyframes liquidRipple {
+  0% {
+    box-shadow:
+      0 0 0 0vw color-mix(in srgb, var(--accent) 15%, transparent),
+      inset 0 0 0 1vw color-mix(in srgb, var(--accent) 10%, transparent);
+    opacity: 1;
+  }
+  100% {
+    box-shadow:
+      0 0 0 40vw transparent,
+      inset 0 0 0 10vw transparent;
+    opacity: 0;
+  }
+}
+
+/* 各个组件的液态玻璃材质（毛玻璃） */
+:root[data-lx-theme="glass"] .sidebar,
+:root[data-lx-theme="glass"] .navigator,
+:root[data-lx-theme="glass"] .topbar,
+:root[data-lx-theme="glass"] .json-panel,
+:root[data-lx-theme="glass"] .bottom-bar {
+  background: 
+    linear-gradient(135deg, var(--glass-surface-strong), var(--glass-surface) 60%, transparent),
+    color-mix(in srgb, var(--bg-panel) 40%, transparent) !important;
+  box-shadow: inset 0 1px 1px var(--glass-edge);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+:root[data-lx-theme="glass"] .form-section,
+:root[data-lx-theme="glass"] .config-group.row,
+:root[data-lx-theme="glass"] .status-card,
+:root[data-lx-theme="glass"] .workspace-item,
+:root[data-lx-theme="glass"] .plugin-card,
+:root[data-lx-theme="glass"] .section-toolbar,
+:root[data-lx-theme="glass"] .modal-content,
+:root[data-lx-theme="glass"] .dropdown-menu,
+:root[data-lx-theme="glass"] .topbar-search-dropdown {
+  background: 
+    linear-gradient(135deg, var(--glass-surface-strong), var(--glass-surface) 80%, transparent),
+    color-mix(in srgb, var(--bg-panel) 45%, transparent) !important;
+  border: 1px solid var(--glass-edge) !important;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.1), 0 8px 32px var(--glass-shadow);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+
+:root[data-lx-theme="glass"] .form-section:hover,
+:root[data-lx-theme="glass"] .workspace-item:hover,
+:root[data-lx-theme="glass"] .plugin-card:hover,
+:root[data-lx-theme="glass"] .status-card:hover {
+transform: translateY(-2px) scale(1.005);
+  box-shadow: inset 0 1px 3px rgba(255,255,255,0.2), 0 12px 40px var(--glass-shadow);
+}
+
+:root[data-lx-theme="glass"] .btn-outline,
+:root[data-lx-theme="glass"] .theme-toggle,
+:root[data-lx-theme="glass"] select,
+:root[data-lx-theme="glass"] .text-input,
+:root[data-lx-theme="glass"] .text-area,
+:root[data-lx-theme="glass"] .input-picker,
+:root[data-lx-theme="glass"] .topbar-search-input-wrap {
+  background: 
+    linear-gradient(135deg, var(--glass-surface-strong), var(--glass-surface) 60%, transparent),
+    color-mix(in srgb, var(--bg-input) 60%, transparent) !important;
+  box-shadow: inset 0 1px 1px var(--glass-edge);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  color: var(--text-main) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-lx-theme="glass"] body::before,
+  :root[data-lx-theme="glass"] body::after,
+  :root[data-lx-theme="glass"] .workspace::before {
+    animation: none !important;
+  }
+}
+
+/* Brutalist：硬边、粗边框、块状阴影 */
+:root[data-lx-theme="brutalist"] {
+  --lx-radius: 0px;
+  --lx-radius-sm: 0px;
+  --lx-radius-lg: 0px;
+  --lx-shadow-card: 4px 4px 0 0 var(--accent);
+  --lx-shadow-card-hover: 6px 6px 0 0 var(--accent);
+}
+
+:root[data-lx-theme="brutalist"],
+:root[data-lx-theme="brutalist"] body,
+:root[data-lx-theme="brutalist"] button,
+:root[data-lx-theme="brutalist"] input,
+:root[data-lx-theme="brutalist"] select,
+:root[data-lx-theme="brutalist"] textarea {
+  letter-spacing: 0.04em;
+}
+
+:root[data-lx-theme="brutalist"] * {
+  border-radius: 0 !important;
+}
+
+:root[data-lx-theme="brutalist"] .sidebar,
+:root[data-lx-theme="brutalist"] .navigator,
+:root[data-lx-theme="brutalist"] .json-panel {
+  border-color: var(--accent) !important;
+}
+
+:root[data-lx-theme="brutalist"] .form-section,
+:root[data-lx-theme="brutalist"] .config-group.row,
+:root[data-lx-theme="brutalist"] .status-card,
+:root[data-lx-theme="brutalist"] .workspace-item,
+:root[data-lx-theme="brutalist"] .plugin-card,
+:root[data-lx-theme="brutalist"] .section-toolbar,
+:root[data-lx-theme="brutalist"] .topbar-search-dropdown,
+:root[data-lx-theme="brutalist"] .dropdown-menu {
+  border: 2px solid var(--accent) !important;
+  box-shadow: var(--lx-shadow-card) !important;
+}
+
+:root[data-lx-theme="brutalist"] .form-section:hover,
+:root[data-lx-theme="brutalist"] .workspace-item:hover,
+:root[data-lx-theme="brutalist"] .plugin-card:hover,
+:root[data-lx-theme="brutalist"] .status-card:hover,
+:root[data-lx-theme="brutalist"] .nav-item:hover,
+:root[data-lx-theme="brutalist"] .top-nav-item:hover,
+:root[data-lx-theme="brutalist"] .group-list li:hover,
+:root[data-lx-theme="brutalist"] .preset-item:hover {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 0 var(--accent) !important;
+}
+
+:root[data-lx-theme="brutalist"] .btn,
+:root[data-lx-theme="brutalist"] button {
+  font-weight: 800;
+  text-transform: uppercase;
+  border: 2px solid var(--accent);
+}
+
+:root[data-lx-theme="brutalist"] .btn-primary,
+:root[data-lx-theme="brutalist"] .btn-execute {
+  box-shadow: 4px 4px 0 0 color-mix(in srgb, var(--accent) 70%, #000) !important;
+}
+
+:root[data-lx-theme="brutalist"] .btn:hover,
+:root[data-lx-theme="brutalist"] button:hover,
+:root[data-lx-theme="brutalist"] .theme-toggle:hover,
+:root[data-lx-theme="brutalist"] .collapse-btn:hover {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 0 var(--accent) !important;
+}
+
+:root[data-lx-theme="brutalist"] .btn:active,
+:root[data-lx-theme="brutalist"] button:active,
+:root[data-lx-theme="brutalist"] .form-section:active,
+:root[data-lx-theme="brutalist"] .workspace-item:active,
+:root[data-lx-theme="brutalist"] .plugin-card:active,
+:root[data-lx-theme="brutalist"] .status-card:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 0 var(--accent) !important;
+  transition-duration: 50ms;
+}
+
+:root[data-lx-theme="brutalist"] select,
+:root[data-lx-theme="brutalist"] .text-input,
+:root[data-lx-theme="brutalist"] .text-area,
+:root[data-lx-theme="brutalist"] .input-picker {
+  border: 2px solid var(--accent) !important;
+}
+
+/* Joy：像素感、轻弹跳、活泼悬停 */
+:root[data-lx-theme="joy"] {
+  --lx-radius: 4px;
+  --lx-radius-sm: 2px;
+  --lx-radius-lg: 6px;
+  --lx-shadow-card: 4px 4px 0 0 color-mix(in srgb, var(--accent) 28%, transparent);
+  --lx-shadow-card-hover: 6px 6px 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+:root[data-lx-theme="joy"],
+:root[data-lx-theme="joy"] body,
+:root[data-lx-theme="joy"] button,
+:root[data-lx-theme="joy"] input,
+:root[data-lx-theme="joy"] select,
+:root[data-lx-theme="joy"] textarea {
+  font-family: "Fira Code", "JetBrains Mono", "Cascadia Code", "Consolas", monospace;
+}
+
+:root[data-lx-theme="joy"] .logo-text,
+:root[data-lx-theme="joy"] .section-title h2,
+:root[data-lx-theme="joy"] .section-header h3,
+:root[data-lx-theme="joy"] .section-header h4 {
+  letter-spacing: 0.06em;
+}
+
+:root[data-lx-theme="joy"] .form-section,
+:root[data-lx-theme="joy"] .config-group.row,
+:root[data-lx-theme="joy"] .status-card,
+:root[data-lx-theme="joy"] .workspace-item,
+:root[data-lx-theme="joy"] .plugin-card {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: var(--lx-radius);
+  box-shadow: var(--lx-shadow-card);
+}
+
+:root[data-lx-theme="joy"] .form-section:hover,
+:root[data-lx-theme="joy"] .workspace-item:hover,
+:root[data-lx-theme="joy"] .plugin-card:hover,
+:root[data-lx-theme="joy"] .status-card:hover,
+:root[data-lx-theme="joy"] .btn:hover,
+:root[data-lx-theme="joy"] .nav-item:hover,
+:root[data-lx-theme="joy"] .top-nav-item:hover {
+  transform: translate(-2px, -2px);
+  border-color: var(--accent);
+  box-shadow: var(--lx-shadow-card-hover);
+  transition-timing-function: var(--lx-ease-bounce);
+}
+
+:root[data-lx-theme="joy"] .btn:active,
+:root[data-lx-theme="joy"] .workspace-item:active,
+:root[data-lx-theme="joy"] .plugin-card:active {
+  transform: translate(1px, 1px);
+}
+
+:root[data-lx-theme="joy"] .btn-primary,
+:root[data-lx-theme="joy"] .btn-execute {
+  box-shadow: 3px 3px 0 0 color-mix(in srgb, var(--accent) 35%, #000);
+}
+
+:root[data-theme="dark"][data-lx-theme="joy"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.16;
+  background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.18) 50%);
+  background-size: 100% 4px;
+}
+
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -5935,6 +6499,45 @@ body.compact-layout .config-group.row {
   display: flex;
   flex-direction: column;
   gap: 10px;
+
+.tool-result-panel {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-darker);
+  color: var(--text-main);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  min-height: 360px;
+  max-height: min(68vh, 760px);
+  overflow: auto;
+}
+
+.tool-result-panel::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.tool-result-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tool-result-panel::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+@media (max-height: 820px) {
+  .tool-result-panel {
+    min-height: 300px;
+    max-height: 62vh;
+  }
+}
+
+
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;

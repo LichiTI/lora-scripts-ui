@@ -5,7 +5,7 @@
 
 import { $, escapeHtml, _ico } from '../utils/dom.js';
 
-export function createSettingsRenderer({ state, t, renderSlot, applyAndPersistLayout, renderView, applyTheme, showToast }) {
+export function createSettingsRenderer({ state, t, renderSlot, applyAndPersistLayout, renderView, applyTheme, setColorTheme, showToast }) {
   return function(container) {
     const savedTbUrl = localStorage.getItem('sd-rescripts:tensorboard-url') || '';
 
@@ -20,11 +20,26 @@ export function createSettingsRenderer({ state, t, renderSlot, applyAndPersistLa
           <header class="section-header"><h3>界面布局</h3></header>
           <div class="section-content" style="display:block;">
             <div class="settings-row">
-              <label>${t('settings.theme', state.lang)}</label>
+              <div>
+                <label>${t('settings.theme', state.lang)}</label>
+                <p class="field-desc">配色方案：只控制颜色，不影响动效与组件表现。</p>
+              </div>
               <select id="theme-select">
                 <option value="dark" ${state.theme === 'dark' ? 'selected' : ''}>${t('settings.dark', state.lang)}</option>
                 <option value="light" ${state.theme === 'light' ? 'selected' : ''}>${t('settings.light', state.lang)}</option>
                 <option value="clay" ${state.theme === 'clay' ? 'selected' : ''}>${state.lang === 'zh' ? '薰衣草' : '💜 Lavender'}</option>
+              </select>
+            </div>
+            <div class="settings-row">
+              <div>
+                <label>风格主题</label>
+                <p class="field-desc">表现效果：可与深色 / 浅色 / 薰衣草任意组合。<b>注意：液态玻璃（Glass）主题包含全局背景模糊与随机动态水波扩散效果，性能开销极大，如遇卡顿请切回经典。</b></p>
+              </div>
+              <select id="ui-theme-select">
+                <option value="classic" ${(state.uiTheme || 'classic') === 'classic' ? 'selected' : ''}>经典</option>
+                <option value="brutalist" ${state.uiTheme === 'brutalist' ? 'selected' : ''}>粗野</option>
+                <option value="joy" ${state.uiTheme === 'joy' ? 'selected' : ''}>活泼</option>
+                <option value="glass" ${state.uiTheme === 'glass' ? 'selected' : ''}>玻璃</option>
               </select>
             </div>
             <div class="settings-row">
@@ -108,7 +123,11 @@ export function createSettingsRenderer({ state, t, renderSlot, applyAndPersistLa
       </div>
     `;
 
-    $('#theme-select')?.addEventListener('change', (e) => { state.theme = e.target.value; localStorage.setItem('theme', state.theme); applyTheme(); });
+    $('#theme-select')?.addEventListener('change', (e) => {
+      if (typeof setColorTheme === 'function') setColorTheme(e.target.value, e);
+      else { state.theme = e.target.value; localStorage.setItem('theme', state.theme); applyTheme(); }
+    });
+    $('#ui-theme-select')?.addEventListener('change', (e) => { state.uiTheme = e.target.value; localStorage.setItem('sd-rescripts:ui-theme', state.uiTheme); applyTheme(); });
     $('#rounded-ui-toggle')?.addEventListener('change', (e) => {
       state.roundedUI = e.target.checked; localStorage.setItem('roundedUI', state.roundedUI); applyTheme();
     });

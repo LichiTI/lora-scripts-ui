@@ -17,6 +17,8 @@ const ANIMA_TABS = [
 const ANIMA_BLOCK_WEIGHTS_28 = Array(28).fill('1').join(',');
 const swapEnabled = oneOf('swap_granularity', ['auto', 'block', 'merged_block', 'layer']);
 const adamwFamilyOptimizer = (c) => ['adamw', 'adamw8bit'].includes(String(c.optimizer_type || '').trim().toLowerCase());
+const muonOptimizer = (c) => String(c.optimizer_type || '').trim().toLowerCase() === 'muon';
+const fp8BaseStorageEnabled = (c) => c.fp8_base === true || (c.weight_compression_enabled === true && c.weight_compression_format === 'fp8_e4m3');
 const nonResidentBlockMode = (key) => (c) => c[key] && c[key] !== 'resident';
 const streamingBlockMode = (key) => when(key, 'streaming_offload');
 const LOSS_AWARE_SCHEDULERS = ['loss_gated_cosine', 'loss_weighted_annealed_cosine'];
@@ -59,6 +61,25 @@ const PCIE_TRANSFER_FORMAT_OPTIONS = [
   { value: 'uint4_rowwise', label: 'UINT4 行缩放传输（更实验）' },
   { value: 'raw_bf16', label: 'Raw BF16 传输（对照）' },
   { value: 'raw_fp16', label: 'Raw FP16 传输（对照）' },
+];
+
+const ACTIVATION_COMPRESSION_DTYPE_OPTIONS = [
+  { value: 'fp16', label: 'FP16（默认）' },
+  { value: 'bf16', label: 'BF16' },
+  { value: 'fp8_e4m3', label: 'FP8 E4M3（实验）' },
+];
+
+const DDPM_TIMESTEP_SAMPLING_OPTIONS = [
+  { value: '', label: '默认均匀采样' },
+  { value: 'uniform', label: 'Uniform（均匀）' },
+  { value: 'logit_normal', label: 'Logit Normal' },
+  { value: 'low_snr_bias', label: 'Low-SNR Bias（FasterDiT）' },
+];
+
+const FASTER_DIT_SNR_MODE_OPTIONS = [
+  { value: 'sqrt', label: 'sqrt（推荐）' },
+  { value: 'log', label: 'log（更激进）' },
+  { value: 'standard', label: 'standard（标准）' },
 ];
 
 const LORA_RECOMPUTE_OPTIONS = [
@@ -207,7 +228,7 @@ const ANIMA_SECTIONS = [
     fields: [
       { key: 'qwen3_max_token_length', type: 'number', label: 'Qwen3 最大 token 长度', defaultValue: 512, min: 1 },
       { key: 't5_max_token_length', type: 'number', label: 'T5 最大 token 长度', defaultValue: 512, min: 1 },
-      { key: 'timestep_sampling', type: 'select', label: '时间步采样', desc: '默认与官方 Anima 一致的 shift。', defaultValue: 'shift', options: ['sigma', 'uniform', 'sigmoid', 'shift', 'flux_shift'] },
+      { key: 'timestep_sampling', type: 'select', label: '时间步采样', desc: '默认与官方 Anima 一致的 shift。', defaultValue: 'shift', options: ['sigma', 'uniform', 'sigmoid', 'logit_normal', 'shift', 'flux_shift'] },
       { key: 'discrete_flow_shift', type: 'number', label: 'Flow Shift', desc: 'Rectified Flow 位移，默认 3.0。', defaultValue: 3.0, step: 0.001 },
       { key: 'weighting_scheme', type: 'select', label: '时间步权重策略', defaultValue: 'uniform', options: ['sigma_sqrt', 'logit_normal', 'mode', 'cosmap', 'none', 'uniform'] },
       { key: 'mode_scale', type: 'number', label: 'mode 权重缩放', desc: 'mode 权重策略的缩放系数', defaultValue: '', step: 0.01 },
@@ -355,9 +376,12 @@ const ANIMA_SECTIONS = [
       { key: 'lr_warmup_steps', type: 'number', label: '预热步数', defaultValue: 0, min: 0 },
       { key: 'lr_scheduler_num_cycles', type: 'number', label: '重启次数', defaultValue: 1, min: 1, visibleWhen: when('lr_scheduler', 'cosine_with_restarts') },
       ...LOSS_AWARE_LR_FIELDS,
-      { key: 'optimizer_type', type: 'select', label: '优化器', defaultValue: 'pytorch_optimizer.CAME', options: ['AdamW', 'AdamW8bit', 'AdamW8bitKahan', 'PagedAdamW8bit', 'Lion', 'Lion8bit', 'DAdaptation', 'DAdaptAdam', 'DAdaptLion', 'AdaFactor', 'Prodigy', 'prodigyplus.ProdigyPlusScheduleFree', 'pytorch_optimizer.CAME', 'pytorch_optimizer.StableAdamW', 'pytorch_optimizer.SCION'] },
+      { key: 'optimizer_type', type: 'select', label: '优化器', defaultValue: 'pytorch_optimizer.CAME', options: ['AdamW', 'AdamW8bit', 'KahanAdamW8bit', 'PagedAdamW8bit', 'Lion', 'Lion8bit', 'DAdaptation', 'DAdaptAdam', 'DAdaptLion', 'AdaFactor', 'Prodigy', 'prodigyplus.ProdigyPlusScheduleFree', 'AnimaFactoredAdamW', 'Muon', 'pytorch_optimizer.CAME', 'pytorch_optimizer.StableAdamW', 'pytorch_optimizer.SCION'] },
       { key: 'optimizer_backend', type: 'select', label: 'AdamW 后端', desc: '仅细化 AdamW / AdamW8bit 的实现路线；optimizer_args 中显式 foreach/fused 参数优先，后端不可用时训练器会 fallback 并写入运行记录。', defaultValue: 'auto', options: OPTIMIZER_BACKEND_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), adamwFamilyOptimizer) },
       { key: 'advanced_optimizer_strategy', type: 'select', label: '高级优化策略', desc: '默认 auto 不改变训练；lora_plus 复用现有 LoRA+ 参数组；rs_lora 会让原生 LoRA/DoRA 路线启用 alpha/sqrt(rank) 的 adapter scaling；LyCORIS 既有 rs_lora/network_args 仍优先由它自己的字段处理。', defaultValue: 'auto', options: ADVANCED_OPTIMIZER_STRATEGY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'muon_momentum', type: 'number', label: 'Muon Momentum', desc: '后端原生 Muon 优化器参数：Newton-Schulz 正交化动量。', defaultValue: 0.95, min: 0, max: 1, step: 0.01, visibleWhen: muonOptimizer },
+      { key: 'muon_ns_steps', type: 'number', label: 'Muon NS 步数', desc: 'Muon Newton-Schulz 迭代步数。步数越高正交化越充分但开销越大。', defaultValue: 5, min: 1, step: 1, visibleWhen: muonOptimizer },
+      { key: 'muon_lr_ratio', type: 'number', label: 'Muon AdamW 回退 LR 倍率', desc: 'Muon 对 1D/scalar 参数回退 AdamW 参数组的学习率倍率。', defaultValue: 1.0, min: 0, step: 0.05, visibleWhen: muonOptimizer },
       { key: 'min_snr_gamma', type: 'number', label: 'Min-SNR Gamma', defaultValue: '', min: 0, step: 0.1 },
     ],
   },
@@ -426,6 +450,7 @@ const ANIMA_SECTIONS = [
     fields: [
       { key: 'mixed_precision', type: 'select', label: '混合精度', defaultValue: 'bf16', options: ['no', 'fp16', 'bf16'] },
       { key: 'fp8_base', type: 'boolean', label: 'FP8 基础模型', defaultValue: false },
+      { key: 'fp8_base_compute', type: 'boolean', label: 'FP8 Base Compute', desc: '后端新增：在支持的 Ada/Hopper FP8 Tensor Core 上直接运行冻结基础权重 GEMM；不支持时后端回退。默认关闭，建议只在 FP8 base 存储稳定后开启。', defaultValue: false, visibleWhen: fp8BaseStorageEnabled },
       { key: 'fp8_base_unet', type: 'boolean', label: 'FP8 仅 DiT', defaultValue: false },
       { key: 'weight_compression_enabled', type: 'boolean', label: '基础权重压缩', desc: '对冻结的主干或文本编码器权重做省显存压缩。第一版使用 FP8 e4m3，并跳过可训练参数和适配器参数。', defaultValue: false },
       { key: 'weight_compression_preset', type: 'select', label: '压缩预设', desc: '推荐先用省显存-稳妥；文本编码器预设仅在不训练文本编码器时使用。高级字段可覆盖预设。', defaultValue: 'off', options: ['off', 'stable_backbone_int8', 'aggressive_backbone_uint4', 'text_encoder_int8', 'both_int8', 'experimental_float8'] },
@@ -450,6 +475,9 @@ const ANIMA_SECTIONS = [
       { key: 'text_encoder_outputs_cache_disk_format', type: 'select', label: '文本缓存格式', desc: '文本编码器输出磁盘缓存格式。默认 safetensors；若已有旧的 npz 缓存也会自动兼容读取', defaultValue: 'safetensors', options: ['safetensors', 'npz'], visibleWhen: v => v.cache_text_encoder_outputs_to_disk === true },
       { key: 'text_encoder_outputs_cache_dtype', type: 'select', label: '文本缓存精度', desc: '文本编码器输出磁盘缓存的保存精度。auto 会尽量保留运行时 dtype；fp16 / bf16 更省空间，fp32 兼容性更高', defaultValue: 'auto', options: ['auto', 'fp16', 'bf16', 'fp32'], visibleWhen: v => v.cache_text_encoder_outputs_to_disk === true },
       { key: 'text_encoder_batch_size', type: 'number', label: '文本编码器批量大小', defaultValue: '', min: 1 },
+      { key: 'activation_compression_enabled', type: 'boolean', label: '激活压缩', desc: '实验性：压缩 autograd 保存的激活张量以降低显存峰值。默认关闭，适合 Anima/DiT 全量微调或低显存 A/B。', defaultValue: false },
+      { key: 'activation_compression_dtype', type: 'select', label: '激活压缩精度', desc: '激活压缩保存精度。FP8 更激进，需谨慎做质量对照。', defaultValue: 'fp16', options: ACTIVATION_COMPRESSION_DTYPE_OPTIONS, visibleWhen: when('activation_compression_enabled', true) },
+      { key: 'activation_compression_min_tensor_mb', type: 'number', label: '激活压缩最小张量 MB', desc: '只压缩达到该大小的激活张量；0 表示不过滤。', defaultValue: 1.0, min: 0, step: 0.1, visibleWhen: when('activation_compression_enabled', true) },
       { key: 'vram_auto_enhance_enabled', type: 'boolean', label: '显存不足自动增强', desc: '训练预检判断显存紧张时，自动尝试 Streaming Offload、DiT Block Checkpointing、Streaming Prefetch 和稀疏交换。不会自动启用 PCIe 低精度传输。', defaultValue: true },
       { key: 'enhanced_protection_mode', type: 'boolean', label: '增强防护模式', desc: '默认关闭。开启后，显存自动增强流程才允许把 PCIe 训练传输格式自动提升到 FP8 E4M3；仍只作用于 CPU-pinned 的冻结 Linear 权重。', defaultValue: false, visibleWhen: when('vram_auto_enhance_enabled', true) },
       { key: 'vram_smart_sensing_baseline_steps', type: 'number', label: '智能感知基线步数', desc: '二阶段智能感知用于建立平均速度基线的步数。达到基线后，后续 step 若明显变慢才输出建议。', defaultValue: 50, min: 5, step: 5, visibleWhen: when('vram_auto_enhance_enabled', true) },
@@ -503,6 +531,7 @@ const ANIMA_SECTIONS = [
       { key: 'compile_target_strategy', type: 'select', label: 'Compile Target 策略', desc: 'auto 由后端按模块能力探测；inner_forward 会优先 block 内稳定 forward 路径，block 保留整块编译。Anima 矩阵短测中 inner_forward 优于 block；与启动参数冲突时先尊重显式参数。', defaultValue: 'auto', options: COMPILE_TARGET_STRATEGY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
       { key: 'cached_collate_mode', type: 'select', label: '缓存数据 Collate', desc: '仅影响 Anima/Newbie cache-first 数据集。auto/pad_sequence 使用 PyTorch 原生序列 padding；legacy 保留旧预分配循环路径，用于对照或兼容排查。', defaultValue: 'auto', options: CACHED_COLLATE_MODE_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
       { key: 'checkpoint_policy', type: 'select', label: 'Checkpoint 策略', desc: 'auto 尊重现有 gradient_checkpointing / cpu_offload_checkpointing；full 强制通用检查点；offloaded 使用 CPU saved-tensor/offload 路径；selective 会先做能力探测，当前 Anima/Newbie native DiT 有实验性真实接线；其它路线仍会 fallback 并写入运行记录。', defaultValue: 'auto', options: CHECKPOINT_POLICY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+      { key: 'turbocore_experimental_fp8', type: 'boolean', label: 'TurboCore FP8 实验路径', desc: '后端新增的 TurboCore FP8 请求开关。默认关闭；当前只作为显式实验请求，后端仍会按能力解析并可回退。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
       { key: 'cuda_cache_release_strategy', type: 'select', label: 'CUDA 缓存释放策略', desc: 'oom_only 仅在 OOM 恢复时释放；phase_boundary 在 TE/VAE / 组件下 CPU 边界释放；after_optimizer 保留旧低显存稳妥档；aggressive 会把阶段边界和训练步释放都打开。旧 every_step 配置会自动按 aggressive 兼容。', defaultValue: 'oom_only', options: CUDA_CACHE_RELEASE_OPTIONS },
       { key: 'cuda_cache_release_interval', type: 'number', label: '缓存释放间隔', desc: '每 N 个优化 step 允许一次缓存释放。1 最省显存；2~10 可减少同步频率，适合显存略紧但想保留速度时尝试。', defaultValue: 1, min: 1, visibleWhen: (c) => c.cuda_cache_release_strategy && c.cuda_cache_release_strategy !== 'off' },
       { key: 'vram_swap_to_ram', type: 'boolean', label: 'VRAM Swap to RAM', desc: '实验性：让原生 Anima LoRA / LoRA-FA / VeRA / T-LoRA 适配器权重常驻 CPU RAM，前向时再按需拉回训练设备。更省显存，但通常更慢；暂不支持 LoKr、多进程、full_fp16/full_bf16 以及部分 8bit/paged 优化器', defaultValue: false },
@@ -564,6 +593,11 @@ const ANIMA_SECTIONS = [
     description: '噪声、随机种子与实验功能。',
     fields: [
       { key: 'noise_offset', type: 'number', label: '噪声偏移', defaultValue: '', step: 0.01 },
+      { key: 'ddpm_timestep_sampling', type: 'select', label: 'DDPM 时间步采样', desc: '后端新增：DDPM/标准扩散时间步采样策略。low_snr_bias 可与 FasterDiT SNR 权重配合；留空保持旧默认。', defaultValue: '', options: DDPM_TIMESTEP_SAMPLING_OPTIONS },
+      { key: 'faster_dit_snr_enabled', type: 'boolean', label: 'FasterDiT SNR 权重', desc: '后端新增的 DiT SNR loss weighting 实验入口。默认关闭，不影响旧 Min-SNR。', defaultValue: false },
+      { key: 'faster_dit_snr_mode', type: 'select', label: 'FasterDiT SNR 模式', desc: 'sqrt 为推荐默认；log 更偏低 SNR；standard 用于对照。', defaultValue: 'sqrt', options: FASTER_DIT_SNR_MODE_OPTIONS, visibleWhen: when('faster_dit_snr_enabled', true) },
+      { key: 'faster_dit_snr_gamma', type: 'number', label: 'FasterDiT SNR Gamma', desc: 'FasterDiT SNR 权重 gamma，常用 3~5。', defaultValue: 5.0, min: 0, step: 0.1, visibleWhen: when('faster_dit_snr_enabled', true) },
+      { key: 'faster_dit_snr_low_snr_weight', type: 'number', label: '低 SNR 加权倍率', desc: '配合 low_snr_bias 时提升低 SNR 样本权重。1.0 表示不额外提升。', defaultValue: 1.5, min: 0, step: 0.1, visibleWhen: when('faster_dit_snr_enabled', true) },
       { key: 'seed', type: 'number', label: '随机种子', defaultValue: 1337 },
       { key: 'masked_loss', type: 'boolean', label: '启用蓬版损失', defaultValue: false },
       { key: 'alpha_mask', type: 'boolean', label: '读取 Alpha 通道作 Mask', defaultValue: false },
@@ -601,6 +635,8 @@ const ANIMA_SECTIONS = [
 const ANIMA_CONDITIONAL_KEYS = new Set([
   'lora_type', 'enable_preview', 'save_state', 'prefer_json_caption',
   'lr_scheduler', 'optimizer_type', 'optimizer_backend', 'advanced_optimizer_strategy',
+  'fp8_base', 'weight_compression_enabled', 'activation_compression_enabled',
+  'faster_dit_snr_enabled',
   'anima_block_residency',
   'anima_block_prefetch',
   'performance_expert_mode',

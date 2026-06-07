@@ -468,9 +468,20 @@ var statusDot = '', statusText = '';
         + '<span class="train-param-val">'+ escapeHtml(String(p[1])) + '</span>'
         + '</div>';
     }).join('');
+    var trainTips = [
+      '\u5efa\u8bae\u5148\u8dd1\u300c\u9884\u68c0\u300d\u786e\u8ba4\u6570\u636e\u96c6\u3001\u5206\u8fa8\u7387\u548c\u4f9d\u8d56\u72b6\u6001\uff0c\u518d\u5f00\u59cb\u6b63\u5f0f\u8bad\u7ec3\u3002',
+      '\u8bad\u7ec3\u4e2d\u8bf7\u7559\u610f loss \u8d70\u52bf\uff1a\u77ed\u65f6\u6296\u52a8\u6b63\u5e38\uff0c\u6301\u7eed\u7206\u9ad8\u5efa\u8bae\u964d\u4f4e\u5b66\u4e60\u7387\u6216\u68c0\u67e5\u6807\u6ce8\u3002',
+      '\u663e\u5b58\u63a5\u8fd1\u4e0a\u9650\u65f6\uff0c\u53ef\u4ee5\u4f18\u5148\u964d\u4f4e\u6279\u91cf\u3001\u5206\u8fa8\u7387\u6216\u542f\u7528\u4f4e\u663e\u5b58\u914d\u7f6e\u3002',
+      '\u5b9a\u671f\u67e5\u770b\u9884\u89c8\u6837\u5f20\uff0c\u6bd4\u5355\u770b\u6570\u503c\u66f4\u80fd\u5224\u65ad\u98ce\u683c\u548c\u6982\u5ff5\u662f\u5426\u5b66\u5230\u3002',
+      '\u5982\u679c\u65e5\u5fd7\u957f\u65f6\u95f4\u6ca1\u6709\u5237\u65b0\uff0c\u53ef\u70b9\u51fb\u5237\u65b0\u6216\u68c0\u67e5\u540e\u7aef\u8bad\u7ec3\u8fdb\u7a0b\u72b6\u6001\u3002'
+    ];
+    var trainTipHtml = trainTips.concat(trainTips).map(function(t) {
+      return '<span class="train-tip-item">' + escapeHtml(t) + '</span>';
+    }).join('');
 
     container.innerHTML = ''
     + '<div class="train-dashboard">'
+    + '<div class="train-tip-ticker" aria-label="Training tips"><div class="train-tip-track">' + trainTipHtml + '</div></div>'
     + '<div class="train-exec-header">'
     +   '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">'
     +     '<div style="display:flex;align-items:center;gap:8px;">' + statusDot + statusText + '</div>'
@@ -594,8 +605,9 @@ var statusDot = '', statusText = '';
       var badge = hasCached ? _ico('bar-chart', 14) : (canScore && !task._recentlyFinished ? '\u70b9\u51fb\u8bc4\u5206' : '');
       var taskLabel= task.output_name || task.id.substring(0, 8);
       var timeStr = task.created_at || '';
+      var durationStr = task.duration_str || (task._summary && (task._summary.totalDurationStr || task._summary.elapsedStr)) || '';
       var typeTag = task.training_type_label || task.model_train_type || '';
-   var metaParts = [timeStr, task.resolution ? ('\u5206\u8fa8\u7387 ' + task.resolution) : '', task.network_dim ? ('dim ' + task.network_dim) : ''].filter(Boolean);
+   var metaParts = [timeStr, durationStr ? ('总时长 ' + durationStr) : '', task.resolution ? ('\u5206\u8fa8\u7387 ' + task.resolution) : '', task.network_dim ? ('dim ' + task.network_dim) : ''].filter(Boolean);
       var metaStr = metaParts.join(' \u00b7 ');
       return '<div style="border-bottom:1px solid var(--border);padding:5px 0;" id="task-row-' + task.id + '">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;">'

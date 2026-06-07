@@ -420,17 +420,17 @@ export function createPreflightRenderer({ state, deps }) {
     var dataDir = state.config.train_data_dir || '';
 
     if (!da && !loading) {
-      return '<div class="train-pf-empty"><div style="text-align:center;padding:48px 20px;">'
+      return '<div class="train-pf-scroll"><div class="train-pf-empty"><div style="text-align:center;padding:48px 20px;">'
         + _ico('folder', 40) + '<br><br>'
         + '<div style="font-size:0.88rem;color:var(--text-main);font-weight:600;margin-bottom:6px;">\u6570\u636e\u96c6\u9884\u89c8</div>'
         + '<div style="font-size:0.76rem;color:var(--text-muted);margin-bottom:16px;max-width:360px;">'
         + (dataDir ? escapeHtml(dataDir) : '\u8bf7\u5148\u5728\u914d\u7f6e\u9875\u8bbe\u7f6e train_data_dir') + '</div>'
         + '<button class="btn btn-primary btn-sm" type="button" onclick="scanDataset()" style="padding:8px 24px;"'
-        + (dataDir ? '' : ' disabled') + '>\u626b\u63cf\u6570\u636e\u96c6</button></div></div>';
+        + (dataDir ? '' : ' disabled') + '>\u626b\u63cf\u6570\u636e\u96c6</button></div></div></div>';
     }
     if (loading) {
-      return '<div class="train-pf-empty"><div style="text-align:center;padding:48px 20px;">'
-        + _ico('loader', 24) + '<br><br><div style="font-size:0.82rem;color:var(--text-muted);">\u6b63\u5728\u626b\u63cf\u6570\u636e\u96c6...</div></div></div>';
+      return '<div class="train-pf-scroll"><div class="train-pf-empty"><div style="text-align:center;padding:48px 20px;">'
+        + _ico('loader', 24) + '<br><br><div style="font-size:0.82rem;color:var(--text-muted);">\u6b63\u5728\u626b\u63cf\u6570\u636e\u96c6...</div></div></div></div>';
     }
 
     var s = da.summary || {};

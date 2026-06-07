@@ -2,6 +2,7 @@ import { DRAFT_STORAGE_KEY, DELETED_TASK_IDS_STORAGE_KEY } from './constants.js'
 
 const STORAGE_KEYS = Object.freeze({
   theme: 'theme',
+  uiTheme: 'sd-rescripts:ui-theme',
   roundedUI: 'roundedUI',
   verticalTabs: 'verticalTabs',
   activeTab: 'sdxl_ui_tab',
@@ -33,12 +34,17 @@ function readNavigatorCollapsed() {
 }
 
 export function readUiPreferences() {
+  const rawTheme = localStorage.getItem(STORAGE_KEYS.theme) || 'dark';
+  const mainThemes = new Set(['dark', 'light', 'clay']);
+  const styleThemes = new Set(['classic', 'brutalist', 'joy', 'glass']);
+  const rawUiTheme = localStorage.getItem(STORAGE_KEYS.uiTheme);
   return {
     navigatorWidth: readNumber(STORAGE_KEYS.navigatorWidth, 240),
     jsonPanelWidth: readNumber(STORAGE_KEYS.jsonWidth, 280),
     jsonPanelCollapsed: readBool(STORAGE_KEYS.jsonCollapsed, false),
     navigatorCollapsed: readNavigatorCollapsed(),
-    theme: localStorage.getItem(STORAGE_KEYS.theme) || 'dark',
+    theme: mainThemes.has(rawTheme) ? rawTheme : 'dark',
+    uiTheme: styleThemes.has(rawUiTheme) ? rawUiTheme : (styleThemes.has(rawTheme) ? rawTheme : 'classic'),
     roundedUI: readBool(STORAGE_KEYS.roundedUI, false),
     verticalTabs: readBool(STORAGE_KEYS.verticalTabs, false),
     activeTab: localStorage.getItem(STORAGE_KEYS.activeTab) || 'model',

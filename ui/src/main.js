@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
 import { api } from './api.js';
 import {
   pluginStore,
@@ -111,6 +111,7 @@ const state = {
   jsonPanelCollapsed: uiPreferences.jsonPanelCollapsed,
   lang: 'zh',
   theme: uiPreferences.theme,
+  uiTheme: uiPreferences.uiTheme,
   roundedUI: uiPreferences.roundedUI,
   verticalTabs: uiPreferences.verticalTabs,
   configWaterfall: localStorage.getItem('sd-rescripts:config-waterfall') === 'true',
@@ -306,7 +307,7 @@ const _trainingDeps = {
 const { renderTraining, renderTrainingSummaryHTML } = createTrainingRenderer({ state, renderSlot, deps: _trainingDeps });
 
 // ===== actions 装配（Stage 3，逐步补充）=====
-const { applyLanguage, setLanguage, applyTheme, toggleTheme } = createThemeActions({ state, t, renderView });
+const { applyLanguage, setLanguage, applyTheme, setColorTheme, toggleTheme, toggleStyleTheme } = createThemeActions({ state, t, renderView });
 // trainTabs：scanDataset 仍为 main.js 中后续声明的 window.scanDataset；用闭包 lambda 延迟取
 const { switchTrainTab } = createTrainTabsActions({
   state,
@@ -1361,7 +1362,7 @@ window.runTool = runTool;
 
 const renderNavigator = createNavigatorRenderer({ state, TRAINING_TYPES, _persistTrainingGroupsCollapsed });
 // settings renderer（updateLayoutWidth 是 window 箭头函数，不在依赖列表中）
-const renderSettings = createSettingsRenderer({ state, t, renderSlot, applyAndPersistLayout, renderView, applyTheme, showToast });
+const renderSettings = createSettingsRenderer({ state, t, renderSlot, applyAndPersistLayout, renderView, applyTheme, setColorTheme, showToast });
 // nav actions（依赖 renderNavigator 间接通过 toggleTrainingGroup → 该函数仍在 main.js 内）
 const {
   dismissPreflightReport,
@@ -1374,6 +1375,7 @@ const {
   TOPBAR_TABS,
   renderView,
   toggleTheme,
+  toggleStyleTheme,
   syncTopbarState,
 });
 window.dismissPreflightReport = dismissPreflightReport;

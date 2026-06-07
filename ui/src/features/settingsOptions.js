@@ -6,6 +6,7 @@
 export const BASE_OPTIMIZERS = [
   'AdamW',
   'AdamW8bit',
+  'KahanAdamW8bit',
   'PagedAdamW8bit',
   'PagedAdamW',
   'PagedAdamW32bit',
@@ -29,6 +30,8 @@ export const BASE_OPTIMIZERS = [
   'AdaFactor',
   'Prodigy',
   'prodigyplus.ProdigyPlusScheduleFree',
+  'AnimaFactoredAdamW',
+  'Muon',
   'pytorch_optimizer.CAME',
   'pytorch_optimizer.StableAdamW',
   'pytorch_optimizer.SCION',

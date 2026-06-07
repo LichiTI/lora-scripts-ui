@@ -33,6 +33,8 @@ const flowEnabled = when('flow_model', true);
 const LOSS_AWARE_SCHEDULERS = ['loss_gated_cosine', 'loss_weighted_annealed_cosine'];
 const lossAwareScheduler = oneOf('lr_scheduler', LOSS_AWARE_SCHEDULERS);
 const lossWeightedScheduler = when('lr_scheduler', 'loss_weighted_annealed_cosine');
+const muonOptimizer = optimizerIs('Muon');
+const fp8BaseStorageEnabled = (c) => c.fp8_base === true || (c.weight_compression_enabled === true && c.weight_compression_format === 'fp8_e4m3');
 
 const STANDARD_SCHEDULERS = [
   'linear',
@@ -77,6 +79,25 @@ const PCIE_TRANSFER_FORMAT_OPTIONS = [
   { value: 'uint4_rowwise', label: 'UINT4 行缩放传输（更实验）' },
   { value: 'raw_bf16', label: 'Raw BF16 传输（对照）' },
   { value: 'raw_fp16', label: 'Raw FP16 传输（对照）' },
+];
+
+const ACTIVATION_COMPRESSION_DTYPE_OPTIONS = [
+  { value: 'fp16', label: 'FP16（默认）' },
+  { value: 'bf16', label: 'BF16' },
+  { value: 'fp8_e4m3', label: 'FP8 E4M3（实验）' },
+];
+
+const DDPM_TIMESTEP_SAMPLING_OPTIONS = [
+  { value: '', label: '默认均匀采样' },
+  { value: 'uniform', label: 'Uniform（均匀）' },
+  { value: 'logit_normal', label: 'Logit Normal' },
+  { value: 'low_snr_bias', label: 'Low-SNR Bias（FasterDiT）' },
+];
+
+const FASTER_DIT_SNR_MODE_OPTIONS = [
+  { value: 'sqrt', label: 'sqrt（推荐）' },
+  { value: 'log', label: 'log（更激进）' },
+  { value: 'standard', label: 'standard（标准）' },
 ];
 
 const PCIE_TRANSFER_FORMAT_FIELD = {
@@ -237,6 +258,7 @@ const S_DIT_PERFORMANCE_EXPERT = [
   { key: 'cached_collate_mode', type: 'select', label: '缓存数据 Collate（cached_collate_mode）', desc: '仅影响 Anima/Newbie cache-first 数据集。auto/pad_sequence 使用 PyTorch 原生序列 padding；legacy 保留旧预分配循环路径，用于对照或兼容排查。', defaultValue: 'auto', options: CACHED_COLLATE_MODE_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
   { key: 'data_backend', type: 'select', label: '数据后端（data_backend）', desc: 'auto/caption 当前继续走 CaptionDataset；webdataset 会探测 Python 包与 tar shard 并写入运行记录，但暂不替换训练主路径；dali 目前只做预留 profile。', defaultValue: 'auto', options: DATA_BACKEND_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
   { key: 'checkpoint_policy', type: 'select', label: 'Checkpoint 策略（checkpoint_policy）', desc: 'auto 尊重现有 gradient_checkpointing / cpu_offload_checkpointing；full 强制通用检查点；offloaded 使用 CPU saved-tensor/offload 路径；selective 会先做能力探测，当前 Anima/Newbie native DiT 有实验性真实接线；其它路线仍会 fallback 并写入运行记录。', defaultValue: 'auto', options: CHECKPOINT_POLICY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'turbocore_experimental_fp8', type: 'boolean', label: 'TurboCore FP8 实验路径（turbocore_experimental_fp8）', desc: '后端新增的 TurboCore FP8 请求开关。默认关闭；当前只作为显式实验请求，后端仍会按能力解析并可回退。', defaultValue: false, visibleWhen: when('performance_expert_mode', true) },
 ];
 
 const ditGradientCheckpointingField = (family, defaultValue = true) => ({
@@ -389,6 +411,9 @@ const S_LR = [
   { key: 'optimizer_type', type: 'select', label: '优化器（optimizer_type）', desc: '优化器设置。pytorch_optimizer.* / bitsandbytes.optim.* 会按完整类路径传给后端', defaultValue: 'AdamW8bit', options: ALL_OPTIMIZERS },
   { key: 'optimizer_backend', type: 'select', label: 'AdamW 后端（optimizer_backend）', desc: '仅细化 AdamW / AdamW8bit 的实现路线；optimizer_args 中显式 foreach/fused 参数优先，后端不可用时训练器会 fallback 并写入运行记录。', defaultValue: 'auto', options: OPTIMIZER_BACKEND_OPTIONS, visibleWhen: all(when('performance_expert_mode', true), adamwFamilyOptimizer) },
   { key: 'advanced_optimizer_strategy', type: 'select', label: '高级优化策略（advanced_optimizer_strategy）', desc: '默认 auto 不改变训练；lora_plus 复用现有 LoRA+ 参数组；rs_lora 会让原生 LoRA/DoRA 路线启用 alpha/sqrt(rank) 的 adapter scaling；LyCORIS 既有 rs_lora/network_args 仍优先由它自己的字段处理。', defaultValue: 'auto', options: ADVANCED_OPTIMIZER_STRATEGY_OPTIONS, visibleWhen: when('performance_expert_mode', true) },
+  { key: 'muon_momentum', type: 'number', label: 'Muon Momentum（muon_momentum）', desc: '后端原生 Muon 优化器参数：Newton-Schulz 正交化动量。', defaultValue: 0.95, min: 0, max: 1, step: 0.01, visibleWhen: muonOptimizer },
+  { key: 'muon_ns_steps', type: 'number', label: 'Muon NS 步数（muon_ns_steps）', desc: 'Muon Newton-Schulz 迭代步数。步数越高正交化越充分但开销越大。', defaultValue: 5, min: 1, step: 1, visibleWhen: muonOptimizer },
+  { key: 'muon_lr_ratio', type: 'number', label: 'Muon AdamW 回退 LR 倍率（muon_lr_ratio）', desc: 'Muon 对 1D/scalar 参数回退 AdamW 参数组的学习率倍率。', defaultValue: 1.0, min: 0, step: 0.05, visibleWhen: muonOptimizer },
   { key: 'min_snr_gamma', type: 'number', label: 'Min-SNR Gamma', desc: '最小信噪比伽马值, 如果启用推荐为 5', defaultValue: '', min: 0, step: 0.1 },
   { key: 'prodigy_d0', type: 'string', label: 'Prodigy d0', desc: 'Prodigy / ProdigyPlus 初始步长估计。留空使用默认值', defaultValue: '', visibleWhen: (cfg) => ['prodigy', 'prodigyplus.prodigyplusschedulefree'].includes(String(cfg.optimizer_type || '').trim().toLowerCase()) },
   { key: 'prodigy_d_coef', type: 'string', label: 'Prodigy d_coef', desc: 'Prodigy / ProdigyPlus d 系数，影响自适应学习率大小', defaultValue: '2.0', visibleWhen: (cfg) => ['prodigy', 'prodigyplus.prodigyplusschedulefree'].includes(String(cfg.optimizer_type || '').trim().toLowerCase()) },
@@ -511,6 +536,7 @@ const S_SPEED_SDXL = [
 const S_SPEED_FLOW = [
   { key: 'mixed_precision', type: 'select', label: '混合精度（mixed_precision）', desc: '训练混合精度, RTX30系列以后也可以指定 bf16', defaultValue: 'bf16', options: ['no', 'fp16', 'bf16'] },
   { key: 'fp8_base', type: 'boolean', label: '基础模型使用 FP8（fp8_base）', desc: '基础模型使用 FP8 精度', defaultValue: true },
+  { key: 'fp8_base_compute', type: 'boolean', label: 'FP8 Base Compute（fp8_base_compute）', desc: '后端新增：在支持的 Ada/Hopper FP8 Tensor Core 上直接运行冻结基础权重 GEMM；不支持时后端回退。默认关闭，建议只在 FP8 base 存储稳定后开启。', defaultValue: false, visibleWhen: fp8BaseStorageEnabled },
   { key: 'sdpa', type: 'boolean', label: '启用 SDPA（sdpa）', desc: '启用 sdpa', defaultValue: true },
   { key: 'sageattn', type: 'boolean', label: '启用 SageAttention（sageattn）', desc: '启用 SageAttention（实验性）', defaultValue: false },
   { key: 'experimental_attention_profile_enabled', type: 'boolean', label: '步骤耗时统计（experimental_attention_profile_enabled）', desc: '步骤耗时窗口统计开关。默认关闭，仅在诊断训练速度/瓶颈时建议开启', defaultValue: false },
@@ -528,6 +554,9 @@ const S_SPEED_FLOW = [
   { key: 'text_encoder_outputs_cache_dtype', type: 'select', label: '文本缓存精度（text_encoder_outputs_cache_dtype）', desc: '文本编码器输出磁盘缓存保存精度。auto 会尽量保留运行时 dtype；fp16 / bf16 更省空间，fp32 兼容性更高', defaultValue: 'auto', options: ['auto', 'fp16', 'bf16', 'fp32'], visibleWhen: when('cache_text_encoder_outputs_to_disk', true) },
   { key: 'blocks_to_swap', type: 'number', label: 'Block 交换数（blocks_to_swap）', desc: '在 CPU/GPU 间交换的 block 数量，省显存。', defaultValue: '', min: 1 },
   { key: 'fp8_base_unet', type: 'boolean', label: '仅 U-Net FP8（fp8_base_unet）', desc: '仅对 U-Net / DiT 使用 FP8 精度', defaultValue: false },
+  { key: 'activation_compression_enabled', type: 'boolean', label: '激活压缩（activation_compression_enabled）', desc: '实验性：压缩 autograd 保存的激活张量以降低显存峰值。默认关闭，适合 Anima/DiT 全量微调或低显存 A/B。', defaultValue: false },
+  { key: 'activation_compression_dtype', type: 'select', label: '激活压缩精度（activation_compression_dtype）', desc: '激活压缩保存精度。FP8 更激进，需谨慎做质量对照。', defaultValue: 'fp16', options: ACTIVATION_COMPRESSION_DTYPE_OPTIONS, visibleWhen: when('activation_compression_enabled', true) },
+  { key: 'activation_compression_min_tensor_mb', type: 'number', label: '激活压缩最小张量 MB（activation_compression_min_tensor_mb）', desc: '只压缩达到该大小的激活张量；0 表示不过滤。', defaultValue: 1.0, min: 0, step: 0.1, visibleWhen: when('activation_compression_enabled', true) },
   { key: 'text_encoder_batch_size', type: 'number', label: '文本编码器缓存批量（text_encoder_batch_size）', desc: '文本编码器缓存批量大小', defaultValue: '', min: 1 },
   { key: 'disable_mmap_load_safetensors', type: 'boolean', label: '禁用 mmap 加载（disable_mmap_load_safetensors）', desc: '禁用 mmap 方式加载 safetensors，减少共享内存占用', defaultValue: false },
   { key: 'full_fp16', type: 'boolean', label: '完全 FP16（full_fp16）', desc: '完全使用 FP16 精度', defaultValue: false },
@@ -658,6 +687,11 @@ const S_NOISE = [
   { key: 'ip_noise_gamma', type: 'number', label: '输入扰动噪声（ip_noise_gamma）', desc: '输入扰动噪声强度，常用于正则化', defaultValue: '', step: 0.01 },
   { key: 'ip_noise_gamma_random_strength', type: 'boolean', label: '扰动噪声随机强度（ip_noise_gamma_random_strength）', desc: '输入扰动噪声强度在 0 到 ip_noise_gamma 间随机变化', defaultValue: false },
   { key: 'adaptive_noise_scale', type: 'number', label: '自适应噪声缩放（adaptive_noise_scale）', desc: '按 latent 平均绝对值动态追加 noise_offset', defaultValue: '', step: 0.01 },
+  { key: 'ddpm_timestep_sampling', type: 'select', label: 'DDPM 时间步采样（ddpm_timestep_sampling）', desc: '后端新增：DDPM/标准扩散时间步采样策略。low_snr_bias 可与 FasterDiT SNR 权重配合；留空保持旧默认。', defaultValue: '', options: DDPM_TIMESTEP_SAMPLING_OPTIONS },
+  { key: 'faster_dit_snr_enabled', type: 'boolean', label: 'FasterDiT SNR 权重（faster_dit_snr_enabled）', desc: '后端新增的 DiT SNR loss weighting 实验入口。默认关闭，不影响旧 Min-SNR。', defaultValue: false },
+  { key: 'faster_dit_snr_mode', type: 'select', label: 'FasterDiT SNR 模式（faster_dit_snr_mode）', desc: 'sqrt 为推荐默认；log 更偏低 SNR；standard 用于对照。', defaultValue: 'sqrt', options: FASTER_DIT_SNR_MODE_OPTIONS, visibleWhen: when('faster_dit_snr_enabled', true) },
+  { key: 'faster_dit_snr_gamma', type: 'number', label: 'FasterDiT SNR Gamma（faster_dit_snr_gamma）', desc: 'FasterDiT SNR 权重 gamma，常用 3~5。', defaultValue: 5.0, min: 0, step: 0.1, visibleWhen: when('faster_dit_snr_enabled', true) },
+  { key: 'faster_dit_snr_low_snr_weight', type: 'number', label: '低 SNR 加权倍率（faster_dit_snr_low_snr_weight）', desc: '配合 low_snr_bias 时提升低 SNR 样本权重。1.0 表示不额外提升。', defaultValue: 1.5, min: 0, step: 0.1, visibleWhen: when('faster_dit_snr_enabled', true) },
   { key: 'min_timestep', type: 'number', label: '最小时间步（min_timestep）', desc: '训练时允许的最小 timestep', defaultValue: '', min: 0 },
   { key: 'max_timestep', type: 'number', label: '最大时间步（max_timestep）', desc: '训练时允许的最大 timestep', defaultValue: '', min: 1 },
 ];
@@ -768,7 +802,7 @@ const netLora = (mod, dim = 32, alpha = 32, maxDim = 512, extra = [], extraModul
 
 // flow-based model params helper
 const flowParams = (defaults = {}) => [
-  { key: 'timestep_sampling', type: 'select', label: '时间步采样（timestep_sampling）', desc: '时间步采样策略', defaultValue: defaults.ts || 'sigmoid', options: ['sigma', 'uniform', 'sigmoid', 'shift', 'flux_shift'] },
+  { key: 'timestep_sampling', type: 'select', label: '时间步采样（timestep_sampling）', desc: '时间步采样策略', defaultValue: defaults.ts || 'sigmoid', options: ['sigma', 'uniform', 'sigmoid', 'logit_normal', 'shift', 'flux_shift'] },
   { key: 'sigmoid_scale', type: 'number', label: 'sigmoid 缩放（sigmoid_scale）', desc: 'sigmoid 缩放系数', defaultValue: defaults.ss || 1.0, step: 0.001 },
   { key: 'model_prediction_type', type: 'select', label: '模型预测类型（model_prediction_type）', desc: '模型预测类型', defaultValue: defaults.mp || 'raw', options: ['raw', 'additive', 'sigma_scaled'] },
   { key: 'sdxl_model_prediction_type', type: 'select', label: 'Flow 预测目标（sdxl_model_prediction_type）', desc: 'SDXL/SD1.5 Flow 路径的模型预测目标。', defaultValue: 'epsilon', options: ['epsilon', 'velocity', 'sample'], visibleWhen: flowEnabled },

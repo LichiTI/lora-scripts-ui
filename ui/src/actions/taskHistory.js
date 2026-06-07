@@ -2,6 +2,37 @@
 //   loadLocalTaskHistory / saveLocalTaskHistory / mergeTaskHistory
 //   deleteTaskHistory / clearAllTaskHistory
 //
+
+import { formatDuration } from '../utils/trainingMetrics.js';
+
+function readTaskStartMs(task) {
+  const direct = Number(task && (task.created_at_ms || task.started_at_ms || task.start_time_ms));
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  const raw = String((task && (task.created_at || task.started_at || task.start_time)) || '').trim();
+  if (!raw) return 0;
+  const parsed = Date.parse(raw.replace(/\//g, '-'));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function ensureTaskDuration(task) {
+  if (!task) return task;
+  const status = String(task.status || '').toUpperCase();
+  if (status === 'RUNNING' || status === 'CREATED') return task;
+  if (Number(task.duration_ms || 0) > 0) return task;
+  const startMs = readTaskStartMs(task);
+  const endMs = Number(task.finished_at_ms || task.completed_at_ms || task.ended_at_ms || Date.now());
+  if (!startMs || !Number.isFinite(endMs) || endMs <= startMs) return task;
+  task.duration_ms = endMs - startMs;
+  task.duration_str = formatDuration(task.duration_ms);
+  if (!task.finished_at) task.finished_at = new Date(endMs).toLocaleString('zh-CN', { hour12: false });
+  if (task._summary && typeof task._summary === 'object') {
+    task._summary.elapsed = task.duration_ms;
+    task._summary.elapsedStr = task.duration_str;
+    task._summary.totalDurationMs = task.duration_ms;
+    task._summary.totalDurationStr = task.duration_str;
+  }
+  return task;
+}
 // 依赖（工厂注入）：state, api, showToast,
 //                  getPersistableTasks,
 //                  getPendingTrainingMetadata, applyTaskMetadata, rememberTrainingTaskMetadata,
@@ -48,7 +79,7 @@ export function createTaskHistoryActions(deps) {
   /** Merge localhistory with backend live tasks. Backend tasks take priority by id. */
  function mergeTaskHistory(backendTasks, localHistory,currentTasks) {
     const deletedIds = state._deletedTaskIds || new Set();
-    const META_KEYS = ['output_name', 'model_train_type', 'created_at', 'training_type_label', 'resolution', 'network_dim', '_summary', '_recentlyFinished'];
+    const META_KEYS = ['output_name', 'model_train_type', 'created_at', 'created_at_ms', 'finished_at', 'finished_at_ms', 'duration_ms', 'duration_str', 'training_type_label', 'resolution', 'network_dim', '_summary', '_recentlyFinished'];
     const byId = new Map();
     const localById = new Map();
     const currentById = new Map();
@@ -65,9 +96,15 @@ export function createTaskHistoryActions(deps) {
       const existing = byId.get(t.id);
       if (existing) {
         const saved = localById.get(t.id);
+        const cur = currentById.get(t.id);
+        for (const k of ['created_at', 'created_at_ms']) {
+          if ((t[k] === undefined || t[k] === '') && cur && cur[k] !== undefined && cur[k] !== '') t[k] = cur[k];
+          if ((t[k] === undefined || t[k] === '') && saved && saved[k] !== undefined && saved[k] !== '') t[k] = saved[k];
+        }
+        ensureTaskDuration(t);
         // 后端覆盖 status/returncode，但保留本地已有的元数据
         for (const k of META_KEYS) {
-          if (!t[k]) { const cur = currentById.get(t.id); if (cur&& cur[k] !== undefined && cur[k] !=='') t[k] = cur[k]; }
+          if (!t[k]) { const curTask = currentById.get(t.id); if (curTask&& curTask[k] !== undefined && curTask[k] !=='') t[k] = curTask[k]; }
           if (saved && saved[k] !== undefined && saved[k] !== '' && !t[k]) t[k] = saved[k];
         }
         const meta = getPendingTrainingMetadata(t.id) || (!activeTaskId && t.status === 'RUNNING'? pendingMeta : null);
@@ -78,6 +115,7 @@ export function createTaskHistoryActions(deps) {
         const meta = getPendingTrainingMetadata(t.id) || (!activeTaskId && t.status === 'RUNNING' ? pendingMeta : null);
         if (meta) applyTaskMetadata(t, meta, { force: false });
         if (meta && !state.activeTrainingTaskId) rememberTrainingTaskMetadata(t.id, meta);
+        ensureTaskDuration(t);
         byId.set(t.id, { ...t });
       }
     }

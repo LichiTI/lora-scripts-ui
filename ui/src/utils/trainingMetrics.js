@@ -916,7 +916,7 @@ export function buildSummaryFromMetrics(m, elapsedMs) {
   const elapsedStr = elapsed > 0 ? formatDuration(elapsed) : '\u2014';
 
   return {
-    _v: 2,
+    _v: 3,
     avgSpeed, speedRating, speedColor,
     lossTrend, lossColor, lossDetail,
     firstLoss, lastLoss, minLoss, lossDelta,
@@ -924,6 +924,8 @@ export function buildSummaryFromMetrics(m, elapsedMs) {
     totalSteps: m.totalSteps, lastStep: m.lastStep,
     sampleCount: m.losses.length,
     elapsed, elapsedStr,
+    totalDurationMs: elapsed,
+    totalDurationStr: elapsedStr,
     overallRating, overallColor,
     lossLevelTag, lossLevelColor,
     pcieDeltaCache: m.pcieDeltaCache || null,
@@ -948,9 +950,9 @@ export function generateTrainingSummary(metrics) {
 /**
  * 从历史任务的全量日志生成 summary。
  */
-export function generateSummaryFromTaskLog(lines) {
+export function generateSummaryFromTaskLog(lines, elapsedMs = 0) {
   const m = parseLinesIntoMetrics(lines);
-  return buildSummaryFromMetrics(m, 0);
+  return buildSummaryFromMetrics(m, elapsedMs);
 }
 
 /**
@@ -970,6 +972,7 @@ export function renderSummaryCard(s, extra = {}) {
   const smart = s.vramSmartSensingRuntime && typeof s.vramSmartSensingRuntime === 'object' ? s.vramSmartSensingRuntime : null;
   const compileRuntime = s.compileRuntime && typeof s.compileRuntime === 'object' ? s.compileRuntime : null;
   const pcieTransferBenchmark = extra.pcieTransferBenchmark || null;
+  const totalDurationStr = s.totalDurationStr || s.elapsedStr || '\u2014';
   const pcieNextLabel = pcie ? getPcieDeltaCacheNextLabel(pcie) : '';
   const pcieCard = pcie ? (
     '<div style="margin-top:8px;">'
@@ -1083,7 +1086,7 @@ export function renderSummaryCard(s, extra = {}) {
     + '<div class="status-card" style="flex:1;min-width:150px;">'
     + '<div class="status-label">\u8bad\u7ec3\u8fdb\u5ea6</div>'
     + '<div class="status-value" style="color:var(--accent);">' + (s.epochDone > 0 ? 'Epoch ' + s.epochDone + '/' + s.epochTotal : 'Step ' + s.lastStep + '/' + s.totalSteps) + '</div>'
-    + '<div class="status-sub">' + (s.elapsedStr !== '\u2014' ? '\u8bad\u7ec3\u65f6\u957f\uff1a' + s.elapsedStr + '\u3000' : '') + '\u91c7\u6837\u70b9\uff1a' + s.sampleCount + '</div>'
+    + '<div class="status-sub">\u603b\u65f6\u957f\uff1a' + escapeHtml(totalDurationStr) + '\u3000\u91c7\u6837\u70b9\uff1a' + s.sampleCount + '</div>'
     + '</div>'
     + '<div class="status-card" style="flex:1;min-width:150px;">'
     + '<div class="status-label">\u6700\u7ec8 Loss</div>'

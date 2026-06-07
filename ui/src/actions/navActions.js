@@ -15,6 +15,7 @@ export function createNavActions({
   TOPBAR_TABS,
   renderView,
   toggleTheme,
+  toggleStyleTheme,
   syncTopbarState,
 }) {
   function dismissPreflightReport() {
@@ -44,7 +45,8 @@ export function createNavActions({
       });
     });
 
-    $('#theme-toggle')?.addEventListener('click', toggleTheme);
+    $('#theme-toggle')?.addEventListener('click', (event) => toggleTheme(event));
+    $('#style-toggle')?.addEventListener('click', (event) => toggleStyleTheme(event));
   }
 
   function setupTopbar() {

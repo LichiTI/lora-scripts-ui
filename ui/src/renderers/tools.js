@@ -622,7 +622,7 @@ export function createToolsRenderer({ state, renderSlot }) {
             onclick="runTool('${tool.id}', '${escapeHtml(tool.endpoint || tool.script)}', ${JSON.stringify(tool.fields.map((f) => f.key)).replaceAll('"', '&quot;')})">运行</button>
           <span id="tool-status-${tool.id}" style="font-size:0.82rem;"></span>
         </div>
-        <div id="tool-result-${tool.id}" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:0.82rem;white-space:pre-wrap;font-family:monospace;max-height:300px;overflow:auto;"></div>
+        <div id="tool-result-${tool.id}" class="tool-result-panel" style="display:none;"></div>
       </section>
     `;
   }

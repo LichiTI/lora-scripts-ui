@@ -12,6 +12,7 @@
 import { $ } from '../utils/dom.js';
 import {
   collectTrainingMetrics as _collectTrainingMetricsFromLines,
+  formatDuration,
   generateTrainingSummary as _generateSummaryFromMetrics,
   generateSummaryFromTaskLog,
   renderSummaryCard,
@@ -36,6 +37,7 @@ export function createTrainingMetadataActions({
       output_name: cfg.output_name || '',
       model_train_type: typeId,
       created_at: new Date().toLocaleString('zh-CN', { hour12: false }),
+      created_at_ms: Date.now(),
       training_type_label: (TRAINING_TYPES.find((item) => item.id === typeId) || {}).label || '',
       resolution: cfg.resolution || '',
       network_dim: cfg.network_dim || cfg.lokr_dim || cfg.dim || '',
@@ -53,12 +55,43 @@ export function createTrainingMetadataActions({
   function applyTaskMetadata(task, metadata, options = {}) {
     if (!task || !metadata) return;
     const force = !!(options && options.force);
-    const keys = ['output_name', 'model_train_type', 'created_at', 'training_type_label', 'resolution', 'network_dim'];
+    const keys = ['output_name', 'model_train_type', 'created_at', 'created_at_ms', 'training_type_label', 'resolution', 'network_dim', 'duration_ms', 'duration_str'];
     for (const key of keys) {
       if (metadata[key] !== undefined && metadata[key] !== '' && (force || task[key] === undefined || task[key] === '')) {
         task[key] = metadata[key];
       }
     }
+  }
+
+  function _readTaskStartMs(task) {
+    const direct = Number(task && (task.created_at_ms || task.started_at_ms || task.start_time_ms));
+    if (Number.isFinite(direct) && direct > 0) return direct;
+    const raw = String((task && (task.created_at || task.started_at || task.start_time)) || '').trim();
+    if (!raw) return 0;
+    const parsed = Date.parse(raw.replace(/\//g, '-'));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function ensureTaskDuration(task, options = {}) {
+    if (!task) return task;
+    const status = String(task.status || '').toUpperCase();
+    if (status === 'RUNNING' || status === 'CREATED') return task;
+    if (!options.force && Number(task.duration_ms || 0) > 0) return task;
+    const startMs = _readTaskStartMs(task);
+    const endMs = Number(task.finished_at_ms || task.completed_at_ms || task.ended_at_ms || Date.now());
+    if (!startMs || !Number.isFinite(endMs) || endMs <= startMs) return task;
+    const durationMs = endMs - startMs;
+    task.duration_ms = durationMs;
+    task.duration_str = formatDuration(durationMs);
+    if (!task.finished_at) task.finished_at = new Date(endMs).toLocaleString('zh-CN', { hour12: false });
+    if (task._summary && typeof task._summary === 'object') {
+      task._summary.elapsed = durationMs;
+      task._summary.elapsedStr = task.duration_str;
+      task._summary.totalDurationMs = durationMs;
+      task._summary.totalDurationStr = task.duration_str;
+    }
+    state._taskHistoryDirty = true;
+    return task;
   }
 
   function rememberTrainingTaskMetadata(taskId, metadata = null) {
@@ -131,7 +164,9 @@ export function createTrainingMetadataActions({
   async function buildAndSaveSummaryFromTaskLog(taskId) {
     const lines = await fetchTaskLogLines(taskId, 5000);
     if (lines.length=== 0) return null;
-    const summary = generateSummaryFromTaskLog(lines);
+    const task = state.tasks.find(function(t) { return t.id === taskId || t.task_id === taskId; });
+    ensureTaskDuration(task);
+    const summary = generateSummaryFromTaskLog(lines, task && Number(task.duration_ms || 0) > 0 ? Number(task.duration_ms) : 0);
     saveTaskSummary(taskId, summary);
 await saveLocalTaskHistory();
     return summary;
@@ -142,7 +177,16 @@ await saveLocalTaskHistory();
     state.taskSummaries[taskId] = summary;
     // 持久化：存到任务对象上，随 task_history.json 一起保存
     var task = state.tasks.find(function(t) { return t.id === taskId; });
-    if (task) { task._summary = summary; }
+    if (task) {
+      ensureTaskDuration(task);
+      if (Number(task.duration_ms || 0) > 0) {
+        summary.elapsed = Number(task.duration_ms);
+        summary.elapsedStr = task.duration_str || formatDuration(task.duration_ms);
+        summary.totalDurationMs = summary.elapsed;
+        summary.totalDurationStr = summary.elapsedStr;
+      }
+      task._summary = summary;
+    }
     state._taskHistoryDirty = true;
     try {
       var cache = JSON.parse(sessionStorage.getItem('sd-rescripts:task-summaries') || '{}');
