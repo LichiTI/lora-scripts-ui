@@ -1,0 +1,21 @@
+{
+  "key": "semantic_tuner_enabled",
+  "title": "Semantic Base-Tuner (语义基础调优)",
+  "category": "训练 / Level 5",
+  "appliesTo": ["sdxl-lora", "sd-lora"],
+  "layers": ["模型层"],
+  "standard": {
+    "summary": "使用 LLM（如 CLIP/BLIP）提供语义指导来辅助底模微调，实现更高质量的语义对齐。Level 5 最高级特性。",
+    "effect": "architecture_mode 选择 hybrid（混合 LLM 语义 + 标准训练）或 pure（纯语义驱动）。需要指定 semantic_llm_path 和 semantic_projector_path。",
+    "whenToUse": "实验性研究——探索语义引导的微调方法。",
+    "avoidWhen": "日常训练不需要。需要额外的 LLM 模型和 projector 权重。"
+  },
+  "advanced": {
+    "principle": "Semantic Tuner 使用预训练 LLM 提取图像和文本的语义表示，通过 projector 将语义信息注入到底模微调过程中。hybrid 模式同时使用标准 diffusion loss 和语义对齐 loss；pure 模式只使用语义信号。semantic_llm_path 指定 LLM 模型路径，semantic_projector_path 指定投影层路径。",
+    "intervention": "在 forward 中额外计算语义对齐 loss，与标准 loss 加权合并。",
+    "expectedImpact": "理论上提升语义对齐质量。实际效果高度依赖 LLM 和 projector 的质量。",
+    "tradeoffs": "计算开销大（需要额外 LLM forward）。实验性特性。",
+    "codePath": "core/semantic_tuner/ → LLM semantic extraction → projector → semantic alignment loss"
+  },
+  "relatedConfigs": ["semantic_llm_path", "semantic_projector_path", "architecture_mode"]
+}

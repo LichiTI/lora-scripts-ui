@@ -1,0 +1,21 @@
+{
+  "key": "save_every_n_epochs",
+  "title": "保存间隔",
+  "category": "保存 / 间隔",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["输出层"],
+  "standard": {
+    "summary": "每隔多少个 epoch 保存一次 checkpoint。save_every_n_steps 是按步数保存的替代方案。",
+    "effect": "save_every_n_epochs=1 每 epoch 保存一次。=0 禁用按 epoch 保存。两者可以同时使用。",
+    "whenToUse": "长训练时建议每 1-2 个 epoch 保存一次。配合 checkpoint_keep_last 控制磁盘占用。",
+    "avoidWhen": "保存操作有 I/O 开销（大模型可能耗时数秒）。频繁保存在短训练中影响不大。"
+  },
+  "advanced": {
+    "principle": "在每个 epoch 结束时（或每 N 步时）触发保存。mem_efficient_save 在保存前将 tensor 移到 CPU 以减少 GPU 显存峰值。save_n_epoch_ratio 根据总 epoch 数自动计算保存间隔。",
+    "intervention": "training_loop 在 epoch end / step checkpoint 时调用 save_model。",
+    "expectedImpact": "不影响训练质量。确保训练中断时不丢失过多进度。",
+    "tradeoffs": "checkpoint_keep_last 限制保留最近 N 个 checkpoint，自动删除旧的。save_model_as 控制保存格式（safetensors/ckpt/pt）。",
+    "codePath": "training_loop.py:save_model() → safetensors.torch.save_file / torch.save"
+  },
+  "relatedConfigs": ["save_every_n_steps", "checkpoint_keep_last", "save_model_as", "save_precision", "mem_efficient_save"]
+}

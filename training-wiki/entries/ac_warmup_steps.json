@@ -1,0 +1,23 @@
+{
+  "key": "ac_warmup_steps",
+  "title": "AutoController 预热步数",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "AutoController 在多少步后才开始生效，避免训练初期不稳定状态误触发干预。默认 100。",
+    "effect": "前 100 步 AutoController 处于静默观察状态，不执行任何干预；100 步后开始监控并可能触发策略。",
+    "whenToUse": "总步数的 10%~20% 是合理的预热范围。总步数 200 步可设为 20~40；总步数 1000 步可设为 100~200。",
+    "avoidWhen": "不建议设为 0（训练刚开始 loss 不稳定，立即监控容易误判）。"
+  },
+  "advanced": {
+    "principle": "预热期内所有监控信号（loss 窗口、GSNR 统计、CLIP 漂移）正常积累，但不触发任何干预动作。预热结束后再开始评估。",
+    "tradeoffs": "预热期过长则早停/LR 衰减的保护效果推迟；过短则噪声信号可能导致误触发。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_loss_plateau_window",
+    "ac_enable_smart_early_stopping"
+  ]
+}

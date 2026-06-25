@@ -1,0 +1,21 @@
+{
+  "key": "ema_update_after_step",
+  "title": "EMA 起始步",
+  "category": "训练 / 平滑",
+  "appliesTo": ["anima-lora", "sdxl-lora", "sd-lora", "newbie-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "从第几个优化步开始累积 EMA。之前的步骤 EMA 副本不更新（保持初始化权重）。",
+    "effect": "避免训练早期 loss 剧烈震荡时的不稳定权重污染 EMA。设为 100 意味着前 100 步的不稳定状态不会影响 EMA 副本。",
+    "whenToUse": "训练早期 loss 波动大时（常见于高学习率或未预热阶段）推荐设为 warmup 步数左右。",
+    "avoidWhen": "总训练步数很少时不宜设太大，否则 EMA 有效积累步数太少。"
+  },
+  "advanced": {
+    "principle": "step < ema_update_after_step 时跳过 EMA 更新，EMA 副本保持初始化状态（通常等于初始模型权重）。",
+    "intervention": "控制 EMA 热身：确保 EMA 副本只从相对稳定的训练阶段开始积累。",
+    "expectedImpact": "有效防止早期爆炸性 loss 污染 EMA，最终 EMA 权重更可信。",
+    "tradeoffs": "设置过大时 EMA 实际只积累了末期权重，平滑效果降低。",
+    "codePath": "core/lulynx_trainer/training_loop.py → EMA update 起始判断"
+  },
+  "relatedConfigs": ["ema_enabled", "ema_decay", "ema_update_every"]
+}

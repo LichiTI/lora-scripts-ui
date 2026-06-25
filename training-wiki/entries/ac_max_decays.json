@@ -1,0 +1,23 @@
+{
+  "key": "ac_max_decays",
+  "title": "最大衰减次数",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "智能 LR 衰减最多可触发的次数，超过后不再继续降低。默认 3。",
+    "effect": "防止 LR 因反复平台期无限下降至接近 0。3 次 × 0.5 = LR 降至原来的 12.5%。",
+    "whenToUse": "默认 3 适合大多数场景。长训练（>1000 步）可适当增加到 5。",
+    "avoidWhen": "不建议设为 0（完全不降）或过大（LR 接近 0 后训练无效）。"
+  },
+  "advanced": {
+    "principle": "计数器在每次触发衰减时递增，达到 max_decays 后停止响应平台期信号。",
+    "tradeoffs": "max_decays 与 lr_decay_factor 共同决定 LR 的最终下限。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_enable_smart_lr_decay",
+    "ac_lr_decay_factor"
+  ]
+}

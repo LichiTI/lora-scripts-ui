@@ -1,0 +1,25 @@
+{
+  "key": "caption_extension",
+  "title": "图说文件扩展名",
+  "category": "数据集 / 图说",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "standard": {
+    "summary": "训练数据集中图说文件的扩展名。训练器会在每张图像同目录查找同名的图说文件。",
+    "effect": ".txt = 普通文本图说（每行一个 tag 或自然语言描述）；.caption = ComfyUI 常用格式（功能相同）。",
+    "whenToUse": "根据图说文件的实际格式设置。大多数工具（WD tagger、BLIP等）输出 .txt 格式。",
+    "avoidWhen": "不需要修改，保持与图说文件的实际扩展名一致即可。"
+  },
+  "advanced": {
+    "principle": "训练器遍历数据集目录时，对每张图像寻找同名 + 指定扩展名的文件作为其图说。若找不到，使用空图说或触发词（取决于其他设置）。",
+    "tradeoffs": "同一目录下混用 .txt 和 .caption 时，只会识别 caption_extension 指定的格式，另一种被忽略。"
+  },
+  "relatedConfigs": [
+    "caption_source_tag_ratio",
+    "caption_source_nl_ratio"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "weight_compression_enabled",
+  "title": "权重压缩 (FP8/INT8)",
+  "category": "显存优化 / 压缩",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["显存层", "模型层"],
+  "standard": {
+    "summary": "将冻结的底模权重压缩为 FP8 或 INT8 格式，减少显存占用。可训练参数（LoRA）保持原始精度。",
+    "effect": "weight_compression_target 选择压缩范围（text_encoder/backbone/both）。weight_compression_format 选择格式（fp8_e4m3）。weight_compression_preset 提供预设（stable_backbone_int8 等）。",
+    "whenToUse": "显存不足以容纳底模全精度权重时。FLUX/Anima 等大模型时特别有用。",
+    "avoidWhen": "对底模精度极度敏感时。压缩可能导致细微的质量损失。"
+  },
+  "advanced": {
+    "principle": "FP8 E4M3 格式将 16-bit 权重压缩为 8-bit，显存占用减半。weight_compression_include_patterns/exclude_patterns 通过正则表达式精细控制哪些层被压缩。compression_companion 允许加载一个预训练的恢复适配器，在压缩前合并到底模中补偿精度损失。weight_compression_verify 在压缩后验证权重误差。",
+    "intervention": "模型加载后、训练前，对指定权重执行精度转换。推理时自动反量化。",
+    "expectedImpact": "底模显存占用减少约 50%（FP16→FP8）。训练速度不受影响（只有冻结权重被压缩）。",
+    "tradeoffs": "weight_compression_allow_offload_combo 允许与 CPU offload 组合使用。",
+    "codePath": "core/weight_compression/ → per-layer FP8/INT8 quantization → dequantize on access"
+  },
+  "relatedConfigs": ["weight_compression_target", "weight_compression_format", "weight_compression_preset", "compression_companion_enabled"]
+}

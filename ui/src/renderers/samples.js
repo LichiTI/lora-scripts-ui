@@ -35,7 +35,7 @@ export function createSamplesRenderer({ api }) {
       + '</div>'
       + '<div id="samples-grid" style="padding:12px;"><div style="text-align:center;padding:40px;color:var(--text-muted);">' + _ico('loader', 20) + ' 加载中...</div></div>'
       + '</div>'
-      + '<div id="sample-lightbox" class="sample-lightbox" style="display:none;" onclick="closeSampleLightbox(event)">'
+      + '<div id="sample-lightbox" class="sample-lightbox" onclick="closeSampleLightbox(event)">'
       + '<button class="lb-arrow lb-arrow-left" type="button" onclick="event.stopPropagation();lightboxNav(-1)" title="上一张 (←)">&#10094;</button>'
       + '<button class="lb-arrow lb-arrow-right" type="button" onclick="event.stopPropagation();lightboxNav(1)" title="下一张 (→)">&#10095;</button>'
    + '<div class="sample-lightbox-inner">'
@@ -140,7 +140,7 @@ export function createSamplesRenderer({ api }) {
       _sampleCache = (resp && resp.data && resp.data.images) ? resp.data.images : [];
       _renderSampleGrid(_sampleCache);
     } catch(e) {
-      grid.innerHTML = '<div style="text-align:center;padding:40px;color:#ef4444;">' + _ico('x-circle', 20) + ' 加载失败: ' + escapeHtml(e.message || '') + '</div>';
+      grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--danger);">' + _ico('x-circle', 20) + ' 加载失败: ' + escapeHtml(e.message || '') + '</div>';
     }
   }
 

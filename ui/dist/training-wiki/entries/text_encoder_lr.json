@@ -1,0 +1,28 @@
+{
+  "key": "text_encoder_lr",
+  "title": "文本编码器学习率",
+  "category": "训练 / 学习率",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "te_lr",
+    "te2_lr"
+  ],
+  "standard": {
+    "summary": "单独设置文本编码器（CLIP/T5 等）的学习率，通常设为 UNet LR 的 1/2 ~ 1/10。",
+    "effect": "较低的 TE LR 保留预训练语义理解能力，同时允许 TE 适配新概念（如角色/风格触发词）。",
+    "whenToUse": "训练包含 TE 时（train_text_encoder=true），建议单独设置 TE LR 使其低于 UNet LR。",
+    "avoidWhen": "train_text_encoder=false 时设置无意义。"
+  },
+  "advanced": {
+    "principle": "TE 的语义表征空间比 UNet 更「脆弱」，过高 LR 会破坏 CLIP 的语义一致性，导致提示词响应变弱。",
+    "tradeoffs": "TE LR=0 相当于不训练 TE；过高 LR 导致语言理解退化。经验值：UNet LR / 5 ~ UNet LR / 2。"
+  },
+  "relatedConfigs": [
+    "learning_rate",
+    "unet_lr",
+    "train_text_encoder"
+  ]
+}

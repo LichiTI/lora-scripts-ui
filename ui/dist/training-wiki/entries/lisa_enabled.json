@@ -1,0 +1,21 @@
+{
+  "key": "lisa_enabled",
+  "title": "LISA (层级重要性采样)",
+  "category": "训练 / 采样",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "LISA 每步只激活一部分 LoRA 层进行训练（按重要性采样），减少每步显存和计算开销，同时保持全层训练的效果。",
+    "effect": "lisa_active_ratio=0.2 表示每步只激活 20% 的 LoRA 层。显存和速度改善约 50-70%，质量损失约 2-5%。",
+    "whenToUse": "显存紧张但想训练全层时。大模型（FLUX/SD3）上效果更明显。",
+    "avoidWhen": "显存充足时不需要——全层同时训练效果最好。"
+  },
+  "advanced": {
+    "principle": "每 N 步（lisa_interval）根据梯度范数采样最重要的 active_ratio 比例的层，只对这些层执行 forward/backward/update。其余层的梯度累积到下一步。类似 dropout 但是在层级别。",
+    "intervention": "在 training_step 中动态选择活跃的 LoRA 层子集。",
+    "expectedImpact": "显存节省与 active_ratio 成正比。质量损失在 ratio >= 0.2 时可控。",
+    "tradeoffs": "与 gradient_checkpointing 组合可进一步降低显存。",
+    "codePath": "core/training_components/lisa.py:LISAScheduler → per-step layer selection"
+  },
+  "relatedConfigs": ["lisa_active_ratio", "lisa_interval", "gradient_checkpointing"]
+}

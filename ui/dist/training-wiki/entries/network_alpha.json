@@ -1,0 +1,29 @@
+{
+  "key": "network_alpha",
+  "title": "LoRA Alpha（缩放系数）",
+  "category": "LoRA / 网络结构",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "aliases": [
+    "alpha",
+    "lora_alpha"
+  ],
+  "standard": {
+    "summary": "LoRA 输出的缩放系数。实际学习率有效缩放 = lr × alpha / rank。通常设为 rank 的 1/2 或等于 rank。",
+    "effect": "alpha=rank：缩放系数为 1，LoRA 权重按原始幅度生效；alpha=rank/2：缩放为 0.5，更保守；alpha=1：若 rank=16 则有效缩放 1/16，等价于 LR 极小。",
+    "whenToUse": "推荐 alpha = rank 或 rank/2（如 rank=16，alpha=8~16）。使用高 rank 时为了稳定性可降低 alpha/rank 比值。",
+    "avoidWhen": "alpha > rank（缩放 > 1）会放大 LoRA 更新，训练初期可能不稳定。alpha=0 则 LoRA 永远输出 0，训练无效。"
+  },
+  "advanced": {
+    "principle": "ΔW = (alpha/rank) × B × A。alpha/rank 等价于对 LoRA 输出的全局乘法缩放，与 lr 正交但效果相似。维持 alpha/rank 常数时改变 rank 不影响收敛速度。",
+    "tradeoffs": "实际上 alpha 和 lr 是高度冗余的：lr × (alpha/rank) 才是有效步长。常见做法是固定 alpha=rank（缩放=1），只调 lr。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "learning_rate"
+  ]
+}

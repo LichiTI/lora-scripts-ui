@@ -1,0 +1,29 @@
+{
+  "key": "dynamo_backend",
+  "title": "torch.compile 后端",
+  "category": "速度 / 编译",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "torch_compile_backend"
+  ],
+  "standard": {
+    "summary": "选择 torch.compile 使用的底层后端。不同后端在速度、兼容性、调试友好度上有差异。",
+    "effect": "inductor（默认）= 最优化性能，生成 Triton kernel；cudagraphs = 固定形状下极快；eager = 不编译，仅用 Dynamo 追踪（调试用）；aot_eager = AOT 图捕获但不编译（调试用）。",
+    "whenToUse": "生产训练用 inductor；输入形状固定时可尝试 cudagraphs 进一步提速；遇到 inductor bug 时用 eager 调试。",
+    "avoidWhen": "eager/aot_eager 是调试后端，不提供性能提升。"
+  },
+  "advanced": {
+    "principle": "TorchDynamo 将 Python 计算图降级到 FX 图 → 送入后端：inductor 通过 Triton/CUDA 生成 kernel；cudagraphs 捕获 CUDA stream 命令序列实现零-overhead 重放；eager 直接执行 FX 图。",
+    "tradeoffs": "cudagraphs 要求每次前向输入形状完全相同（否则需重新捕获），变长 token 场景不适用；inductor 首次编译慢但一次编译多次复用。",
+    "codePath": "backend/core/lulynx_trainer/trainer_execution_mixin.py → runtime_optimizations_attention.py:708-718"
+  },
+  "relatedConfigs": [
+    "torch_compile",
+    "compile_runtime",
+    "dynamo_recompile_limit"
+  ]
+}

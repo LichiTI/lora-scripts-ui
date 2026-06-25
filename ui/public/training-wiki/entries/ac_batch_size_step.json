@@ -1,0 +1,21 @@
+{
+  "key": "ac_batch_size_step",
+  "title": "批量大小调整步长",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "动态批量大小调整时每次增减的步长。默认 1。",
+    "effect": "当 AutoController 判断需要调整 batch size 时，每次增减的数量。",
+    "whenToUse": "开启动态 batch 调整策略时使用。默认 1 是最保守的步长。",
+    "avoidWhen": "未启用动态 batch 调整时此参数无意义。"
+  },
+  "advanced": {
+    "principle": "动态 batch 调整是实验性功能，根据梯度方差和内存状态自动调整每步的有效 batch size。",
+    "tradeoffs": "batch size 变化会影响学习率有效性（通常 batch double → LR double），需要同步调整 LR 或使用自适应优化器。"
+  },
+  "relatedConfigs": [
+    "ac_enabled"
+  ]
+}

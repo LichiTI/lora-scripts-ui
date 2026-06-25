@@ -1,0 +1,29 @@
+{
+  "key": "optimizer_preset",
+  "title": "优化器预设",
+  "category": "训练 / 优化器",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "optimizer_state_paging_min_tensor_mb",
+    "optimizer_state_paging_pin_memory",
+    "newbie_auto_swap_release"
+  ],
+  "standard": {
+    "summary": "优化器快速预设方案：选择已调优的优化器 + 学习率 + beta 参数组合，无需手动配置每个参数。",
+    "effect": "根据训练目标（稳定收敛/快速收敛/低显存）选择预设，自动填充 optimizer_type / optimizer_backend / weight_decay 等参数。optimizer_state_paging 将优化器状态（动量）分页卸载到 CPU，节省显存。",
+    "whenToUse": "不确定优化器参数时使用预设作为起点；optimizer_state_paging 在 AdamW 优化器状态占用显著时（>2GB）且 CPU RAM 充足时开启。",
+    "avoidWhen": "有精细调参需求时不使用预设（预设优先级低于手动设置）；state_paging 增加 CPU-GPU 数据交换开销，建议先用 AdamW8bit（原生省显存）。"
+  },
+  "advanced": {
+    "principle": "optimizer_state_paging：将优化器动量 tensor（m/v）分页到 CPU，大于 min_tensor_mb 的 tensor 才分页（避免小 tensor 频繁传输）；pin_memory 使用 CPU 固定内存（page-locked），加速 GPU-CPU 传输。newbie_auto_swap_release 是新手模式特有的自动 block swap 管理（自动决定何时释放换出的 block）。",
+    "tradeoffs": "optimizer_state_paging 的 pin_memory=True 会占用更多 CPU RAM（固定内存），但传输速度约快 2×；min_tensor_mb 设置过小会导致大量小 tensor 频繁传输（反而更慢）。"
+  },
+  "relatedConfigs": [
+    "optimizer_type",
+    "optimizer_backend",
+    "anima_block_prefetch"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "key": "compile_target_strategy",
+  "title": "Compile Target 策略",
+  "category": "速度 / 编译",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "选择对哪些模块/部分应用编译：auto（自动）/ inner_forward（block 内部 forward）/ block（整块 block）。",
+    "effect": "inner_forward 优先编译 block 内的稳定 forward 路径，跳过外层动态路由；block 编译整个 transformer block。Anima 测试中 inner_forward 效果更稳定。",
+    "whenToUse": "Anima 推荐 inner_forward；其他路线保持 auto（自动探测最适合的目标）。",
+    "avoidWhen": "block 模式在有动态分支的 block 上可能导致编译失败或频繁重编译。"
+  },
+  "advanced": {
+    "principle": "inner_forward = 只编译 Attention + MLP 的核心计算路径，绕过 block 外层的条件逻辑（如 timestep 路由、跳层逻辑）；block = 完整编译整个 block 单元。",
+    "tradeoffs": "inner_forward 编译范围更小但更稳定；block 编译范围更大但遇到动态分支时容易触发 graph break。"
+  },
+  "relatedConfigs": [
+    "compile_runtime",
+    "compile_shape_strategy"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "key": "optimizer_args",
+  "title": "优化器额外参数",
+  "category": "训练 / 优化器",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "optimizer_args_custom"
+  ],
+  "standard": {
+    "summary": "以 key=value 格式（一行一个）向优化器传递额外参数，如 betas 或特定优化器的专有选项。",
+    "effect": "每行解析为一个 kwargs 传入优化器构造函数。支持列表值：betas=[0.9,0.999]。",
+    "whenToUse": "微调优化器的 β 参数（如调低 β₂ 加快 Adam variance 估计响应速度）或传入特定优化器的专有参数（如 Prodigy 的 use_bias_correction）。",
+    "avoidWhen": "不清楚优化器参数的作用时不要随意填写，错误参数会导致优化器初始化失败。"
+  },
+  "advanced": {
+    "principle": "后端使用 runConfigBuilder 直接将解析后的 dict 作为 **kwargs 传入优化器构造函数，不做额外验证。",
+    "tradeoffs": "灵活性极高，但参数名和类型必须与优化器的 __init__ 签名完全对应。"
+  },
+  "relatedConfigs": [
+    "optimizer_type",
+    "optimizer_backend"
+  ]
+}

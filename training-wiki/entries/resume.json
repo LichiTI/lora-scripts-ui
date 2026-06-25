@@ -1,0 +1,31 @@
+{
+  "key": "resume",
+  "title": "恢复训练",
+  "category": "训练 / 恢复",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "initial_epoch",
+    "initial_step",
+    "skip_until_initial_step",
+    "save_state_on_train_end"
+  ],
+  "standard": {
+    "summary": "从之前的训练状态恢复：resume 指定状态文件路径（包含优化器状态、步数等）；initial_step/epoch 指定从第几步/epoch 开始计数。",
+    "effect": "resume 加载完整训练状态（不只是 LoRA 权重，还包含优化器动量、调度器状态）；save_state_on_train_end 在训练结束时额外保存完整状态以备未来恢复。",
+    "whenToUse": "训练意外中断（断电/崩溃）后恢复，或需要在已有训练基础上继续训练时使用 resume。",
+    "avoidWhen": "与 network_weights（只加载 LoRA 权重，不加载优化器状态）区分：resume 是完整恢复（包括 LR 调度状态），network_weights 是 warm start（从已有 LoRA 权重重新开始训练）。"
+  },
+  "advanced": {
+    "principle": "训练状态包含：模型权重（LoRA A/B）+ 优化器状态（m/v momentum）+ 调度器状态（当前步数/LR）。resume 从这个完整 checkpoint 恢复，skip_until_initial_step 允许从恢复点开始跳过前 N 步（用于快速跳到某个检查点继续）。",
+    "tradeoffs": "完整状态文件约为 LoRA 文件的 3~5×（优化器动量额外占用）；每步保存一次状态会极大占用磁盘。建议配合 save_every_n_steps 间隔保存，只保留几个状态 checkpoint。"
+  },
+  "relatedConfigs": [
+    "network_weights",
+    "save_state_on_train_end",
+    "output_dir"
+  ]
+}

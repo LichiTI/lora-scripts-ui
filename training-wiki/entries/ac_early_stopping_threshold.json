@@ -1,0 +1,23 @@
+{
+  "key": "ac_early_stopping_threshold",
+  "title": "早停阈值",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "loss 改善小于此值视为无改善。默认 0.001（改善 0.001 以上才计为「有进展」）。",
+    "effect": "阈值越大越宽松（更难触发早停）；越小越严格（微小改善也算有进展）。",
+    "whenToUse": "默认 0.001 适合大多数 LoRA 训练。若 loss 量级很小（如 <0.01），可适当降低到 0.0001。",
+    "avoidWhen": "不建议设为 0（任何微小改善都算有进展，早停永远不触发）。"
+  },
+  "advanced": {
+    "principle": "改善量 = max(hist_losses) - current_best。若改善量 < threshold 视为未改善，patience 计数器递增。",
+    "tradeoffs": "需要与训练的 loss 量级匹配，不同 scheduler/optimizer 组合的 loss 范围差异较大。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_enable_smart_early_stopping",
+    "ac_early_stopping_patience"
+  ]
+}

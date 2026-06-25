@@ -1,0 +1,28 @@
+{
+  "key": "safeguard_loss_spike_threshold",
+  "title": "Loss Spike 阈值",
+  "category": "训练 / 稳定性",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "lulynx_safeguard_loss_spike_threshold"
+  ],
+  "standard": {
+    "summary": "当前 loss 超过滑动窗口均值多少倍时判定为 spike（异常跳升）。默认 5.0。",
+    "effect": "阈值越小越敏感，越容易误触发；越大则容忍更大的 loss 波动。触发后执行自动降 LR 或计入统计。",
+    "whenToUse": "初训新素材时 loss 变化较大，建议调高到 8~10。稳定收敛阶段可降至 3~5 以更敏锐捕捉异常。",
+    "avoidWhen": "不建议设为 1~2（对正常 loss 波动过于敏感，会频繁触发降 LR 影响收敛）。"
+  },
+  "advanced": {
+    "principle": "spike_score = current_loss / (window_mean + 1e-8)，超过阈值触发。配合 loss_window_size 控制均值基准稳定性。",
+    "tradeoffs": "训练早期 loss 尚未稳定时窗口均值本身波动大，阈值设低容易误触发。"
+  },
+  "relatedConfigs": [
+    "safeguard_enabled",
+    "safeguard_loss_window_size",
+    "safeguard_auto_reduce_lr"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "key": "low_vram_profile",
+  "title": "低显存档位",
+  "category": "显存 / 自动策略",
+  "appliesTo": ["sdxl-lora", "anima-lora", "newbie-lora"],
+  "layers": ["配置编排层", "内存层", "数据缓存层"],
+  "standard": {
+    "summary": "低显存档位会把多项省显存开关组合成稳定预设。",
+    "effect": "可以降低 OOM 概率，但档位越激进通常越慢。",
+    "whenToUse": "16G、12G、8G 等显存目标明确，或者不想逐项调 offload、缓存、检查点时使用。",
+    "avoidWhen": "显存充足、需要最高速度，或正在做严格 A/B benchmark 时保持关闭。"
+  },
+  "advanced": {
+    "principle": "档位不是单一技术，而是把 latent/text cache、checkpointing、阶段分辨率、block swap/offload 等策略统一解析。",
+    "intervention": "主要介入训练启动前的配置解析，不会在训练中途无提示改参数。",
+    "expectedImpact": "能降低峰值显存和启动失败率；真实速度取决于缓存命中、PCIe 带宽、分辨率和 batch。",
+    "tradeoffs": "过激档位会把瓶颈转移到 CPU、磁盘或 PCIe；建议从稳定档开始逐步下探。"
+  },
+  "relatedConfigs": ["vram_auto_enhance_enabled", "enhanced_protection_mode", "sdxl_low_vram_optimization"]
+}

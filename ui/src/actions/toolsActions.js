@@ -258,12 +258,12 @@ const statusEl = $(`#tool-status-${toolId}`);
       if (isCoreEndpoint) {
         const resp = await api.runCoreTool(scriptName, params);
         if (btn) { btn.disabled = false; btn.textContent = '运行'; }
-        if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e;">' + _ico('check-circle', 14) + ' 工具运行完成</span>';
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--success);">' + _ico('check-circle', 14) + ' 工具运行完成</span>';
         if (resultEl) {
           resultEl.style.display = 'block';
           resultEl.style.background = 'var(--bg-hover)';
           resultEl.style.color = 'var(--text-base)';
-          resultEl.style.borderLeft = '3px solid #22c55e';
+          resultEl.style.borderLeft = '3px solid var(--success)';
           const payload = resp?.data ?? resp;
           cacheCoreResult(toolId, payload);
           resultEl.innerHTML = renderCoreResult(toolId, payload);
@@ -312,7 +312,7 @@ const statusEl = $(`#tool-status-${toolId}`);
       // ── 显示运行中状态 ──
       if (btn) { btn.disabled = true; btn.innerHTML = _ico('loader') + ' 运行中...'; }
       if (statusEl) {
-        statusEl.innerHTML = '<span style="color:#f59e0b;">' + _ico('loader', 14) + ' 工具运行中...</span>';
+        statusEl.innerHTML = '<span style="color:var(--warning);">' + _ico('loader', 14) + ' 工具运行中...</span>';
       }
       if (resultEl) {
         resultEl.style.display = 'block';
@@ -350,11 +350,11 @@ const statusEl = $(`#tool-status-${toolId}`);
                 // 最终状态
                 const failed = thisTask && (thisTask.status === 'TERMINATED' || (thisTask.returncode != null && thisTask.returncode !== 0));
                 if (failed) {
-                  if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444;">' + _ico('x-circle', 14) + ' 工具运行失败 (exit code: ' + (thisTask.returncode ?? '?') + ')</span>';
-                  if (resultEl) resultEl.style.borderLeft = '3px solid #ef4444';
+                  if (statusEl) statusEl.innerHTML = '<span style="color:var(--danger);">' + _ico('x-circle', 14) + ' 工具运行失败 (exit code: ' + (thisTask.returncode ?? '?') + ')</span>';
+                  if (resultEl) resultEl.style.borderLeft = '3px solid var(--danger)';
                 } else {
-                  if (statusEl) statusEl.innerHTML ='<span style="color:#22c55e;">' + _ico('check-circle', 14) + ' 工具运行完成</span>';
-                  if (resultEl) resultEl.style.borderLeft = '3px solid #22c55e';
+                  if (statusEl) statusEl.innerHTML ='<span style="color:var(--success);">' + _ico('check-circle', 14) + ' 工具运行完成</span>';
+                  if (resultEl) resultEl.style.borderLeft = '3px solid var(--success)';
                 }
                 if (btn) { btn.disabled = false; btn.textContent = '运行'; }
 
@@ -379,7 +379,7 @@ const statusEl = $(`#tool-status-${toolId}`);
         // 后端没返回 task_id（旧版后端），回退到旧行为
         setTimeout(() => {
           if (btn) { btn.disabled = false; btn.textContent = '运行'; }
-          if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e;">' + _ico('check-circle', 14) + ' 工具应已完成，请检查输出文件</span>';
+          if (statusEl) statusEl.innerHTML = '<span style="color:var(--success);">' + _ico('check-circle', 14) + ' 工具应已完成，请检查输出文件</span>';
           if (resultEl) { resultEl.innerHTML = 'ℹ 工具在后台执行，输出请查看后端控制台窗口。'; resultEl.style.display = 'block'; }
         }, 3000);
       }
@@ -387,12 +387,12 @@ const statusEl = $(`#tool-status-${toolId}`);
       // ── 提交失败 ──
       if (btn) { btn.disabled = false; btn.textContent = '运行'; }
       if (statusEl) {
-        statusEl.innerHTML = '<span style="color:#ef4444;">' + _ico('x-circle', 14) + ' ' + escapeHtml(error.message || '提交失败') + '</span>';
+        statusEl.innerHTML = '<span style="color:var(--danger);">' + _ico('x-circle', 14) + ' ' + escapeHtml(error.message || '提交失败') + '</span>';
       }
       if (resultEl) {
         resultEl.style.display = 'block';
         resultEl.style.background = 'rgba(239,68,68,0.08)';
-        resultEl.style.color = '#ef4444';
+        resultEl.style.color = 'var(--danger)';
         resultEl.textContent = error.message || '工具运行失败。';
       }
       showToast(error.message || '工具运行失败。');

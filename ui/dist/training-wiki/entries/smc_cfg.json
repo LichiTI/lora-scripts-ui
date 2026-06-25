@@ -1,0 +1,21 @@
+{
+  "key": "smc_cfg",
+  "title": "SMC-CFG",
+  "category": "推理 / Guidance",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["采样器"],
+  "standard": {
+    "summary": "SMC-CFG 是滑动模态 CFG 校正，用于减轻高 CFG 带来的副作用。它是推理功能，不是训练适配器。",
+    "effect": "smc_cfg_lambda 与 smc_cfg_alpha 控制校正强度和滑动状态更新速度。",
+    "whenToUse": "使用较高 guidance 或出现过饱和、细节漂移时进行推理 A/B。",
+    "avoidWhen": "需要完全保持旧 CFG 输出，或当前模型族没有 velocity-space 兼容证明时。"
+  },
+  "advanced": {
+    "principle": "在 conditional/unconditional velocity 合成处加入滑动模态校正。",
+    "intervention": "GenerationRequest → Anima/Newbie sampler CFG combine。",
+    "expectedImpact": "训练时间无变化；推理质量取决于 guidance 区间和模型族。",
+    "tradeoffs": "SDXL/SD1.5 输出空间兼容性未证明前不应宣称全路线支持。",
+    "codePath": "backend/core/lulynx_trainer/smc_cfg.py"
+  },
+  "relatedConfigs": ["smc_cfg", "smc_cfg_lambda", "smc_cfg_alpha"]
+}

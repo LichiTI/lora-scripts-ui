@@ -1,0 +1,34 @@
+{
+  "key": "block_weight_preset",
+  "title": "Block 权重预设",
+  "category": "训练 / Block 权重",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora",
+    "anima-lora"
+  ],
+  "aliases": [
+    "block_weight_adaln_cross_attn",
+    "block_weight_adaln_mlp",
+    "block_weight_adaln_self_attn",
+    "block_weight_cross_attn",
+    "block_weight_mlp",
+    "block_weight_self_attn",
+    "block_weight_vector"
+  ],
+  "standard": {
+    "summary": "通过预设方案快速设置不同 transformer block 类型的 LoRA 权重分配。不同 block 类型（cross-attn / self-attn / MLP 等）在训练中的贡献可以差异化加权。",
+    "effect": "预设会自动填充各 block 类型的权重值，无需手动逐项配置。例如 detail 预设提高 cross-attn 权重；structure 预设提高 self-attn 权重。",
+    "whenToUse": "希望针对特定训练目标（细节/风格/结构）快速调整各 block 的贡献时使用预设。",
+    "avoidWhen": "不确定各 block 权重含义时保持默认（所有 block 权重相等），避免某些 block 被过度强调。"
+  },
+  "advanced": {
+    "principle": "LoRA 更新 ΔW_block = weight_factor × LoRA_output_block。不同 block 在生成过程中分工不同：cross-attn 控制语义/提示词响应；self-attn 控制结构/布局；MLP 控制细节纹理；adaln 控制时间步条件（对 DiT 类模型）。",
+    "tradeoffs": "手动调权需要对模型架构有深入理解。预设提供经验积累的均衡方案，对大多数任务效果良好。非均匀权重可能导致某些方面过训练（如细节过于锐化而结构扭曲）。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "block_lr_zero_threshold",
+    "lora_target_linear"
+  ]
+}

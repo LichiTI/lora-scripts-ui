@@ -1,0 +1,21 @@
+{
+  "key": "native_training_method",
+  "title": "原生训练方法",
+  "category": "DiT / 训练",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "选择 DiT 模型的原生训练方法：lora（标准 LoRA）、ortholora（正交 LoRA）、tlora（T-LoRA）。",
+    "effect": "lora 最常用。ortholora 对 LoRA 矩阵施加正交约束减少概念干扰。tlora 是 T-LoRA 变体。",
+    "whenToUse": "默认 lora 适合大多数场景。ortholora 在多概念训练中可能减少概念串扰。",
+    "avoidWhen": "ortholora 和 tlora 仍是实验性功能，可能在某些配置下不稳定。"
+  },
+  "advanced": {
+    "principle": "ortholora 在每步对 LoRA 的 A 矩阵施加 QR 正交化，确保不同概念的 LoRA 方向尽量正交。tlora 使用转置结构。lora_ortho_tlora 组合两者。",
+    "intervention": "trainer.py 根据 method 选择不同的 LoRA 注入和训练策略。",
+    "expectedImpact": "ortholora 在多概念训练中可能减少 5-10% 的概念干扰。",
+    "tradeoffs": "正交化有额外计算开销。",
+    "codePath": "trainer.py:native_training_method dispatch → lora/ortholora/tlora"
+  },
+  "relatedConfigs": ["network_dim", "network_module", "use_dora"]
+}

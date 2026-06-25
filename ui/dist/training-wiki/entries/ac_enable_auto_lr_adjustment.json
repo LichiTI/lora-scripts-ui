@@ -1,0 +1,24 @@
+{
+  "key": "ac_enable_auto_lr_adjustment",
+  "title": "自动学习率调整（GSNR）",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "根据梯度信噪比（GSNR）或目标 loss 自动调整学习率，追踪训练健康指标实现更精确的控制。",
+    "effect": "当 GSNR 偏离目标时，按 ac_auto_lr_scale_factor 调整 LR，以保持梯度质量在期望范围内。",
+    "whenToUse": "对训练质量要求高、有充足调参经验时开启。需要配合 ac_target_gsnr 设置合理目标值。",
+    "avoidWhen": "初学者不建议开启，GSNR 目标设置不当会导致 LR 反复剧烈波动。"
+  },
+  "advanced": {
+    "principle": "GSNR = (mean_grad / std_grad)²，反映梯度信号质量。GSNR 过低（梯度噪声大）→ 降 LR；过高（梯度过于集中）→ 可适当提高 LR。",
+    "tradeoffs": "计算 GSNR 需要对所有参数梯度做统计，额外开销约 5~10%；目标值需要根据具体模型和数据集调整。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_auto_lr_scale_factor",
+    "ac_target_gsnr",
+    "ac_target_loss"
+  ]
+}

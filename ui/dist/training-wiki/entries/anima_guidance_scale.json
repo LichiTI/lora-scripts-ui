@@ -1,0 +1,22 @@
+{
+  "key": "anima_guidance_scale",
+  "title": "Anima 训练 CFG 引导强度",
+  "category": "训练 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "训练时使用的 CFG（Classifier-Free Guidance）强度。Anima 使用条件/无条件交替训练，此值控制训练时的引导程度。",
+    "effect": "值越高，有条件生成和无条件生成的分离越大；0 = 纯无条件训练；1 = 纯条件训练。",
+    "whenToUse": "保持默认值（通常 1.0 或模型推荐值）。调整此值需要深入理解 CFG 训练动力学。",
+    "avoidWhen": "不了解 CFG 训练机制时不要随意修改，可能导致训练分布与推理分布不匹配。"
+  },
+  "advanced": {
+    "principle": "Anima 的训练包含条件和无条件两种路径，guidance_scale 控制两者的混合比例。高 CFG 训练 → 推理时 CFG 引导效果更强，但无条件能力可能变弱。",
+    "tradeoffs": "训练 CFG 与推理 CFG 应保持一致或接近，否则会产生训练-推理分布不匹配（train-inference gap）。"
+  },
+  "relatedConfigs": [
+    "anima_weighting_scheme",
+    "anima_sigmoid_scale"
+  ]
+}

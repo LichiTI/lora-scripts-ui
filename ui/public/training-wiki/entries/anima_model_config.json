@@ -1,0 +1,21 @@
+{
+  "key": "anima_model_config",
+  "title": "Anima 模型配置",
+  "category": "Anima / 配置",
+  "appliesTo": ["anima-lora", "finetune"],
+  "layers": ["数据层", "训练控制层"],
+  "standard": {
+    "summary": "Anima 使用 DiT 架构 + Qwen3 LLM 文本编码器 + T5 tokenizer。需要配置主模型路径、LLM 路径和 tokenizer 路径。anima_weighting_scheme 控制 loss 加权方案。",
+    "effect": "anima_model_prediction_type 控制预测类型（velocity/noise/epsilon/sample）。anima_guidance_scale 控制训练时的 CFG 强度。anima_sigmoid_scale 影响 timestep 采样分布。",
+    "whenToUse": "Anima LoRA 训练时需要指定 anima_model_path 和 anima_qwen3_path。anima_cached_training=True 使用缓存优先训练路径（推荐）。",
+    "avoidWhen": "anima_full_finetune 模式需要更多显存和配置。anima_split_attn 用于显存优化但可能影响质量。"
+  },
+  "advanced": {
+    "principle": "Anima DiT 有 28 个 Transformer block（anima_native_block_count）。anima_weighting_scheme 支持 sigma_sqrt/cosmap/mode/logit_normal 等方案。anima_mode_scale 控制 mode 方案的缩放。anima_fused_qkv 融合 Q/K/V 投影加速。anima_compile_scope 控制编译范围。",
+    "intervention": "trainer.py 根据 Anima 配置加载 DiT + Qwen3 + T5 并构建训练管线。",
+    "expectedImpact": "正确的配置确保训练正常运行。anima_cached_training 可提速 3-5 倍。",
+    "tradeoffs": "anima_train_llm_adapter 可以额外训练 Qwen3 上的 LoRA（默认关闭）。anima_block_residency 控制冻结权重的 GPU 驻留策略。",
+    "codePath": "trainer.py:Anima route → DiT + Qwen3 + T5 loading → cache-first training"
+  },
+  "relatedConfigs": ["anima_model_path", "anima_qwen3_path", "anima_weighting_scheme", "anima_guidance_scale", "anima_cached_training", "anima_block_residency"]
+}

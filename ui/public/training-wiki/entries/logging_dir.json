@@ -1,0 +1,36 @@
+{
+  "key": "logging_dir",
+  "title": "日志目录",
+  "category": "训练 / 日志",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "log_prefix",
+    "log_tracker_name",
+    "log_tracker_config",
+    "pytorch_cuda_expandable_segments",
+    "cuda_cache_release_interval",
+    "cuda_cache_release_strategy",
+    "gloo_socket_ifname",
+    "nccl_socket_ifname",
+    "machine_rank"
+  ],
+  "standard": {
+    "summary": "训练日志文件（TensorBoard 格式）的保存目录。pytorch_cuda_expandable_segments 优化 CUDA 内存分配策略，cuda_cache_release 控制 CUDA 缓存释放频率。",
+    "effect": "logging_dir 设置后可以用 tensorboard --logdir 查看训练曲线；pytorch_cuda_expandable_segments=True 允许 CUDA 分配器动态扩展内存段，减少碎片；cuda_cache_release 定期调用 torch.cuda.empty_cache()（通常不需要，PyTorch 自动管理）。",
+    "whenToUse": "logging_dir 在需要 TensorBoard 可视化时设置；pytorch_cuda_expandable_segments=True 在显存碎片严重（OOM 但 reserved >> allocated）时尝试。",
+    "avoidWhen": "cuda_cache_release 频率过高会在 empty_cache 时引入额外同步开销；通常 PyTorch 的自动内存管理已足够好，不需要手动干预。"
+  },
+  "advanced": {
+    "principle": "pytorch_cuda_expandable_segments：新的 CUDA 内存分配器策略（PyTorch 2.0+），允许将已分配的内存段动态扩展（而非固定大小段），减少因碎片导致的 OOM（reserved 高但无法分配连续内存的场景）。gloo/nccl_socket_ifname 指定分布式训练的网络接口，多机训练时防止使用错误的网卡（如 loopback 接口）。",
+    "tradeoffs": "expandable_segments 在某些 CUDA 版本（<12.0）下可能有兼容性问题；分布式训练的 socket_ifname 错误配置会导致节点间通信失败（报 timeout 错误）。"
+  },
+  "relatedConfigs": [
+    "wandb_api_key",
+    "output_dir",
+    "num_processes"
+  ]
+}

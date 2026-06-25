@@ -1,0 +1,29 @@
+{
+  "key": "staged_resolution_ratio_512",
+  "title": "分阶段分辨率（512）",
+  "category": "训练 / 分辨率",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "staged_resolution_ratio_768",
+    "staged_resolution_ratio_1024",
+    "staged_resolution_ratio_1536",
+    "staged_resolution_ratio_2048"
+  ],
+  "standard": {
+    "summary": "分阶段分辨率训练：控制在各个分辨率级别（512/768/1024/1536/2048）上分配的训练比例，先低分辨率后高分辨率循序渐进。",
+    "effect": "设置各分辨率的比例后，训练在不同分辨率下循环，先以低分辨率快速学习全局特征，再以高分辨率精炼细节。",
+    "whenToUse": "实验性功能。希望在有限步数内兼顾全局结构和细节质量时可以尝试。",
+    "avoidWhen": "默认单一固定分辨率对大多数 LoRA 训练已经足够；分阶段分辨率实现复杂，效果需要实验验证。"
+  },
+  "advanced": {
+    "principle": "按照配置的比例，每步从不同分辨率 bucket 采样：ratio_512=0.3, ratio_1024=0.7 意味着 30% 步骤用 512 分辨率，70% 用 1024。低分辨率步骤更快（显存占用低），高分辨率步骤更慢但细节更丰富。",
+    "tradeoffs": "分阶段分辨率需要所有分辨率的 bucket 预先生成，增加初始化时间；低分辨率训练的梯度对高分辨率特征的作用有限。"
+  },
+  "relatedConfigs": [
+    "resolution",
+    "enable_bucket",
+    "bucket_reso_steps"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "key": "clear_dataset_npz_before_train",
+  "title": "训练前清除缓存",
+  "category": "数据集 / 缓存",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "persistent_data_loader_workers",
+    "cached_collate_mode",
+    "bucket_selection_mode",
+    "image_decode_backend",
+    "image_decode_cache_size"
+  ],
+  "standard": {
+    "summary": "clear_dataset_npz_before_train = 开始训练前删除旧的 .npz 缓存文件，强制重新生成（当数据集图像已更新时使用）。",
+    "effect": "防止数据集更改后训练器仍使用旧缓存（旧缓存与新图像不匹配）。persistent_data_loader_workers 让 DataLoader worker 进程在 epoch 间保持存活（避免重复启动开销）。image_decode_backend 控制图像解码库（PIL/cv2/libjpeg-turbo）。",
+    "whenToUse": "修改了训练数据集图像内容后开启 clear；数据加载速度慢时尝试 persistent_workers=True 和 image_decode_cache。",
+    "avoidWhen": "数据集未修改时不要开启 clear（浪费重新生成时间）；persistent_workers 在显存有限时可能额外占用 CPU 内存。"
+  },
+  "advanced": {
+    "principle": ".npz 缓存以图像文件名 + 分辨率为键（不包含图像内容 hash），所以图像内容更改但文件名不变时，缓存不会自动失效。clear_before_train 是手动失效机制。bucket_selection_mode 控制 Bucket 分桶算法（按总像素/按短边/按长边等不同策略）。",
+    "tradeoffs": "persistent_data_loader_workers=True 会让 worker 进程长期存活（占用约 200MB~1GB 额外内存），但消除了每 epoch 重启 worker 的开销（约 2~10 秒）。"
+  },
+  "relatedConfigs": [
+    "cache_latents",
+    "enable_bucket",
+    "train_data_dir"
+  ]
+}

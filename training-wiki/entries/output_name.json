@@ -1,0 +1,24 @@
+{
+  "key": "output_name",
+  "title": "输出文件名",
+  "category": "训练 / 输出",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "standard": {
+    "summary": "LoRA 文件的基础名称（不含扩展名）。最终文件名为 {output_name}.safetensors。",
+    "effect": "设置有意义的名称有助于区分不同实验（如 character_v1、style_watercolor）。",
+    "whenToUse": "每次实验设置描述性名称，包含角色/风格名称和版本号。",
+    "avoidWhen": "名称中避免使用空格或特殊字符，部分系统（A1111、ComfyUI）对文件名有限制。"
+  },
+  "advanced": {
+    "principle": "中间 checkpoint 命名：{output_name}-{step}.safetensors；最终文件：{output_name}.safetensors。EMA 副本：{output_name}_ema.safetensors。",
+    "tradeoffs": "若文件名已存在，默认覆盖（不会添加序号）。建议每次修改参数时更新版本号。"
+  },
+  "relatedConfigs": [
+    "output_dir"
+  ]
+}

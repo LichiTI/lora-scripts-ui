@@ -1,0 +1,37 @@
+{
+  "key": "delta_lora_enabled",
+  "title": "Delta-LoRA",
+  "category": "LoRA 变体 / Delta",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "hydralora_balance_loss_weight",
+    "tensorring_lora_enabled",
+    "flexrank_lora_rank_range_min",
+    "fractional_grad_damping_enabled",
+    "grad_cosine_enabled",
+    "lora_type",
+    "lora_activation_recompute_mode",
+    "lokr_factor",
+    "loftq_bits",
+    "loftq_quant_type"
+  ],
+  "standard": {
+    "summary": "多种 LoRA 变体汇总：Delta-LoRA（更新差分优化）/ HydraLoRA（多头 LoRA，平衡不同特征）/ TensorRing（张量环 LoRA）/ FlexRank（弹性秩）/ LoftQ（量化初始化）/ LoKr（Kronecker 分解）。",
+    "effect": "各变体在标准 LoRA 基础上提供不同的参数效率或正则化特性：Delta-LoRA 优化 LoRA 的更新增量；HydraLoRA 多分支学习不同特征方向；LoftQ 为量化基座模型提供优化初始化；LoKr 使用 Kronecker 分解。",
+    "whenToUse": "各变体均为实验性功能，需要根据具体任务对比测试。大多数场景标准 LoRA 已经足够，只有明确的参数效率或质量需求时才尝试变体。",
+    "avoidWhen": "这些变体通常不与推理框架（A1111/ComfyUI）的标准 LoRA 加载器兼容，使用前确认推理端支持该变体格式。"
+  },
+  "advanced": {
+    "principle": "Delta-LoRA：只更新 LoRA 增量方向（∆W），固定 A/B 矩阵的乘积方向；HydraLoRA：多个 A 矩阵共享一个 B 矩阵（或反之），每个 A 学习不同特征子空间；LoftQ：先量化基座，再用 SVD 初始化 LoRA 补偿量化误差；lokr_factor 控制 LoKr 的 Kronecker 分解维度比例（通常为 ⌈√d_in⌉ × ⌈√d_out⌉）。fractional_grad_damping/grad_cosine 是梯度控制技术，通过阻尼或余弦相似性约束梯度更新方向。",
+    "tradeoffs": "变体越复杂（如 TensorRing），与现有推理基础设施的兼容性越低，导出和部署成本越高。建议在实验阶段使用，产品化前确认端到端可用。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "pissa_init",
+    "krona_enabled",
+    "cdka_enabled"
+  ]
+}

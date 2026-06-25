@@ -1,0 +1,20 @@
+{
+  "key": "enable_mixed_resolution_training",
+  "title": "阶段分辨率训练",
+  "category": "数据集 / 分辨率",
+  "appliesTo": ["sdxl-lora", "anima-lora", "newbie-lora"],
+  "layers": ["数据层", "缓存层", "训练编排层"],
+  "standard": {
+    "summary": "训练前段用较低分辨率，后段切到较高分辨率。",
+    "effect": "前期更快学习整体构图，后期把容量留给局部细节。",
+    "whenToUse": "素材细节多、显存有限、希望先稳住整体再补细节时适合。",
+    "avoidWhen": "已经使用固定 latent cache 且没有为各阶段生成缓存时，不要只改 resolution。"
+  },
+  "advanced": {
+    "principle": "分辨率改变会改变 latent 形状和 bucket 分布。cache-first 路线必须在缓存生成阶段准备对应分辨率。",
+    "intervention": "介入 dataset bucket、latent cache 和训练阶段切换；高分辨率阶段 batch 通常需要用户单独控制。",
+    "expectedImpact": "低分阶段可降低早期成本，高分阶段提升纹理和小物件学习机会。",
+    "tradeoffs": "阶段比例不当会导致后期细节学习步数不足；缓存、bucket、batch、学习率都需要配套。"
+  },
+  "relatedConfigs": ["staged_resolution_ratio_512", "staged_resolution_ratio_768", "staged_resolution_ratio_1024", "cache_latents"]
+}

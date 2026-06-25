@@ -1,0 +1,34 @@
+{
+  "key": "turbocore_native_update_dispatch_enabled",
+  "title": "TurboCore Native 更新调度",
+  "category": "速度 / TurboCore",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "turbocore_native_update_mode",
+    "turbocore_prefetch_depth",
+    "turbocore_allow_fallback",
+    "turbocore_disable",
+    "turbocore_fused_backward_enabled",
+    "turbocore_fused_backward_mode",
+    "turbocore_kernel_autotune_enabled",
+    "turbocore_kernel_autotune_target",
+    "automagic_fused_backward_enabled"
+  ],
+  "standard": {
+    "summary": "TurboCore 是 Lulynx 训练器的性能优化引擎，集成多种 CUDA kernel 级别的加速：fused backward、native update dispatch、kernel autotune 等。",
+    "effect": "fused_backward：将多个 backward kernel 合并，减少 kernel 发射开销约 15%~20%（来自梯度释放管理器）；kernel_autotune：自动调优 CUDA kernel 参数（实测 1.14× 加速）；native_update_dispatch：优化权重更新路径。",
+    "whenToUse": "所有 TurboCore 组件默认 off（实验性）。逐步开启验证稳定性后再开启更多组件。fused_backward 是最稳定的组件，可优先试用。",
+    "avoidWhen": "调试训练问题时建议关闭所有 TurboCore 组件（回归到标准路径）。Windows 上 Triton 支持有限，kernel_autotune 效果可能不明显。"
+  },
+  "advanced": {
+    "principle": "fused_backward 通过 GradientReleaseManager 将多个参数的 backward 合并（full 档：全量合并，compatible 档：分组合并），减少 CUDA kernel 发射次数。kernel_autotune 通过 NVRTC 生成变体 kernel，自动选择最快配置并缓存。native_update_dispatch 优化 LoRA 权重更新的 CUDA 调度路径。",
+    "tradeoffs": "fused_backward 与某些优化器（如 Prodigy 的特殊 step 逻辑）可能不完全兼容（有 compatible 降级档）。kernel_autotune 首次运行需要额外时间（约 1~3 分钟）进行 profiling，之后缓存加速。"
+  },
+  "relatedConfigs": [
+    "optimizer_backend",
+    "torch_compile",
+    "compile_runtime"
+  ]
+}

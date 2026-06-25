@@ -1,0 +1,23 @@
+{
+  "key": "ac_gradient_rank_plateau_window",
+  "title": "梯度秩平台检测窗口",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "判断梯度矩阵 stable rank 是否进入平台期的滑动窗口大小。默认 30。",
+    "effect": "梯度 stable rank 反映 LoRA 权重的有效秩使用情况，平台期可能意味着 rank 浪费或收敛。",
+    "whenToUse": "开启 CLIP 漂移 / Stable Rank 监控时使用。默认值适合大多数场景。",
+    "avoidWhen": "未开启 gradient rank 相关监控时此参数无意义。"
+  },
+  "advanced": {
+    "principle": "stable rank = (‖W‖_F / ‖W‖_2)²，反映权重矩阵的有效秩。rank 平台可能是收敛信号或 rank 利用率低的信号。",
+    "tradeoffs": "计算 stable rank 需要 SVD，额外开销较大，仅在需要精细监控时开启。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_stable_rank_collapse_threshold",
+    "ac_stable_rank_consecutive"
+  ]
+}

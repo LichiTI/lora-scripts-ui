@@ -1,0 +1,21 @@
+{
+  "key": "zero_terminal_snr",
+  "title": "零终端 SNR",
+  "category": "正则 / 噪声调度",
+  "appliesTo": ["sdxl-lora", "sd-lora", "finetune"],
+  "layers": ["噪声调度层"],
+  "standard": {
+    "summary": "修改噪声调度使得最后一个 timestep 的 SNR 恰好为 0（完全噪声），解决标准调度中 SNR 不归零导致的训练/推理不一致问题。",
+    "effect": "让模型在最后一步真正学到从纯噪声去噪，改善最大 timestep 的生成质量。对暗部和纯色区域有帮助。",
+    "whenToUse": "SD1.5/SDXL 训练中推荐开启。特别是搭配 min_snr_gamma 使用时效果更好。",
+    "avoidWhen": "FLUX/Flow-matching 架构不使用此设置。与某些自定义 noise scheduler 可能不兼容。"
+  },
+  "advanced": {
+    "principle": "标准 beta schedule 的 alphas_cumprod[-1] 约 0.005（不是 0），意味着最后一个 timestep 仍保留少量信号。zero_terminal_snr 重新调整 beta 使得 alphas_cumprod[-1] = 0，SNR[-1] = 0。这确保了训练和推理在 t=T 时的行为一致。",
+    "intervention": "在 noise_scheduler 初始化后修改 betas/alphas_cumprod 使终端 SNR 归零。",
+    "expectedImpact": "改善大 timestep 的学习，对整体质量影响约 1-2%。与 min_snr_gamma 配合时改善更明显。",
+    "tradeoffs": "需要重新训练——不能在已有 checkpoint 上直接开启。",
+    "codePath": "trainer.py:zero_terminal_snr → adjust betas → alphas_cumprod[-1] = 0"
+  },
+  "relatedConfigs": ["min_snr_gamma", "noise_offset"]
+}

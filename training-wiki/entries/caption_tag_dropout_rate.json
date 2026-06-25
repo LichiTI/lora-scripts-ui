@@ -1,0 +1,24 @@
+{
+  "key": "caption_tag_dropout_rate",
+  "title": "Tag Dropout 率",
+  "category": "数据集 / 图说",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora",
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "训练时随机丢弃图说中的部分 tag 的概率。默认 0（不丢弃）。",
+    "effect": "设为 0.1 = 每个 tag 有 10% 的概率在本步训练中被丢弃。增加图说变化多样性，提升 LoRA 对不同 tag 组合的泛化。",
+    "whenToUse": "数据集图说包含大量 tag（>10 个 tag/图）时，开启 dropout（0.05~0.1）可以提升生成的多样性和 tag 响应能力。",
+    "avoidWhen": "图说非常短（如只有触发词）时，dropout 会让图说几乎为空，训练效果变差。"
+  },
+  "advanced": {
+    "principle": "对 caption 按 tag 分割后，对每个 tag 独立进行 Bernoulli 采样决定是否保留。触发词通常被保护，不参与 dropout。",
+    "tradeoffs": "tag dropout 增加训练随机性，有助于防止模型过度依赖某些 tag 的组合，但会降低对 tag 语义的精确响应。"
+  },
+  "relatedConfigs": [
+    "caption_extension",
+    "caption_dropout_every_n_epochs"
+  ]
+}

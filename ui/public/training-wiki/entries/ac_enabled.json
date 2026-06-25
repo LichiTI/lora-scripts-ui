@@ -1,0 +1,32 @@
+{
+  "key": "ac_enabled",
+  "title": "AutoController（自动训练控制器）",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "lulynx_auto_controller_enabled",
+    "auto_controller_enabled"
+  ],
+  "standard": {
+    "summary": "智能训练控制器，根据 loss、CLIP 漂移、梯度秩等指标自动调整学习率、触发早停或冻结文本编码器。适合长时间无人值守训练。",
+    "effect": "开启后训练器在后台持续监控训练健康状态，自动响应平台期/崩溃/收敛信号，不需要人工看顾。",
+    "whenToUse": "长步数训练（>300 步）、无人值守场景。配合智能早停可防止过拟合继续浪费时间。",
+    "avoidWhen": "短训练（<100 步）或需要精确控制每步行为时。AutoController 的自动调整会改变原定训练计划。"
+  },
+  "advanced": {
+    "principle": "每 ac_warmup_steps 步后启动，每 ac_loss_plateau_window 步评估一次损失趋势、CLIP 漂移、梯度 stable rank。根据多种信号联合决策触发相应干预。",
+    "intervention": "可触发：智能早停（long-term loss 无改善）/ 学习率衰减（loss 平台期）/ 自动 TE 冻结（指定步数后）/ 动态损失缩放 / 自动 LR 调整（GSNR/目标 loss）。",
+    "expectedImpact": "正常收敛训练几乎不会触发任何干预；平台期或过拟合时自动介入，节省无效训练时间。",
+    "tradeoffs": "参数组合复杂，各干预策略叠加时行为难以预测。建议先开启基本版（只开早停+LR衰减），熟悉后再开启 GSNR/CLIP 等高级监控。",
+    "codePath": "core/lulynx_trainer/auto_controller.py → AutoControllerMixin"
+  },
+  "relatedConfigs": [
+    "ac_warmup_steps",
+    "ac_enable_smart_early_stopping",
+    "ac_enable_smart_lr_decay",
+    "ac_enable_auto_te_freeze",
+    "ac_loss_plateau_window"
+  ]
+}

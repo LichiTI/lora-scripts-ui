@@ -1,0 +1,20 @@
+{
+  "key": "shuffle_caption",
+  "title": "Caption 打乱",
+  "category": "Caption / 正则",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["数据层", "Caption 层"],
+  "standard": {
+    "summary": "每次读取 caption 时随机打乱标签顺序，防止模型对固定标签位置产生依赖。",
+    "effect": "开启后同一张图片的 caption 标签顺序每次不同，增强模型对标签排列的鲁棒性。",
+    "whenToUse": "几乎所有使用逗号分隔 tag 的训练都推荐开启。",
+    "avoidWhen": "使用自然语言 caption（完整句子）时应关闭；keep_tokens > 0 时前 N 个 token 保持不动。"
+  },
+  "advanced": {
+    "principle": "CLIP/TE tokenizer 对 token 位置有隐式位置编码。固定顺序会让模型学到 '第一个词最重要'。打乱后模型被迫从语义而非位置来理解每个标签。shuffle_caption_tags_only 只打乱 tag 而保留自然语言部分。",
+    "intervention": "在 DataLoader __getitem__ 时对 caption 字符串进行 split/shuffle/join。",
+    "expectedImpact": "降低标签位置过拟合；对生成多样性和 prompt 灵活性有帮助。",
+    "tradeoffs": "keep_tokens 保持前 N 个 token（通常是触发词）不打乱；tag_group_shuffle 在组内打乱而非全局打乱。"
+  },
+  "relatedConfigs": ["keep_tokens", "keep_tokens_separator", "shuffle_caption_tags_only", "caption_dropout_rate"]
+}

@@ -1,0 +1,22 @@
+{
+  "key": "ac_stable_rank_consecutive",
+  "title": "Stable Rank 连续触发次数",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "连续多少步 stable rank 低于崩溃阈值才触发干预。默认 10。",
+    "effect": "防止偶发 SVD 数值波动误触发干预，要求持续崩溃才响应。",
+    "whenToUse": "默认 10 适合大多数场景。",
+    "avoidWhen": "不使用 stable rank 监控时此参数无意义。"
+  },
+  "advanced": {
+    "principle": "维护连续低于阈值计数器，达到后触发干预（通常为降 LR 或告警）。",
+    "tradeoffs": "值越大，检测到真实崩溃的延迟越长；值越小，偶发波动越容易误触发。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_stable_rank_collapse_threshold"
+  ]
+}

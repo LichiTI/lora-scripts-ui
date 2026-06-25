@@ -1,6 +1,16 @@
 // renderers/logs.js — TensorBoard iframe 页面
 
 import { api } from '../api.js';
+import { escapeHtml, showToast } from '../utils/dom.js';
+
+const webuiErrorState = {
+  errors: [],
+  meta: {},
+  kindFilter: 'all',
+  kindOptions: new Set(),
+  query: '',
+  expanded: new Set(),
+};
 
 function _defaultTensorBoardUrl(statusPayload) {
   if (statusPayload && statusPayload.url) return statusPayload.url;
@@ -46,6 +56,24 @@ export function renderLogs(container) {
           <button class="btn btn-outline btn-sm" type="button" onclick="refreshTensorBoardStatus(true)">重试连接</button>
         </div>
       </section>
+      <section class="form-section">
+        <header class="section-header">
+          <h3>前端错误</h3>
+          <button class="btn btn-outline btn-sm" type="button" onclick="refreshWebuiErrorLogs()">刷新</button>
+        </header>
+        <div class="section-content" style="display:block;">
+          <div class="settings-row" style="align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+            <label>类型</label>
+            <select class="text-input" id="webui-error-kind-filter" style="width:220px;max-width:100%;">
+              <option value="all">全部类型</option>
+            </select>
+            <label>搜索</label>
+            <input class="text-input" type="search" id="webui-error-query" placeholder="消息 / URL / 接口" style="width:260px;max-width:100%;">
+          </div>
+          <div id="webui-error-status" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">正在读取错误日志...</div>
+          <div id="webui-error-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+      </section>
     </div>
   `;
   refreshTensorBoardStatus().then((data) => {
@@ -53,6 +81,165 @@ export function renderLogs(container) {
       startTensorBoardFromLogs();
     }
   });
+  document.getElementById('webui-error-kind-filter')?.addEventListener('change', (event) => {
+    webuiErrorState.kindFilter = event.target?.value || 'all';
+    refreshWebuiErrorLogs();
+  });
+  document.getElementById('webui-error-query')?.addEventListener('input', (event) => {
+    webuiErrorState.query = event.target?.value?.trim() || '';
+    clearTimeout(webuiErrorState.queryTimer);
+    webuiErrorState.queryTimer = setTimeout(() => refreshWebuiErrorLogs(), 250);
+  });
+  document.getElementById('webui-error-list')?.addEventListener('click', handleWebuiErrorListClick);
+  refreshWebuiErrorLogs();
+}
+
+function formatWebuiErrorTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return String(value);
+  return date.toLocaleString();
+}
+
+function webuiErrorKey(item, index) {
+  return `${item?.timestamp || ''}:${item?.kind || ''}:${item?.message || ''}:${index}`;
+}
+
+function filteredWebuiErrors() {
+  return webuiErrorState.errors.map((item, index) => ({ item, index }));
+}
+
+function updateWebuiErrorKindOptions(errors) {
+  const select = document.getElementById('webui-error-kind-filter');
+  if (!select) return;
+  for (const item of errors) webuiErrorState.kindOptions.add(String(item?.kind || 'webui_error'));
+  if (webuiErrorState.kindFilter && webuiErrorState.kindFilter !== 'all') webuiErrorState.kindOptions.add(webuiErrorState.kindFilter);
+  const kinds = Array.from(webuiErrorState.kindOptions).sort();
+  if (webuiErrorState.kindFilter !== 'all' && !kinds.includes(webuiErrorState.kindFilter)) {
+    webuiErrorState.kindFilter = 'all';
+  }
+  select.innerHTML = [
+    '<option value="all">全部类型</option>',
+    ...kinds.map((kind) => `<option value="${escapeHtml(kind)}">${escapeHtml(kind)}</option>`),
+  ].join('');
+  select.value = webuiErrorState.kindFilter;
+}
+
+function updateWebuiErrorStatus() {
+  const statusEl = document.getElementById('webui-error-status');
+  if (!statusEl) return;
+  const visibleCount = filteredWebuiErrors().length;
+  const totalCount = webuiErrorState.errors.length;
+  const data = webuiErrorState.meta || {};
+  const bits = [webuiErrorState.kindFilter === 'all' && !webuiErrorState.query ? `${totalCount} 条最近错误` : `${visibleCount} 条匹配错误`];
+  if (data.retention_days) bits.push(`保留 ${data.retention_days} 天`);
+  if (data.removed_old_files) bits.push(`已清理 ${data.removed_old_files} 个旧文件`);
+  statusEl.textContent = bits.join(' · ');
+}
+
+function stringifyWebuiError(item) {
+  return JSON.stringify(item || {}, null, 2);
+}
+
+function renderWebuiErrorItem(item, index) {
+  const key = webuiErrorKey(item, index);
+  const isExpanded = webuiErrorState.expanded.has(key);
+  const kind = escapeHtml(item?.kind || 'webui_error');
+  const message = escapeHtml(item?.message || 'WebUI error');
+  const time = escapeHtml(formatWebuiErrorTime(item?.timestamp));
+  const url = escapeHtml(item?.url || '');
+  const detailJson = escapeHtml(stringifyWebuiError(item));
+  const detailBits = [];
+  if (item?.context?.path) detailBits.push(`接口: ${item.context.path}`);
+  if (item?.context?.status) detailBits.push(`状态: ${item.context.status}`);
+  if (item?.client_host) detailBits.push(`客户端: ${item.client_host}`);
+  if (item?.file) detailBits.push(`文件: ${item.file}`);
+  const details = escapeHtml(detailBits.join(' · '));
+  return `
+    <article style="border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;background:var(--bg-panel);">
+      <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+        <strong style="font-size:0.9rem;color:var(--text-primary);">${kind}</strong>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:0.78rem;color:var(--text-muted);">${time}</span>
+          <button class="btn btn-outline btn-sm webui-error-toggle" type="button" data-key="${escapeHtml(key)}">${isExpanded ? '收起' : '详情'}</button>
+          <button class="btn btn-outline btn-sm webui-error-copy" type="button" data-index="${index}">复制</button>
+        </div>
+      </div>
+      <div style="margin-top:6px;font-size:0.9rem;color:var(--text-primary);white-space:pre-wrap;overflow-wrap:anywhere;">${message}</div>
+      ${details ? `<div style="margin-top:6px;font-size:0.78rem;color:var(--text-muted);overflow-wrap:anywhere;">${details}</div>` : ''}
+      ${url ? `<div style="margin-top:4px;font-size:0.78rem;color:var(--text-muted);overflow-wrap:anywhere;">${url}</div>` : ''}
+      <pre style="display:${isExpanded ? 'block' : 'none'};margin:10px 0 0;padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-sunken, rgba(0,0,0,0.08));color:var(--text-muted);font-size:0.78rem;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;">${detailJson}</pre>
+    </article>
+  `;
+}
+
+function renderWebuiErrorList() {
+  const listEl = document.getElementById('webui-error-list');
+  updateWebuiErrorStatus();
+  if (!listEl) return;
+  const visible = filteredWebuiErrors();
+  listEl.innerHTML = visible.length
+    ? visible.map(({ item, index }) => renderWebuiErrorItem(item, index)).join('')
+    : '<div style="color:var(--text-muted);font-size:0.9rem;padding:10px 0;">暂无前端错误记录。</div>';
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand('copy');
+  textarea.remove();
+}
+
+async function handleWebuiErrorListClick(event) {
+  const button = event.target?.closest?.('button');
+  if (!button) return;
+  if (button.classList.contains('webui-error-toggle')) {
+    const key = button.dataset.key || '';
+    if (webuiErrorState.expanded.has(key)) webuiErrorState.expanded.delete(key);
+    else webuiErrorState.expanded.add(key);
+    renderWebuiErrorList();
+    return;
+  }
+  if (button.classList.contains('webui-error-copy')) {
+    const index = Number(button.dataset.index);
+    const item = Number.isFinite(index) ? webuiErrorState.errors[index] : null;
+    if (!item) return;
+    try {
+      await copyText(stringifyWebuiError(item));
+      showToast('已复制前端错误');
+    } catch (_error) {
+      showToast('复制失败');
+    }
+  }
+}
+
+export async function refreshWebuiErrorLogs(limit = 80) {
+  const statusEl = document.getElementById('webui-error-status');
+  const listEl = document.getElementById('webui-error-list');
+  if (statusEl) statusEl.textContent = '正在读取错误日志...';
+  try {
+    const resp = await api.getWebuiErrors({ limit, kind: webuiErrorState.kindFilter, q: webuiErrorState.query });
+    const data = resp?.data || {};
+    const errors = Array.isArray(data.errors) ? data.errors : [];
+    webuiErrorState.errors = errors;
+    webuiErrorState.meta = data;
+    updateWebuiErrorKindOptions(errors);
+    renderWebuiErrorList();
+    return data;
+  } catch (error) {
+    if (statusEl) statusEl.textContent = error.message || '无法读取前端错误日志';
+    if (listEl) listEl.innerHTML = '';
+  }
+  return null;
 }
 
 export async function refreshTensorBoardStatus(reloadIframe = false) {

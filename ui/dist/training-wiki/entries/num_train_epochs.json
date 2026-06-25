@@ -1,0 +1,25 @@
+{
+  "key": "num_train_epochs",
+  "title": "训练 Epoch 数",
+  "category": "训练 / 基础",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "standard": {
+    "summary": "以 epoch（整个数据集过完一轮）为单位控制训练时长。实际步数 = epoch × (数据集大小 / batch_size)。",
+    "effect": "相同数据集下与 max_train_steps 等效；数据集大时 epoch 模式更直观（训练几遍数据集）。",
+    "whenToUse": "数据集固定、习惯以「过几遍数据」衡量训练量时使用。训练量会随数据集大小自动调整。",
+    "avoidWhen": "数据集大小不固定时，epoch 控制的实际步数可能意外变长/变短，建议改用 max_train_steps。"
+  },
+  "advanced": {
+    "principle": "当 max_train_steps 和 num_train_epochs 同时设置时，以先达到的为准（min 语义）。",
+    "tradeoffs": "epoch 模式的隐患：数据集包含动态增强（augmentation）时，每 epoch 的样本分布略有不同，可能需要更多 epoch 才能充分学习。"
+  },
+  "relatedConfigs": [
+    "max_train_steps",
+    "train_batch_size"
+  ]
+}

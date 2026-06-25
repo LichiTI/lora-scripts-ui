@@ -20,7 +20,7 @@ export function createSampleActions({ state, api, showToast, renderView, getSort
     _lightboxIndex = sorted.findIndex(function(s) { return s.name === fileName; });
     img.src = '/api/local/sample_file?name=' + encodeURIComponent(fileName);
     if (nameEl) nameEl.textContent = fileName;
-    lightbox.style.display = 'flex';
+    lightbox.classList.add('open');
   }
 
   function lightboxNav(dir) {
@@ -41,7 +41,7 @@ export function createSampleActions({ state, api, showToast, renderView, getSort
       if (tag === 'IMG' || event.target.classList.contains('lb-arrow') || event.target.closest('.sample-lightbox-inner')) return;
     }
     var lightbox = document.getElementById('sample-lightbox');
-    if (lightbox) lightbox.style.display = 'none';
+    if (lightbox) lightbox.classList.remove('open');
     _lightboxIndex = -1;
   }
 
@@ -49,7 +49,7 @@ export function createSampleActions({ state, api, showToast, renderView, getSort
   function bindKeyboardShortcuts() {
     document.addEventListener('keydown', function(e) {
       var lightbox = document.getElementById('sample-lightbox');
-      if (!lightbox || lightbox.style.display === 'none') return;
+      if (!lightbox || !lightbox.classList.contains('open')) return;
       if (e.key === 'ArrowLeft') { e.preventDefault(); lightboxNav(-1); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); lightboxNav(1); }
       else if (e.key === 'Escape') { closeSampleLightbox(); }
@@ -122,7 +122,7 @@ export function createSampleActions({ state, api, showToast, renderView, getSort
       }
       panel.dataset.loaded = 'true';
     } catch(e) {
-      panel.innerHTML = '<span style="font-size:0.72rem;color:#ef4444;padding:8px;">加载失败</span>';
+      panel.innerHTML = '<span style="font-size:0.72rem;color:var(--danger);padding:8px;">加载失败</span>';
     }
   }
 

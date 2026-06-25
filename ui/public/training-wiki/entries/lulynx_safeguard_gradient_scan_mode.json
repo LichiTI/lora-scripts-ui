@@ -1,0 +1,23 @@
+{
+  "key": "lulynx_safeguard_gradient_scan_mode",
+  "title": "SafeGuard 梯度扫描模式",
+  "category": "训练 / 稳定性",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "standard": {
+    "summary": "控制 SafeGuard 梯度异常扫描的 CUDA 同步策略：batched（批量检查，最少同步）/ foreach（遍历检查）/ legacy（逐参数，最多同步）/ off（关闭梯度扫描）。",
+    "effect": "batched 模式 CUDA 同步次数最少（约 1~2 次/步），overhead 最低；legacy 每参数一次同步，老显卡兼容性最好；off 完全跳过梯度范数检查。",
+    "whenToUse": "默认 batched 适合现代显卡（Ampere+）。老显卡（Maxwell/Pascal）遇到 batched 报错时改为 legacy。",
+    "avoidWhen": "不建议 off（关闭后梯度爆炸检测失效）。"
+  },
+  "advanced": {
+    "principle": "batched = 将所有参数梯度 concat 后一次性检查 NaN/Inf（一次 CUDA 同步）；foreach = 使用 torch._foreach_* 向量化遍历（约 2~3 次同步）；legacy = for 循环逐参数检查（参数量次同步）。",
+    "tradeoffs": "batched 需要暂时将所有梯度 concat（额外显存峰值）；legacy 同步多但不需要额外内存。"
+  },
+  "relatedConfigs": [
+    "safeguard_enabled",
+    "safeguard_nan_check_interval"
+  ]
+}

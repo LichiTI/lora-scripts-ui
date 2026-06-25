@@ -1,0 +1,21 @@
+{
+  "key": "sample_every",
+  "title": "训练预览采样",
+  "category": "训练 / 预览",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "训练过程中定期生成预览图像，让你实时观察训练效果。可以设置每 N 步或每 N 个 epoch 生成一次。",
+    "effect": "sample_every=100 表示每 100 步生成一次预览。sample_prompts 指定用于生成的 prompt 列表。预览不影响训练过程。",
+    "whenToUse": "长训练时观察收敛进度。调参时快速验证配置是否合理。",
+    "avoidWhen": "预览生成需要时间（每批约 5-30 秒），频繁采样会拖慢训练。preview_device='off' 完全禁用。"
+  },
+  "advanced": {
+    "principle": "在指定的训练步暂停训练循环，用当前的 LoRA 权重 + 底模做一次推理。sample_sampler 控制采样器（euler_a 最常用），sample_steps 控制去噪步数，sample_cfg 控制 classifier-free guidance 强度。ephemeral_preview_pipeline 在生成后立即释放推理 pipeline 显存。",
+    "intervention": "training_loop 在 step % sample_every == 0 时插入采样代码。",
+    "expectedImpact": "不影响训练质量。生成耗时取决于分辨率和步数。",
+    "tradeoffs": "preview_device='gpu' 在 GPU 上生成最快但占用训练显存；'cpu' 慢但不占 GPU；'off' 禁用。micro_vae_preview 使用小型 VAE 加速解码。",
+    "codePath": "training_loop.py:training_step() → if step % sample_every == 0: generate previews"
+  },
+  "relatedConfigs": ["sample_prompts", "sample_sampler", "sample_steps", "sample_cfg", "preview_device", "sample_every_n_epochs"]
+}

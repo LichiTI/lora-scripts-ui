@@ -215,6 +215,18 @@ export async function approvePlugin(pluginId) {
   }
 }
 
+/** 审批单个 SDK Runner */
+export async function approvePluginRunner(pluginId, runnerId) {
+  try {
+    await api.approvePluginRunner(pluginId, runnerId);
+    await loadPluginRuntime();
+    await loadPluginSdkStatus();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 /** 撤销插件审批 */
 export async function revokePlugin(pluginId) {
   try {

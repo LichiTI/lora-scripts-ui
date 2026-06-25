@@ -1,0 +1,21 @@
+{
+  "key": "flow_model",
+  "title": "Flow Matching 模型",
+  "category": "DiT / Flow",
+  "appliesTo": ["sdxl-lora", "finetune", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "选择 Flow Matching 训练的类型。空字符串使用标准 diffusion 训练；rectified_flow 使用 Rectified Flow；cfm 使用 Conditional Flow Matching。",
+    "effect": "Rectified Flow 在 SDXL 上提供替代的训练范式，可能在某些场景下改善质量。CFM 是更通用的 flow matching 框架。",
+    "whenToUse": "标准 diffusion（空字符串）是默认且最稳定的选择。rectified_flow 适合实验和学术研究。",
+    "avoidWhen": "不确定时保持空字符串。FLUX 有自己的 flow matching 实现，不需要此参数。"
+  },
+  "advanced": {
+    "principle": "Rectified Flow 使用线性插值 x_t = (1-t)·x_0 + t·ε，目标是预测 velocity v = ε - x_0。CFM 引入条件最优传输耦合（flow_use_ot=True）。cfm_lambda 控制 CFM 的对比项权重。sdxl_flow_weighting_scheme 控制 flow matching 的 timestep 加权（sigma_sqrt/cosmap/mode/logit_normal）。",
+    "intervention": "training_loop.py 根据 flow_model 切换到对应的 loss 计算和 timestep 采样逻辑。",
+    "expectedImpact": "在某些数据集上 Rectified Flow 可能改善 1-3% FID。",
+    "tradeoffs": "sdxl_flow_shift 控制 discrete flow 的偏移。flow_uniform_shift 启用基于分辨率的均匀偏移。",
+    "codePath": "training_loop.py:flow_model dispatch → standard/rectified_flow/cfm loss computation"
+  },
+  "relatedConfigs": ["flow_logit_mean", "flow_logit_std", "flow_use_ot", "cfm_lambda", "sdxl_flow_weighting_scheme"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "activation_compression_enabled",
+  "title": "激活压缩",
+  "category": "显存优化 / 激活",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["显存层"],
+  "standard": {
+    "summary": "将 autograd 保存的激活张量在 GPU 上压缩为低精度，减少反向传播时的激活内存占用。",
+    "effect": "activation_compression_dtype 选择压缩格式（fp16/bf16/fp8_e4m3）。activation_compression_min_tensor_mb 设置最小压缩阈值。",
+    "whenToUse": "激活内存成为瓶颈时（不用 gradient_checkpointing 但显存不够）。",
+    "avoidWhen": "已启用 gradient_checkpointing 时不需要（GC 已经大幅减少激活）。压缩可能引入精度损失。"
+  },
+  "advanced": {
+    "principle": "PyTorch autograd 在 forward 时保存中间激活用于 backward 计算。这些激活通常是 FP32/BF16 且占用大量显存。activation_compression 拦截 save_for_backward，将激活转换为低精度（FP16/BF16/FP8），backward 时自动反量化。fp8_e4m3 可将激活显存减少 75%（FP32→FP8），但精度损失更大。min_tensor_mb 避免压缩太小的张量（开销不划算）。",
+    "intervention": "hook autograd save_for_backward → dtype cast to lower precision → dequantize on backward access。",
+    "expectedImpact": "激活显存减少 50-75%。对训练质量的影响取决于 dtype 和模型。",
+    "tradeoffs": "FP8 压缩可能影响梯度质量。建议先用 FP16/BF16。",
+    "codePath": "training_loop.py:activation_compression → save_for_backward hook → dtype cast → dequantize on backward"
+  },
+  "relatedConfigs": ["activation_compression_dtype", "activation_compression_min_tensor_mb", "gradient_checkpointing"]
+}

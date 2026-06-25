@@ -1,0 +1,35 @@
+{
+  "key": "pretrained_model_name_or_path",
+  "title": "基础模型路径",
+  "category": "模型 / 基础",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "aliases": [
+    "v2",
+    "model_train_type",
+    "base_weights",
+    "base_weights_multiplier",
+    "weights",
+    "dim_from_weights",
+    "num_vectors_per_token"
+  ],
+  "standard": {
+    "summary": "训练使用的基础模型文件路径（.safetensors / .ckpt）或 HuggingFace model ID。所有 LoRA 权重都基于此模型进行适配。",
+    "effect": "不同的基础模型决定了 LoRA 的底层特性和生成风格基础。SD1.5 / SDXL / Anima / Flux 等不同架构需要对应路线的训练配置。",
+    "whenToUse": "每次训练必须设置。路径支持本地绝对路径和 HuggingFace Hub 的模型 ID。",
+    "avoidWhen": "基础模型路径错误会导致训练立即失败（文件不存在或格式不匹配）。确保模型格式与 model_train_type 匹配。"
+  },
+  "advanced": {
+    "principle": "v2 = 是否是 SD 2.x 系列（影响 CLIP tokenizer 和 UNet 架构的选择）；base_weights/multiplier 允许在基础模型上叠加额外的初始权重（如先加载一个已训练的 LoRA 作为起点）；dim_from_weights 从预加载权重文件推断 network_dim；num_vectors_per_token 是 textual inversion 专用（每个 token 的嵌入向量数）。",
+    "tradeoffs": "从 HuggingFace Hub 加载需要网络连接（或预先下载缓存）；本地路径更可靠但需要手动管理文件。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "output_dir",
+    "mixed_precision"
+  ]
+}

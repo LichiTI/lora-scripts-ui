@@ -1,0 +1,21 @@
+{
+  "key": "instance_prompt",
+  "title": "DreamBooth 训练",
+  "category": "训练 / DreamBooth",
+  "appliesTo": ["sdxl-lora", "sd-lora", "finetune"],
+  "layers": ["训练控制层", "数据层"],
+  "standard": {
+    "summary": "DreamBooth 用少量图片（5-20 张）训练模型学习新概念。instance_prompt 是触发词（如 'sks person'），class_prompt 是类别描述（如 'a person'）。prior_loss_weight 控制先验保留强度。",
+    "effect": "模型学会将触发词与特定主体关联。class_prompt 帮助模型保持类别的泛化能力（先验保留）。",
+    "whenToUse": "想用极少图片训练特定人物/物体/风格时。与 LoRA 结合可减少过拟合。",
+    "avoidWhen": "需要泛化能力很强的大规模训练时。DreamBooth 更适合定制化而非泛化。"
+  },
+  "advanced": {
+    "principle": "DreamBooth 同时优化两个目标：(1) 重建目标（instance loss）——让模型从 instance_prompt 生成训练图片中的主体；(2) 先验保留（prior loss）——让模型对 class_prompt 的生成保持与预训练模型一致。num_class_images 控制生成的先验图片数量。use_lora=True 时用 LoRA 替代全参微调，减少过拟合。",
+    "intervention": "training_loop 交替计算 instance loss 和 prior loss，按 prior_loss_weight 加权。",
+    "expectedImpact": "5-20 张图片即可实现高质量个性化生成。",
+    "tradeoffs": "prior_loss_weight 太大会限制个性化程度；太小会导致类别概念被破坏。",
+    "codePath": "training_loop.py:DreamBooth → instance_loss + prior_loss_weight × prior_loss"
+  },
+  "relatedConfigs": ["class_prompt", "num_class_images", "prior_loss_weight", "use_lora", "lora_rank"]
+}

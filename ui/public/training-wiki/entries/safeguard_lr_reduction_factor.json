@@ -1,0 +1,28 @@
+{
+  "key": "safeguard_lr_reduction_factor",
+  "title": "降学习率倍率",
+  "category": "训练 / 稳定性",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "lulynx_safeguard_lr_reduction_factor"
+  ],
+  "standard": {
+    "summary": "每次 SafeGuard 触发自动降 LR 时，学习率乘以的系数。默认 0.5（减半）。",
+    "effect": "0.5 = 每次触发减半；0.8 = 温和降低 20%；0.1 = 激进降至 10%。",
+    "whenToUse": "默认 0.5 是稳健选择。若 loss 波动频繁但不严重，可改 0.8 避免 LR 衰减过快。",
+    "avoidWhen": "不建议设为 0（LR 清零，训练停滞）或 1.0（等于不降）。"
+  },
+  "advanced": {
+    "principle": "new_lr = current_lr * lr_reduction_factor，应用于所有 param_groups。多次触发累乘，属于永久性降低，不会自动恢复。",
+    "tradeoffs": "若误触发多次会导致 LR 过低，建议同时调高 spike_threshold 减少误触发频率。"
+  },
+  "relatedConfigs": [
+    "safeguard_enabled",
+    "safeguard_auto_reduce_lr",
+    "safeguard_loss_spike_threshold"
+  ]
+}

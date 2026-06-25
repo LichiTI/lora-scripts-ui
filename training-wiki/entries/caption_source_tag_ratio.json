@@ -1,0 +1,28 @@
+{
+  "key": "caption_source_tag_ratio",
+  "title": "Tag 图说比例",
+  "category": "数据集 / 图说",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "caption_source_nl_ratio",
+    "caption_source_empty_ratio",
+    "caption_source_trigger_only_ratio"
+  ],
+  "standard": {
+    "summary": "图说来源的采样比例分配：tag 格式 / 自然语言格式 / 空图说 / 纯触发词 的各自占比。四项之和应为 1.0。",
+    "effect": "控制每步训练时使用何种格式的图说。多格式混合训练可以让 LoRA 同时响应 tag 格式和自然语言描述。",
+    "whenToUse": "数据集同时包含 tag 图说和 NL 描述时，设置混合比例（如 tag=0.7，nl=0.3）提升适应性。",
+    "avoidWhen": "只有单一格式的图说时无需设置（只用一种格式就好）。"
+  },
+  "advanced": {
+    "principle": "每个训练样本随机按比例从不同图说来源采样：概率分布 [tag, nl, empty, trigger_only]。同一张图可能有多种格式的图说文件。",
+    "tradeoffs": "empty ratio 过高等于部分无条件训练，影响 CFG 引导；trigger_only ratio 过高导致模型只响应触发词，失去细粒度控制能力。"
+  },
+  "relatedConfigs": [
+    "caption_extension",
+    "caption_tag_dropout_rate"
+  ]
+}

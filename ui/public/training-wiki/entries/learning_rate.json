@@ -1,0 +1,30 @@
+{
+  "key": "learning_rate",
+  "title": "学习率",
+  "category": "优化器 / 学习率",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["优化器层"],
+  "standard": {
+    "summary": "控制每次参数更新的步幅大小。学习率 × 梯度 = 参数变化量。是最重要的超参数之一——设太大会发散，设太小收敛极慢或卡在局部极小值。",
+    "effect": "LoRA 训练常用 1e-4 ~ 5e-4；全参 finetune 常用 1e-6 ~ 5e-6。LoRA 的可训练参数远少于底模（通常 < 5%），所以需要更大的学习率来驱动参数变化。unet_lr 和 text_encoder_lr 可以分别对 UNet 和文本编码器设置不同的学习率——常见做法是 UNet 用主学习率，TE 用 1/2 ~ 1/5 的学习率或干脆冻结。",
+    "recommendedValues": {
+      "sdxl_lora_adamw": "1e-4（最常用起始值）",
+      "sdxl_lora_prodigy": "1.0（Prodigy 自行估算步长，设 1.0 让 D-Adaptation 接管）",
+      "sd15_lora_adamw": "5e-5 ~ 1e-4",
+      "anima_lora_adamw": "5e-5 ~ 2e-4",
+      "flux_lora_adamw": "1e-4 ~ 5e-4",
+      "finetune_sdxl": "1e-6 ~ 5e-6",
+      "text_encoder_lr": "5e-5（SDXL）或 0（冻结 TE，只训练 UNet）"
+    },
+    "whenToUse": "AdamW + cosine：LoRA 推荐 1e-4 起步，根据 loss 曲线调整。Prodigy/AutoProdigy 设 1.0 不需要手动调。如果 loss 在前 100 步不降，学习率可能太小；如果 loss 剧烈震荡，学习率可能太大。",
+    "avoidWhen": "不要同时设 unet_lr=0 和 text_encoder_lr=0（会退化为全局 learning_rate，不是报错但容易困惑）。不要在学习率还没调好之前加大 rank——先确认学习率能让低 rank 收敛，再提高 rank 增加容量。"
+  },
+  "advanced": {
+    "principle": "参数更新公式：θ_{t+1} = θ_t - lr * AdamW(grad_t)。LoRA 的可训练参数量 ≈ 2 * rank * (in_dim + out_dim) * n_layers。SDXL LoRA rank=32 约 48M 可训练参数，比 UNet 的 3.5B 参数少约 1.4%，所以需要更大的 lr 来让这 1.4% 的参数产生足够的梯度信号。warmup_ratio（默认 0.05）在训练前 5% 步数线性增加 lr 到目标值，防止初始梯度方向不稳定时大步更新。",
+    "intervention": "training_loop.py 中 _build_optimizer() 使用 learning_rate 构造 optimizer；_build_scheduler() 使用 lr_warmup_steps 或 warmup_ratio 控制 warmup 阶段。scheduler 在每步调用 scheduler.step() 修改 optimizer.param_groups[i]['lr']。",
+    "expectedImpact": "学习率直接影响收敛速度和最终质量。经验法则：batch_size 翻倍时 lr 可以适度提高（线性缩放规则在 LoRA 中近似成立但不严格）；rank 提高时 lr 可能需要略微降低（更多参数 → 更大的梯度范数）。",
+    "tradeoffs": "loss_gated_cosine scheduler 会根据 loss 变化自动暂停 lr 衰减——当 loss 停滞时保持当前 lr 不变，等 loss 继续下降后才恢复衰减。lr_warmup_steps 和 warmup_ratio 二选一，warmup_ratio 更方便因为它按比例计算不需要知道总步数。",
+    "codePath": "training_loop.py:_build_optimizer() + _build_scheduler() → optimizer.param_groups[i]['lr']"
+  },
+  "relatedConfigs": ["unet_lr", "text_encoder_lr", "lr_scheduler", "lr_warmup_steps", "warmup_ratio", "optimizer_type", "loss_scheduler_ema_alpha"]
+}

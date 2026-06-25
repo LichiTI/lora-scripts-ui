@@ -1,0 +1,31 @@
+{
+  "key": "enable_inference_accel",
+  "title": "推理加速（采样预览）",
+  "category": "速度 / 推理加速",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "enable_preview",
+    "enable_base_weight",
+    "enable_block_weights",
+    "enable_block_weight_filter",
+    "enable_distributed_training",
+    "enable_sequential_cpu_offload"
+  ],
+  "standard": {
+    "summary": "enable_inference_accel 为训练中的采样预览启用推理加速（SmoothCache/SpeculativeDecoding 等）；其他 enable_* 字段是各功能的主开关。",
+    "effect": "enable_inference_accel 开启后预览生成速度提升约 1.3~1.6×；enable_base_weight 允许训练带有基础权重偏置的 LoRA；enable_block_weights 开启 block 级 LR 权重；enable_distributed_training 开启多卡训练（需要多 GPU 环境）。",
+    "whenToUse": "各字段视需求开启，大多数有对应的细粒度配置参数。enable_sequential_cpu_offload 是最激进的 offload（逐层），仅在极端低 VRAM 时使用。",
+    "avoidWhen": "enable_distributed_training 需要多 GPU 环境且正确配置 DDP；enable_sequential_cpu_offload 极大降低训练速度，只作为 OOM 最后手段。"
+  },
+  "advanced": {
+    "principle": "这些开关字段通常控制对应功能模块的激活状态。enable_* 设为 false 时，对应模块的所有子参数即使设置也不生效。",
+    "tradeoffs": "顶层开关使功能的启用/禁用更方便，但需要注意开关与子参数的组合：开关 off 但子参数有值时，子参数静默不生效（无警告）。"
+  },
+  "relatedConfigs": [
+    "blocks_to_swap",
+    "anima_block_prefetch",
+    "gradient_checkpointing"
+  ]
+}

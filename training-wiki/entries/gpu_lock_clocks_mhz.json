@@ -1,0 +1,28 @@
+{
+  "key": "gpu_lock_clocks_mhz",
+  "title": "GPU 时钟锁定",
+  "category": "速度 / GPU 管理",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "gpu_ids",
+    "gpu_power_limit_w",
+    "gpu_target_temp_c"
+  ],
+  "standard": {
+    "summary": "GPU 性能管理：锁定 GPU 时钟频率（防止 boost 引起不稳定）、设置功耗上限、设置温度目标（超温自动降频）。",
+    "effect": "lock_clocks_mhz = 锁定 GPU core clock，确保每步训练时间稳定（减少 benchmark 误差）；power_limit_w = 限制 GPU 最大功耗；target_temp_c = 超过目标温度时自动限制 boost clock。",
+    "whenToUse": "长时间高负载训练且 GPU 温度接近限制（>80°C）时开启温度控制。benchmark 调参时锁频获得更精确的对比数据。",
+    "avoidWhen": "正常训练无需锁频（会限制 boost 性能）；温度正常（<75°C）时无需温控。"
+  },
+  "advanced": {
+    "principle": "gpu_lock_clocks_mhz 通过 nvidia-smi --lock-gpu-clocks 实现（需要 NVIDIA 驱动权限）。power_limit_w 通过 nvidia-smi -pl 设置。temp 超限后 nvidia 驱动会自动降频（thermal throttling），target_temp_c 是在到达硬限前主动降频的软限。",
+    "tradeoffs": "锁频低于 GPU 最大 boost clock 会降低峰值性能（实际训练速度下降）；但能提供更一致的每步时间，对长训练的时间预估更准确。"
+  },
+  "relatedConfigs": [
+    "optimizer_backend",
+    "peak_vram_control_enabled"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "ema_use_ema",
+  "title": "EMA (指数移动平均)",
+  "category": "训练 / 平滑",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "EMA 维护一个模型参数的指数移动平均副本，推理时使用 EMA 权重而非训练权重。减少训练噪声对最终模型的影响。",
+    "effect": "ema_decay=0.999 时，EMA 权重约等于最近 1000 步的平均。推理更稳定，减少「最后几步的随机波动」。",
+    "whenToUse": "大多数训练都推荐开启。特别是训练后期 loss 仍在小幅震荡时。",
+    "avoidWhen": "极短训练（<100 步）时 EMA 还没充分平滑。ema_update_after_step 控制在多少步后才开始 EMA 累积。"
+  },
+  "advanced": {
+    "principle": "θ_ema = decay * θ_ema + (1-decay) * θ_train。ema_decay 越接近 1 越平滑（但也越滞后）。ema_inv_gamma 和 ema_power 控制 warmup 阶段的自适应衰减率。ema_update_every 控制每 N 步更新一次 EMA。",
+    "intervention": "在 optimizer.step() 后更新 EMA 副本。保存时可选保存 EMA 权重或训练权重。",
+    "expectedImpact": "FID 改善约 1-3%。对生成多样性影响小，主要减少异常样本。",
+    "tradeoffs": "ema_reset_on_resume 控制 resume 时是否重置 EMA 状态。",
+    "codePath": "core/training_components/ema.py:EMAStateTracker → per-step EMA update"
+  },
+  "relatedConfigs": ["ema_decay", "ema_update_after_step", "ema_update_every", "ema_inv_gamma", "ema_power"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "muon_momentum",
+  "title": "Muon + 新型优化器",
+  "category": "优化器 / 新型",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["优化器层"],
+  "standard": {
+    "summary": "Muon、Riemannion、Rose、Aurora、ADOPT、SOAP、MARS 等 frontier 优化器处于 release-hold 内部研究状态，不进入常规 optimizer_type 下拉。",
+    "effect": "这些优化器仅保留 clean-room 参考实现、治理 scorecard 或内部 smoke。常规训练请求会被 release-hold guard 拦截，直到 owner/release 审批解除。",
+    "whenToUse": "当前不要在产品训练配置中选择这些优化器；只在内部 frontier provider smoke 或 owner review 证据链中验证。",
+    "avoidWhen": "任何常规 WebUI、request adapter、训练入口或插件桥接路径都不应暴露或启用 held frontier optimizer。"
+  },
+  "advanced": {
+    "principle": "frontier clean-room 路线只允许基于论文/数学定义/本地 spec 的独立参考验证，不复制第三方实现，也不通过常规训练入口启用。",
+    "intervention": "无产品侧操作。若需要研究验证，走 backend/core/lulynx_trainer/frontier_optimizer_provider.py 的内部 smoke 路线。",
+    "expectedImpact": "尚未产品承诺；需要真实短训或工具 fixture、owner approval、release-hold clearance 后才能讨论暴露。",
+    "tradeoffs": "提前暴露会破坏 default-off、runtime/request 边界和 clean-room 审计链。",
+    "codePath": "backend/core/lulynx_trainer/frontier_* governance + frontier_optimizer_provider.py internal-only"
+  },
+  "relatedConfigs": ["muon_momentum", "muon_ns_steps", "muon_lr_ratio", "optimizer_type"]
+}

@@ -1,0 +1,28 @@
+{
+  "key": "caption_variant_ratio",
+  "title": "Caption 变体比例",
+  "category": "数据集 / 图说",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "caption_variants",
+    "caption_variant_schedule",
+    "caption_variant_loss_adaptive",
+    "caption_variant_custom_sequence"
+  ],
+  "standard": {
+    "summary": "在训练中混入 caption 变体（同一图像的多种描述方式）的比例。有助于提升 LoRA 对不同描述风格的适应性。",
+    "effect": "0.0 = 总是使用主 caption；0.3 = 30% 的步骤从变体 caption 池中随机选一个；1.0 = 总是使用变体。",
+    "whenToUse": "每张图有多个 caption 变体时开启（通过 caption_variants 字段指定变体列表）。",
+    "avoidWhen": "没有 caption 变体文件时设为 0，否则会 fallback 到主 caption 或产生错误。"
+  },
+  "advanced": {
+    "principle": "caption 变体通常存储在 .caption_variants.json 等辅助文件中，训练时按比例从主 caption 和变体池随机采样。",
+    "tradeoffs": "caption 多样性有助于 LoRA 的语言泛化，但需要额外制作 caption 变体文件（增加数据准备工作量）。"
+  },
+  "relatedConfigs": [
+    "caption_extension",
+    "caption_source_tag_ratio"
+  ]
+}

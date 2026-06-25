@@ -1,0 +1,28 @@
+{
+  "key": "lulynx_freq_texture_enabled",
+  "title": "Lulynx 频域纹理锚点",
+  "category": "前沿储备 / 质量",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "lulynx_freq_texture_weight",
+    "lulynx_latent_anchor_enabled",
+    "lulynx_latent_anchor_weight"
+  ],
+  "standard": {
+    "summary": "（实验性）Lulynx 质量感知辅助 loss 族：频域纹理锚点（freq_texture）通过频域 Gram 矩阵约束纹理风格；Latent 锚点（latent_anchor）通过 EMA latent 参考约束生成稳定性。",
+    "effect": "freq_texture 有助于保持训练数据的特征纹理风格；latent_anchor 防止生成结果偏离 EMA 稳定版本过远（类似 EMA 蒸馏的 latent 版本）。",
+    "whenToUse": "实验性功能，适合研究探索。对特定纹理风格 LoRA 有潜在收益。",
+    "avoidWhen": "默认关闭。增加的辅助 loss 会改变训练动力学，不确定效果时不要开启。"
+  },
+  "advanced": {
+    "principle": "freq_texture = 对特征图做 DCT + Gram 矩阵，计算频域风格距离；latent_anchor = EMA latent vs 当前 latent 的 L2 距离，权重 latent_anchor_weight 控制约束强度。",
+    "tradeoffs": "两种 loss 的权重需要仔细调整，过大会主导训练目标；过小则效果不明显。建议通过实验对比确定合适权重。"
+  },
+  "relatedConfigs": [
+    "perceptual_anchor_loss_enabled",
+    "anima_ema_feat_align_enabled"
+  ]
+}

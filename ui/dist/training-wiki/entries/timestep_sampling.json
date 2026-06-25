@@ -1,0 +1,32 @@
+{
+  "key": "timestep_sampling",
+  "title": "时间步采样策略",
+  "category": "训练 / 时间步",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "timestep_sampling_mode",
+    "timestep_segments",
+    "min_timestep",
+    "max_timestep",
+    "mode_scale",
+    "bypass_mode"
+  ],
+  "standard": {
+    "summary": "控制训练时如何采样噪声时间步（timestep）：uniform（均匀）/ logit_normal（对数正态，推荐）/ sigma_sqrt（平方根加权）/ mode（峰值采样）。",
+    "effect": "logit_normal 集中采样中等噪声步（最常用）；uniform 每个时间步等概率（标准实现）；sigma_sqrt 偏向高噪声步（学习全局结构）；mode 在特定峰值周围采样（配合 mode_scale）。",
+    "whenToUse": "logit_normal 是 Flux/Anima 等新架构的推荐选择，比 uniform 有更好的训练效率。SD1.5/SDXL 通常保持 uniform。",
+    "avoidWhen": "min_timestep/max_timestep 裁剪时间步范围时需要谨慎：去掉高噪声步（>900）会影响全局结构学习；去掉低噪声步（<100）会影响细节学习。"
+  },
+  "advanced": {
+    "principle": "训练 loss 在不同时间步（噪声级别）的信息量分布不均：中等噪声步包含最多语义信息（高 SNR）。logit_normal 通过非均匀采样将更多训练资源集中在信息量最大的区域。bypass_mode 在特定实现中跳过时间步嵌入，直接使用原始 sigma 值（适合某些特殊架构）。timestep_segments 将时间步空间分段，允许对每段设置不同采样权重。",
+    "tradeoffs": "logit_normal 的 sigma_scale 参数影响集中程度（见 anima_sigmoid_scale）；与 P2 weighting / scale_guidance 存在功能重叠，避免多种时间步加权机制叠加使用。"
+  },
+  "relatedConfigs": [
+    "anima_weighting_scheme",
+    "anima_sigmoid_scale",
+    "p2_weighting_enabled"
+  ]
+}

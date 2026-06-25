@@ -1,0 +1,21 @@
+{
+  "key": "v_parameterization",
+  "title": "V-Prediction (V 参数化)",
+  "category": "训练 / 参数化",
+  "appliesTo": ["sdxl-lora", "sd-lora", "finetune"],
+  "layers": ["Loss 层"],
+  "standard": {
+    "summary": "模型预测 v = α·x_0 - σ·ε（velocity）而非 ε（noise）。V-prediction 在高噪声 timestep 更稳定，是 SD 2.x 和部分 SDXL 模型的标准。",
+    "effect": "v-prediction 让模型直接预测从噪声到图像的「速度向量」。在大 timestep 时比 epsilon prediction 数值更稳定。",
+    "whenToUse": "底模本身用 v-prediction 训练时必须开启（如 SD 2.x）。SDXL 通常用 epsilon prediction（v_parameterization=False）。",
+    "avoidWhen": "底模用 epsilon prediction 训练时不要开启——会导致完全错误的训练。"
+  },
+  "advanced": {
+    "principle": "epsilon prediction: 模型预测噪声 ε。v-prediction: 模型预测 v = √α · x_0 - √(1-α) · ε。v 是 x_0 和 ε 的加权组合，在大 timestep（α→0）时 v ≈ -ε，在小 timestep（α→1）时 v ≈ x_0。loss 计算也不同：L_v = ||v_pred - v_target||²。min_snr_gamma 的 divisor 在 v-pred 时变为 SNR+1。",
+    "intervention": "trainer.py 根据 v_parameterization 切换 loss target 和 SNR 加权逻辑。",
+    "expectedImpact": "匹配底模参数化时训练正确。不匹配时训练完全失败。",
+    "tradeoffs": "scale_v_pred_loss_like_noise_pred 对 v-pred loss 做额外缩放以接近 epsilon pred 的行为。",
+    "codePath": "trainer.py:v_parameterization → v_target = alpha * x0 - sigma * eps → MSE loss"
+  },
+  "relatedConfigs": ["min_snr_gamma", "scale_v_pred_loss_like_noise_pred", "zero_terminal_snr"]
+}

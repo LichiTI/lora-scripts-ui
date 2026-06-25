@@ -1,0 +1,21 @@
+{
+  "key": "anima_block_checkpointing_mode",
+  "title": "Anima Selective Checkpoint (选择性检查点)",
+  "category": "显存优化 / DiT",
+  "appliesTo": ["anima-lora"],
+  "layers": ["显存层", "DiT Block"],
+  "standard": {
+    "summary": "Anima DiT block checkpoint 的增强模式：'block' 标准模式重算整个 block；'selective' (SAC) 模式只重算轻量级操作（elementwise），保留重型操作（matmul/SDPA）的激活。",
+    "effect": "anima_block_checkpointing_mode='selective' 减少约 30-40% 的重算开销（因为跳过了 matmul/SDPA 的重算），同时仍节省显存。anima_block_checkpointing_interval 控制每 N 个 block 才做 checkpoint（N>1 时部分 block 不 checkpoint，用更多显存换更少重算）。",
+    "whenToUse": "Anima 训练中显存紧张但又不想完全牺牲速度时。selective 是速度和显存的最佳折中。",
+    "avoidWhen": "显存充裕时不需要。selective 模式比 block 模式使用稍多显存。"
+  },
+  "advanced": {
+    "principle": "标准 gradient checkpointing 在 backward 时重算整个 forward。Selective Activation Checkpointing (SAC) 分析每个操作的 FLOPs/内存比：高 FLOPs 操作（matmul/SDPA）保留激活不重算，低 FLOPs 操作（elementwise/layernorm）丢弃激活在 backward 时重算。anima_block_checkpointing_interval=1 表示所有 block 都做 checkpoint；=2 表示每隔一个 block 做 checkpoint（一半 block 保留完整激活）。anima_block_prefetch_mode='adaptive' 根据 blockskip 策略和在线深度自适应调整预取深度。",
+    "intervention": "DiT block forward 时根据 mode 决定哪些操作保留激活。",
+    "expectedImpact": "selective 比 block 模式速度提升约 15-25%，显存多约 10-15%。interval=2 进一步提速但显存增加更多。",
+    "tradeoffs": "interval > 1 时部分 block 不做 checkpoint，显存占用更高。",
+    "codePath": "core/lulynx_trainer/ → Anima DiT block checkpoint → selective SAC / interval control"
+  },
+  "relatedConfigs": ["anima_block_checkpointing", "anima_block_checkpointing_interval", "anima_block_prefetch_mode", "anima_block_prefetch_depth"]
+}

@@ -1,0 +1,22 @@
+{
+  "key": "anima_fused_qkv",
+  "title": "Anima Fused QKV",
+  "category": "速度 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "将 Q、K、V 三个线性投影合并为一个融合矩阵乘法操作，减少 CUDA kernel launch 次数，提升注意力计算效率。",
+    "effect": "开启后 QKV 投影通过一次矩阵乘法完成（而非三次），减少 kernel launch 开销约 30%，提升总体训练速度约 2~5%。",
+    "whenToUse": "默认应尝试开启（若模型支持），对 Anima 架构的 native forward 有优化效果。",
+    "avoidWhen": "模型的 QKV 权重未融合时（需要 weight merging 操作），或 LoRA 注入方式与 fused QKV 不兼容时会自动 fallback。"
+  },
+  "advanced": {
+    "principle": "Fused QKV 将 W_Q, W_K, W_V 沿 head 维度拼接为一个 W_QKV，单次矩阵乘法 xW_QKV 得到 QKV 拼接结果，再 chunk 分割。减少内存读写次数（W_Q/K/V 分别读取 → 一次读取 W_QKV）。",
+    "tradeoffs": "LoRA 注入 fused QKV 时需要特殊处理（拼接 LoRA 权重对应维度），部分 LoRA 实现可能与之不兼容，遇到问题时关闭。"
+  },
+  "relatedConfigs": [
+    "anima_fixed_visual_tokens",
+    "torch_compile"
+  ]
+}

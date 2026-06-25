@@ -1,0 +1,23 @@
+{
+  "key": "checkpoint_policy",
+  "title": "Checkpoint 保存策略",
+  "category": "训练 / 保存",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "控制中间 checkpoint 的保存逻辑：all = 保存所有步的 checkpoint；best = 只保留验证 loss 最低的；last_n = 保留最近 N 个（配合 save_last_n_steps）。",
+    "effect": "best 模式需要评估集，自动选择最优步数的权重保存；last_n 是最常用的节省磁盘空间方式。",
+    "whenToUse": "磁盘空间有限时选择 last_n（配合 save_last_n_steps=3~5）；有评估集时 best 模式可自动选择最优点。",
+    "avoidWhen": "LoRA 训练通常没有独立评估集，best 模式对 LoRA 意义有限（使用预览图目测选择更实用）。"
+  },
+  "advanced": {
+    "principle": "checkpoint_policy 影响 checkpoint 管理器的行为：all = 写出所有 checkpoint 不删除（磁盘空间最大占用）；last_n = 写出后检查总数并删除超限的旧 checkpoint。",
+    "tradeoffs": "若训练意外中断，last_n 模式下只能从最近 N 个 checkpoint 恢复；all 模式可以从任意 checkpoint 恢复但磁盘占用极高。"
+  },
+  "relatedConfigs": [
+    "save_every_n_steps",
+    "save_last_n_steps",
+    "save_model_as"
+  ]
+}

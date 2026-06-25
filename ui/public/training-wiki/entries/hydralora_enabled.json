@@ -1,0 +1,21 @@
+{
+  "key": "hydralora_enabled",
+  "title": "HydraLoRA (混合专家 LoRA)",
+  "category": "LoRA / 变体",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "HydraLoRA 将 LoRA 扩展为 Mixture-of-Experts 结构——多个 LoRA 专家通过路由机制选择性激活，提升容量的同时控制推理开销。",
+    "effect": "hydralora_num_experts=4 + hydralora_top_k=2 表示 4 个专家每步激活 2 个。有效容量翻倍但推理开销只增加约 50%。",
+    "whenToUse": "多概念训练时每个概念可以路由到不同专家。想在不大幅增加推理开销的情况下提升容量时。",
+    "avoidWhen": "单概念训练时 MoE 结构收益有限。推理端需要支持 MoE LoRA 加载。"
+  },
+  "advanced": {
+    "principle": "每个 MoE 层有 N 个 LoRA 专家。hydralora_routing='top_k' 选择 top-k 个专家的输出加权求和。hydralora_balance_loss_weight > 0 时添加负载均衡 loss 防止所有输入都路由到同一专家。hydralora_sparse_top_k=True 时只计算被选中的专家（更快但可能影响梯度）。",
+    "intervention": "替换标准 LoRA 层为 MoE-LoRA 层。forward 时先路由再选择性激活专家。",
+    "expectedImpact": "多概念训练中质量提升约 5-15%。推理时文件大小为 N × 单 LoRA，但只激活 K 个。",
+    "tradeoffs": "需要推理端支持 HydraLoRA 格式。",
+    "codePath": "core/lulynx/ → HydraLoRA layer → routing + top-k expert selection"
+  },
+  "relatedConfigs": ["hydralora_num_experts", "hydralora_routing", "hydralora_top_k", "hydralora_balance_loss_weight"]
+}

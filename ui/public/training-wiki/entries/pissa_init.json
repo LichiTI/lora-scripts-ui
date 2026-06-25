@@ -1,0 +1,29 @@
+{
+  "key": "pissa_init",
+  "title": "PiSSA 初始化",
+  "category": "LoRA 变体 / PiSSA",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "pissa_niter",
+    "pissa_method",
+    "pissa_apply_conv2d",
+    "pissa_export_mode"
+  ],
+  "standard": {
+    "summary": "PiSSA（Principal Singular values and Singular vectors Adaptation）：通过 SVD 初始化 LoRA 的 A/B 矩阵，使初始 LoRA 对齐预训练权重的主要奇异方向，实现更快的收敛。",
+    "effect": "与随机初始化相比，PiSSA 初始化可以让训练在更少步数内达到相似的 loss 水平（约快 2~3×）；同时 B×A 的初始输出非零（对齐主奇异方向），比标准 LoRA 更快\"记住\"新概念。",
+    "whenToUse": "步数较少时（<200步）PiSSA 的快速收敛优势最明显。长训练时优势逐渐减弱。",
+    "avoidWhen": "pissa 初始化需要对每个目标层做 SVD（较慢的初始化步骤）；SVD 分解本身对大型权重矩阵耗时较长。"
+  },
+  "advanced": {
+    "principle": "PiSSA 对预训练权重 W 做 SVD：W = UΣV^T，取前 rank 个奇异值/向量初始化 B = U[:, :rank] × Σ[:rank, :rank]^(1/2) / scale，A = Σ[:rank, :rank]^(1/2) × V[:rank, :]^T / scale。初始 ΔW = B×A ≈ 主成分方向的 W，与 W 最近的低秩近似。",
+    "tradeoffs": "PiSSA 的 export_mode（full_weight 或 lora_weight）影响输出文件：full_weight 模式导出 W_original - B×A + B_new×A_new（合并修改），pissa 推理时等效于标准 LoRA 推理。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "network_alpha"
+  ]
+}

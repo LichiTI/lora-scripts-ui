@@ -1,0 +1,27 @@
+{
+  "key": "wavelet_loss_weight",
+  "title": "小波变换 Loss",
+  "category": "前沿储备 / 质量",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "wavelet_loss_approx_weight",
+    "wavelet_loss_levels"
+  ],
+  "standard": {
+    "summary": "（实验性）小波 loss：通过多级小波分解分析训练输出的高/低频成分，对不同频率的重建误差差异化加权。",
+    "effect": "wavelet_loss_weight 控制总体小波 loss 权重；approx_weight 控制低频近似系数的权重（相对于高频细节系数）；levels 控制小波分解级数（更多级 → 分析更低的频率）。",
+    "whenToUse": "实验性功能。对高频细节（纹理/线条清晰度）有要求时可以尝试，比纯 MSE 更能感知频率域的质量。",
+    "avoidWhen": "默认关闭。小波 loss 的权重设置需要经验，设置不当可能导致频率不平衡。"
+  },
+  "advanced": {
+    "principle": "离散小波变换（DWT）将信号分解为近似系数（低频，整体结构）和细节系数（高频，边缘/纹理）。多级 DWT（levels 级）逐级分解近似系数，提取越来越低的频率成分。loss = approx_weight × ‖WT_approx‖ + ‖WT_detail‖。",
+    "tradeoffs": "wavelet loss 与 dct loss 有功能重叠（都分析频域），通常选择其中一种使用。DWT 计算复杂度略高于 DCT（但仍较快，约 2~5ms/step）。"
+  },
+  "relatedConfigs": [
+    "dct_frequency_enabled",
+    "scale_guidance_mode",
+    "p2_weighting_enabled"
+  ]
+}

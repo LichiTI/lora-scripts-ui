@@ -1,0 +1,23 @@
+{
+  "key": "ac_stable_rank_collapse_threshold",
+  "title": "Stable Rank 崩溃阈值",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "LoRA 权重矩阵 stable rank 下降超过此比例视为崩溃，触发 AutoController 干预。默认 0.3（下降 30%）。",
+    "effect": "stable rank 崩溃通常意味着 LoRA 权重退化为低秩，有效表达能力降低。",
+    "whenToUse": "使用较高 rank（>=16）的 LoRA 时开启以防止 rank 崩溃。",
+    "avoidWhen": "本来就使用极低 rank（rank=1~2）时 stable rank 本身就低，此监控无意义。"
+  },
+  "advanced": {
+    "principle": "stable_rank = (‖W‖_F)² / (‖W‖_2)²，崩溃检测 = (baseline_rank - current_rank) / baseline_rank > threshold。",
+    "tradeoffs": "计算 stable rank 需要 SVD，对大矩阵开销可观。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_stable_rank_consecutive",
+    "ac_gradient_rank_plateau_window"
+  ]
+}

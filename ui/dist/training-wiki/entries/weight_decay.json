@@ -1,0 +1,21 @@
+{
+  "key": "weight_decay",
+  "title": "权重衰减",
+  "category": "优化器 / 正则",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["优化器层"],
+  "standard": {
+    "summary": "AdamW 的 L2 正则化强度。每步对参数施加 weight_decay × param 的衰减，防止参数无限增长和过拟合。",
+    "effect": "默认 0.01（AdamW 论文推荐值）。增大到 0.1 可以更强地正则化，减小到 0.001 减少约束。",
+    "whenToUse": "大多数训练保持默认 0.01。数据极少且过拟合明显时可适当增大。",
+    "avoidWhen": "设太大（>0.5）会严重限制学习能力。设 0 关闭正则化——LoRA 训练中不推荐。"
+  },
+  "advanced": {
+    "principle": "AdamW 的 weight decay 与 L2 正则化不同：L2 在 loss 上加 λ/2·||θ||²（梯度中多出 λ·θ），而 AdamW 直接在参数更新中减去 λ·θ·lr。AdamW 的方式不会干扰动量估计，效果更稳定。",
+    "intervention": "optimizer = AdamW(params, lr=lr, weight_decay=weight_decay)。",
+    "expectedImpact": "合适的 weight decay 可减少过拟合 5-10%。过大则欠拟合。",
+    "tradeoffs": "LoRA 的可训练参数少，weight decay 的影响比全参 finetune 更温和。",
+    "codePath": "training_loop.py:_build_optimizer() → AdamW(weight_decay=...)"
+  },
+  "relatedConfigs": ["optimizer_type", "learning_rate", "network_dropout"]
+}

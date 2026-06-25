@@ -1,0 +1,24 @@
+{
+  "key": "turbocore_profile",
+  "title": "TurboCore 性能分析",
+  "category": "速度 / TurboCore",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "turbocore_strict",
+    "turbocore_tuned_kernel_disable",
+    "turbocore_update_shadow_mode",
+    "turbocore_workspace_mb"
+  ],
+  "standard": {
+    "summary": "TurboCore 调试和分析参数：profile 记录各 TurboCore 组件的耗时统计；strict 开启严格验证模式（错误时 fail-closed 而非 fallback）；tuned_kernel_disable 禁用特定调优 kernel（测试/调试用）；workspace_mb 设置 TurboCore 内部工作区大小。",
+    "effect": "profile 将 TurboCore 各阶段的时间细分记录到日志，帮助定位性能瓶颈；update_shadow_mode 控制 shadow 权重更新的时机（用于 TurboCore 的回签验证流程）。",
+    "whenToUse": "调试 TurboCore 行为或性能分析时使用。正常训练保持默认（不开启这些调试选项）。",
+    "avoidWhen": "strict 模式会在 TurboCore 组件失败时立即报错（而非自动 fallback），只在调试时使用。"
+  },
+  "relatedConfigs": [
+    "turbocore_native_update_dispatch_enabled",
+    "optimizer_backend"
+  ]
+}

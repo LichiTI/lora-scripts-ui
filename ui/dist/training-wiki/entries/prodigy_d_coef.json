@@ -1,0 +1,23 @@
+{
+  "key": "prodigy_d_coef",
+  "title": "Prodigy d 系数",
+  "category": "训练 / 优化器",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "standard": {
+    "summary": "Prodigy / ProdigyPlus 的 d 系数，影响自适应学习率的放大倍数。默认 2.0。",
+    "effect": "值越大，Prodigy 推断的有效步长越大（等效于提高学习率）；值越小越保守。",
+    "whenToUse": "Prodigy 配合大 d_coef（2.0~3.0）可实现较快收敛。若发现 loss 震荡，可降至 1.0~1.5。",
+    "avoidWhen": "d_coef > 5 容易导致训练不稳定。"
+  },
+  "advanced": {
+    "principle": "d_coef 缩放 Prodigy 的步长估计：effective_lr ≈ d₀ × d_coef × (gradient geometry estimation)。",
+    "tradeoffs": "Prodigy 配合 cosine scheduler 时的效果依赖于 d_coef 的校准，不同任务的最优值差异较大。"
+  },
+  "relatedConfigs": [
+    "optimizer_type",
+    "prodigy_d0"
+  ]
+}

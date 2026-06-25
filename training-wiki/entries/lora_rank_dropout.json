@@ -1,0 +1,27 @@
+{
+  "key": "lora_rank_dropout",
+  "title": "LoRA Rank Dropout",
+  "category": "LoRA / 网络结构",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "network_dropout"
+  ],
+  "standard": {
+    "summary": "训练时随机丢弃 LoRA 的部分 rank 维度，类似于 Dropout 的正则化效果。默认 0（不丢弃）。",
+    "effect": "设为 0.1 = 每步随机丢弃 10% 的 rank 维度。增加正则化，降低对特定 rank 方向的依赖，有助于泛化。",
+    "whenToUse": "数据集小但 rank 较高（>32）时可开启（0.05~0.1）防止过拟合。",
+    "avoidWhen": "低 rank（<=8）时 dropout 会过度损失有限的表达能力。高 dropout 率（>0.3）容易训练不稳定。"
+  },
+  "advanced": {
+    "principle": "每个 forward 随机生成 mask，将选中的 rank 维度清零（Bernoulli 采样）。等价于训练了一系列不同 rank 子集，提高泛化性。",
+    "tradeoffs": "rank dropout 增加训练随机性，配合较高 LR 才能充分采样各 rank 子集；过低 LR 时 dropout 效果不明显。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "network_alpha"
+  ]
+}

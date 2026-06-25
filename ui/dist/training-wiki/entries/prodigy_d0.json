@@ -1,0 +1,23 @@
+{
+  "key": "prodigy_d0",
+  "title": "Prodigy 初始步长估计",
+  "category": "训练 / 优化器",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "standard": {
+    "summary": "Prodigy / ProdigyPlus 优化器的初始步长估计值 d₀。留空则使用优化器默认值（自动估计）。",
+    "effect": "较大的 d₀ 让 Prodigy 初始更激进；较小的 d₀ 让其从更保守的步长开始积累估计。",
+    "whenToUse": "通常留空（自动估计）。若训练初期 loss 特别不稳定，可尝试设置小初始值（如 1e-6）。",
+    "avoidWhen": "不了解 Prodigy 步长机制时保持默认（留空）。"
+  },
+  "advanced": {
+    "principle": "Prodigy 通过在线估计梯度与权重的内积关系，自动推断有效步长。d₀ 是初始估计的起点，影响估计的收敛速度。",
+    "tradeoffs": "d₀ 设置不当可能导致前几步步长过大/过小，从而影响 TE 和 UNet 权重的初始更新。"
+  },
+  "relatedConfigs": [
+    "optimizer_type",
+    "prodigy_d_coef"
+  ]
+}

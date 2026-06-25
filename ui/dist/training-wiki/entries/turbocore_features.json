@@ -1,0 +1,21 @@
+{
+  "key": "turbocore_features",
+  "title": "TurboCore (原生加速内核)",
+  "category": "性能 / 内核",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["性能层", "优化器层"],
+  "standard": {
+    "summary": "TurboCore 是 Lulynx 的原生 CUDA 加速内核集合，提供 AdamW 优化器、attention 计算、数据处理等的高性能 CUDA 实现。",
+    "effect": "turbocore_features 是一个列表，启用特定的加速特性。turbocore_strict=True 时不使用 fallback。turbocore_profile 控制加速级别（basic/advanced/expert）。",
+    "whenToUse": "追求极致训练性能时。需要 CUDA 环境支持。",
+    "avoidWhen": "CUDA 环境不完整或不兼容时。turbocore_allow_fallback=True 可在不支持时回退到 PyTorch。"
+  },
+  "advanced": {
+    "principle": "TurboCore 包含多个子模块：(1) 原生 AdamW CUDA kernel——单次 fused kernel 完成 AdamW 更新；(2) TurboCore prefetch——异步预取下一批数据；(3) 实验性 FP8 支持；(4) native_update 模式——用 Rust/CUDA 实现的 AdamW 替代 PyTorch owner。turbocore_workspace_mb 控制 CUDA 工作区大小。turbocore_update_shadow_mode 用于验证 CUDA kernel 与 PyTorch owner 的数值一致性。",
+    "intervention": "替换 PyTorch AdamW 为 TurboCore CUDA kernel。forward 时注入 prefetch 调度。",
+    "expectedImpact": "AdamW kernel 提速约 20-40%。整体训练提速取决于瓶颈位置。",
+    "tradeoffs": "turbocore_native_update_dispatch_enabled 是实验性的原生更新调度路径。",
+    "codePath": "core/turbocore/ → CUDA AdamW kernel + prefetch + FP8 support"
+  },
+  "relatedConfigs": ["turbocore_strict", "turbocore_allow_fallback", "turbocore_profile", "turbocore_workspace_mb"]
+}

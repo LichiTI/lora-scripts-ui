@@ -1,0 +1,27 @@
+{
+  "key": "module_offload_prefetch_enabled",
+  "title": "模块 Offload 预取配置",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "module_offload_prefetch_mode",
+    "module_offload_profile",
+    "module_offload_profile_enabled",
+    "module_offload_ratio",
+    "module_offload_text_encoder_ratio",
+    "module_offload_verify_state"
+  ],
+  "standard": {
+    "summary": "模块 offload 的预取和性能分析控制：prefetch_enabled 启用异步预取（在当前 block 计算时预取下一个 block）；profile 模式记录每个模块的传输时间；ratio 控制整体 offload 比例。",
+    "effect": "prefetch 让 GPU 计算与 CPU-GPU 数据传输重叠，提升 offload 效率（减少等待时间）；profile 帮助识别传输瓶颈。",
+    "whenToUse": "使用 module_offload 时推荐同时开启 prefetch；profile 在性能调优时使用。verify_state 在每次换入/换出时验证数据完整性（调试用）。",
+    "avoidWhen": "verify_state 有显著额外开销，只在怀疑数据损坏时临时开启。"
+  },
+  "relatedConfigs": [
+    "module_offload_backbone_ratio",
+    "anima_block_prefetch",
+    "blocks_to_swap"
+  ]
+}

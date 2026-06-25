@@ -1,0 +1,28 @@
+{
+  "key": "ant_loss_sampler_enabled",
+  "title": "ANT Loss 采样器",
+  "category": "前沿储备 / 训练",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "ant_loss_sampler_bins",
+    "ant_loss_sampler_alpha",
+    "ant_loss_sampler_beta_schedule"
+  ],
+  "standard": {
+    "summary": "（实验性）per-sigma-bin 的自适应 loss 采样器：维护每个噪声 sigma 区间的历史 loss EMA，用多项式分布代替均匀时间步采样，重点训练 loss 最高（最难）的 sigma 区间。",
+    "effect": "优化时间步的采样效率：sigma 区间 loss 高（模型在该区间表现差）→ 增加采样该区间的概率。动态适应训练状态，比固定权重方案更智能。",
+    "whenToUse": "实验性功能。与 anima_weighting_scheme 正交（一个控制 loss 权重，一个控制采样分布），可以叠加使用。",
+    "avoidWhen": "默认关闭。EMA 需要一定步数积累才能反映真实 loss 分布，短训练（<100步）效果不明显。"
+  },
+  "advanced": {
+    "principle": "将 sigma 空间分为 ant_loss_sampler_bins 个区间，维护各区间的 loss EMA（指数滑动平均，系数 ant_loss_sampler_alpha）。采样时以多项式分布按 loss EMA 值采样（高 loss 区间高概率）。beta_schedule 控制 EMA 更新的学习率衰减，防止后期对早期噪声信号过度敏感。",
+    "tradeoffs": "与 anima_weighting_scheme 同时使用时需要注意：weighting_scheme 改变各步的 loss 权重（梯度幅度），而 loss_sampler 改变哪些步骤被选中（采样频率）；两者叠加效果复杂，建议分开测试。"
+  },
+  "relatedConfigs": [
+    "anima_weighting_scheme",
+    "p2_weighting_enabled",
+    "scale_guidance_mode"
+  ]
+}

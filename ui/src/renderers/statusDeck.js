@@ -3,6 +3,7 @@
 // 解决与 preflight 模块的循环依赖：preflight.renderPreflightOverviewPanel 反过来也调用 renderStatusDeck）
 
 import { $, escapeHtml } from '../utils/dom.js';
+import { getQueuedTasks, getRunningTasks } from '../utils/taskStatus.js';
 
 export function createStatusDeckRenderer({ state, deps }) {
   // deps.renderPreflightDetail 在 preflight 工厂创建后注入；这里只在调用 renderStatusDeck 时取
@@ -72,7 +73,12 @@ export function createStatusDeckRenderer({ state, deps }) {
         ? '可以启动'
         : `${state.preflight.errors.length} 个错误`
       : '未检查';
-    const taskCount = state.tasks.filter((task) => task.status === 'RUNNING').length;
+    const runningCount = getRunningTasks(state.tasks).length;
+    const queuedCount = getQueuedTasks(state.tasks).length;
+    const taskCount = runningCount + queuedCount;
+    const taskSub = taskCount > 0
+      ? `运行 ${runningCount} 个 · 排队 ${queuedCount} 个`
+      : '空闲';
 
     return `
       <div class="status-card">
@@ -93,7 +99,7 @@ export function createStatusDeckRenderer({ state, deps }) {
       <div class="status-card" id="task-status-card">
         <span class="status-label">任务</span>
         <strong class="status-value">${taskCount}</strong>
-        <span class="status-sub">${taskCount > 0 ? `有 ${taskCount} 个任务运行中` : '空闲'}</span>
+        <span class="status-sub">${escapeHtml(taskSub)}</span>
       </div>
     `;
   }
@@ -108,13 +114,14 @@ export function createStatusDeckRenderer({ state, deps }) {
     // 后端离线提示
     if (state.backendOffline) {
       taskCard.textContent = '—';
-      taskSub.innerHTML = '<span style="color:#ef4444;">⚠ 后端未连接 (28000)</span>';
+      taskSub.innerHTML = '<span style="color:var(--danger);">⚠ 后端未连接 (28000)</span>';
       return;
     }
 
-    const running = state.tasks.filter((task) => task.status === 'RUNNING');
-    taskCard.textContent = String(running.length);
-    taskSub.textContent = running.length > 0 ? `有 ${running.length} 个任务运行中` : '空闲';
+    const runningCount = getRunningTasks(state.tasks).length;
+    const queuedCount = getQueuedTasks(state.tasks).length;
+    taskCard.textContent = String(runningCount + queuedCount);
+    taskSub.textContent = runningCount + queuedCount > 0 ? `运行 ${runningCount} 个 · 排队 ${queuedCount} 个` : '空闲';
   }
 
   return { renderGpuInfo, renderStatusDeck, renderTaskStatus };

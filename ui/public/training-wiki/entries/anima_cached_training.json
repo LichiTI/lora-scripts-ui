@@ -1,0 +1,30 @@
+{
+  "key": "anima_cached_training",
+  "title": "Anima 缓存训练模式",
+  "category": "速度 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "anima_online_cache",
+    "anima_cache_mode",
+    "anima_vae_disable_cache",
+    "anima_cache_text_encoder_outputs_to_disk",
+    "anima_cached_latent_crop_size"
+  ],
+  "standard": {
+    "summary": "Anima 的缓存训练模式：将 VAE 编码后的 latent 和 LLM 文本特征预先缓存到磁盘，训练时直接加载，跳过每步的 VAE/LLM 推理，大幅提升训练速度。",
+    "effect": "开启后首次运行会预生成缓存文件（较慢），之后每个 epoch 的 VAE/LLM 推理时间几乎为 0，训练速度提升 20%~50%（取决于 batch size 和模型大小）。",
+    "whenToUse": "数据集固定（不动态增强 latent）时强烈推荐开启，尤其是多 epoch 训练（缓存只需生成一次）。",
+    "avoidWhen": "数据集有动态增强（每 epoch 随机裁剪/翻转影响 latent）时缓存会不准确；或首次运行磁盘空间不足时。"
+  },
+  "advanced": {
+    "principle": "训练前对所有图像运行 VAE encoder 并将 latent 保存为 .npz 文件；对所有 caption 运行 LLM/CLIP 并保存文本 embedding。训练时 DataLoader 直接读取缓存，跳过 VAE/LLM 推理（这部分约占每步时间的 10%~30%）。",
+    "tradeoffs": "缓存大小 ≈ 数据量 × latent 维度 × 数据类型大小。对于 1000 张 1024×1024 图像，latent 缓存约 1~5GB；文本缓存较小。lossless 缓存格式（lxfs）可提供更快的读取速度。"
+  },
+  "relatedConfigs": [
+    "cache_latents",
+    "cache_latents_to_disk",
+    "lossless_cache_replacement_mode"
+  ]
+}

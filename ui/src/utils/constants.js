@@ -2,7 +2,7 @@
 // 这些常量在 main.js 与未来拆出的 actions/renderers 中都会用到，
 // 抽取到这里是为了让 main.js 的顶部装配代码更清爽，并避免循环依赖。
 
-import { UI_TABS } from '../sdxlSchema.js';
+import { UI_TABS } from '../trainingTypeRegistry.js';
 
 export const TOPBAR_TABS = UI_TABS.map((tab) => tab.key);
 
@@ -62,6 +62,7 @@ export const CONDITIONAL_KEYS = new Set([
   'experimental_attention_profile_enabled',
   'experimental_attention_profile_backend',
   'performance_expert_mode',
+  'acceleration_profile',
   'cross_attn_fused_kv',
   'anima_fused_qkv',
   'fused_projection_memory_mode',
@@ -111,6 +112,10 @@ export const CONDITIONAL_KEYS = new Set([
   'pcie_delta_cache_enabled',
   'pcie_delta_cache_mode',
   'pcie_delta_cache_budget_mb',
+  'vortex_enabled',
+  'vortex_mode',
+  'vortex_low_vram_protection_enabled',
+  'vortex_low_vram_protection_mode',
   'swap_granularity',
   'module_offload_enabled',
   'gradient_checkpointing',
@@ -119,6 +124,9 @@ export const CONDITIONAL_KEYS = new Set([
   'deepspeed',
   'safe_fallback',
   'newbie_safe_fallback',
+  'timestep_sampling_mode',
+  'timestep_sampling',
+  'anima_weighting_scheme',
 ]);
 
 // 这些字段在配置面板中折叠展示，仅在被启用时才显示完整输入。

@@ -6,6 +6,7 @@
 // 注：syncFooterAction 生成的 HTML 中有 onclick="executeTraining()" / "terminateAllTasks()" / "openAdvancedMonitor()" 依赖 window.* (后续 actions 挂上)
 
 import { $, $$, _ico } from '../utils/dom.js';
+import { getActiveTasks, getRunningTasks, getQueuedTasks } from '../utils/taskStatus.js';
 
 export function createLayoutActions({ state, getAvailableTabs }) {
   function applyLayoutPreferences() {
@@ -50,21 +51,26 @@ export function createLayoutActions({ state, getAvailableTabs }) {
     const showBar = state.activeModule === 'config' || state.activeModule === 'training';
     bar.style.display = showBar ? '' : 'none';
     if (!showBar) return;
-    const hasRunningTask = state.tasks.some((task) => task.status === 'RUNNING');
+    const activeTasks = getActiveTasks(state.tasks);
+    const runningCount = getRunningTasks(state.tasks).length;
+    const queuedCount = getQueuedTasks(state.tasks).length;
+    const hasActiveTask = activeTasks.length > 0;
     const hasFailedRecent = state.trainingFailed;
     const monitorButton = ''
       + '<button class="btn btn-monitor" type="button" onclick="openAdvancedMonitor()" title="打开 Lulynx 高级监控器">'
       +   '<span class="btn-main">' + _ico('activity') + ' 高级监控器</span>'
       + '</button>';
 
-    if (hasRunningTask) {
+    if (hasActiveTask) {
+      const label = runningCount > 0 ? '训练中...' : `排队中 (${queuedCount})`;
+      const terminateLabel = runningCount > 0 ? '终止训练' : '取消排队';
       bar.innerHTML = ''
         + monitorButton
         + '<button class="btn btn-execute btn-training-active" disabled>'
-        +   '<span class="btn-main">' + _ico('loader') + ' 训练中...</span>'
+        +   '<span class="btn-main">' + _ico(runningCount > 0 ? 'loader' : 'clock') + ' ' + label + '</span>'
         + '</button>'
         + '<button class="btn btn-terminate" onclick="terminateAllTasks()">'
-      +   '<span class="btn-main">' + _ico('square') + ' 终止训练</span>'
+      +   '<span class="btn-main">' + _ico('square') + ' ' + terminateLabel + '</span>'
         + '</button>';
     } else if (hasFailedRecent) {
       bar.innerHTML = ''
@@ -89,7 +95,7 @@ export function createLayoutActions({ state, getAvailableTabs }) {
     applyLayoutPreferences();
 
     // 根据当前训练类型决定哪些 tab 可见
-    const availTabs = getAvailableTabs(state.activeTrainingType);
+    const availTabs = getAvailableTabs(state.activeTrainingType, state.config);
     const availKeys = new Set(availTabs.map((t) => t.key));
 
     // 如果当前 activeTab 在此类型下不存在，回退到第一个可用 tab
@@ -127,6 +133,25 @@ export function createLayoutActions({ state, getAvailableTabs }) {
     }
   }
 
+  function setupModeToggle(renderView) {
+    const toggle = document.getElementById('topbar-mode-toggle');
+    if (!toggle) return;
+    const sync = () => {
+      const isAdv = !!state.config.performance_expert_mode;
+      toggle.querySelectorAll('.mode-btn').forEach((b) =>
+        b.classList.toggle('active', (b.dataset.mode === 'advanced') === isAdv)
+      );
+    };
+    toggle.addEventListener('click', (e) => {
+      const btn = e.target.closest('.mode-btn');
+      if (!btn) return;
+      state.config.performance_expert_mode = btn.dataset.mode === 'advanced';
+      sync();
+      renderView(state.activeModule);
+    });
+    sync();
+  }
+
   return {
     applyLayoutPreferences,
     applyAndPersistLayout,
@@ -134,5 +159,6 @@ export function createLayoutActions({ state, getAvailableTabs }) {
     syncFooterAction,
     syncTopbarState,
     updateLayoutWidth,
+    setupModeToggle,
   };
 }

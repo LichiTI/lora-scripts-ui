@@ -1,0 +1,25 @@
+{
+  "key": "anima_rematerializable_block_enabled",
+  "title": "Anima 可重物化 Block",
+  "category": "速度 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "anima_rematerializable_block_mode"
+  ],
+  "standard": {
+    "summary": "将特定 DiT block 标记为\"可重物化\"（rematerializable），允许在显存压力下按需放弃这些 block 的激活并在需要时重新计算，比 gradient checkpointing 更灵活。",
+    "effect": "在显存充足时缓存激活（快速 backward）；显存紧张时丢弃激活并重算（节省显存），实现自适应显存管理。",
+    "whenToUse": "动态显存需求变化较大时（如不同大小图像交替训练），自适应显存管理比固定 checkpoint 更高效。",
+    "avoidWhen": "固定分辨率训练时，静态 gradient_checkpointing 通常更简单有效。"
+  },
+  "advanced": {
+    "principle": "通过 torch 的 activation recomputation API 标记 block 为 rematerializable，PyTorch 内存管理器在 OOM 风险时自动触发重计算而非直接 OOM。比手动 checkpoint 更细粒度。",
+    "tradeoffs": "自适应重物化的决策时机（何时触发重算）不完全可预测，可能在关键时刻引入额外计算延迟。"
+  },
+  "relatedConfigs": [
+    "gradient_checkpointing",
+    "anima_block_prefetch"
+  ]
+}

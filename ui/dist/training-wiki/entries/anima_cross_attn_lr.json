@@ -1,0 +1,28 @@
+{
+  "key": "anima_cross_attn_lr",
+  "title": "Anima Cross-Attn 学习率",
+  "category": "训练 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "anima_self_attn_lr",
+    "anima_mlp_lr",
+    "anima_mod_lr"
+  ],
+  "standard": {
+    "summary": "分别设置 Anima 各注意力类型（cross-attn / self-attn / mlp / modulation）的独立学习率，实现细粒度的学习率差异化控制。",
+    "effect": "允许对不同功能的模块使用不同学习率：cross-attn 控制文本-图像对齐（通常需要更高 LR）；self-attn 控制图像内部结构（适当 LR）；MLP 控制局部变换（通常可以低 LR）。",
+    "whenToUse": "有明确的训练目标（如只改文本响应 → 提高 cross-attn LR，降低 self-attn 和 MLP LR）时使用。高级调参场景。",
+    "avoidWhen": "初学或不确定各模块分工时，保持各部分 LR 相同（或只设 global learning_rate）更安全。"
+  },
+  "advanced": {
+    "principle": "Anima 的 DiT block 分为几类参数组：cross-attn（文本条件输入）/ self-attn（图像自注意力）/ MLP（前馈网络）/ modulation（时间步条件调制），各自对训练的不同方面有独立影响。分别设置 LR 等价于 block weight 的 LR 版本。",
+    "tradeoffs": "差异化 LR 需要对模型行为有深入理解；设置不当可能导致某部分过训练（如 cross-attn LR 过高导致文本绑定过强，生成失去灵活性）。"
+  },
+  "relatedConfigs": [
+    "learning_rate",
+    "block_weight_preset",
+    "anima_train_llm_adapter"
+  ]
+}

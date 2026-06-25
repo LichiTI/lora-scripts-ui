@@ -1,0 +1,21 @@
+{
+  "key": "gradient_guard_strategy",
+  "title": "梯度防护策略",
+  "category": "优化器 / 梯度",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["优化器层"],
+  "standard": {
+    "summary": "梯度防护在标准梯度裁剪（max_grad_norm）之外提供额外的梯度调节策略：AGC（Adaptive Gradient Clipping）和 Centralized Gradient。",
+    "effect": "gradient_guard_strategy='agc' 按参数范数的比例裁剪梯度，防止大参数层主导更新。'centralized' 减去梯度均值。'agc_centralized' 两者结合。",
+    "whenToUse": "loss spike 频繁或梯度不稳定时。AGC 在 rank collapse 诊断中有用。",
+    "avoidWhen": "训练稳定时不需要。额外计算开销。"
+  },
+  "advanced": {
+    "principle": "AGC: 对每个参数组，如果 ||g|| > clip_factor × ||θ||，则 g' = g × (clip_factor × ||θ|| / ||g||)。这确保更新幅度与参数尺度成比例。Centralized: g' = g - mean(g)，消除梯度中的共同方向（类似 LayerNorm 效果）。max_grad_norm 是全局裁剪，AGC 是 per-layer 自适应裁剪。",
+    "intervention": "在 backward() 后、optimizer.step() 前对梯度进行变换。",
+    "expectedImpact": "减少 loss spike 约 30-50%。稳定训练过程。",
+    "tradeoffs": "gradient_guard_agc_clip_factor 和 gradient_guard_agc_eps 控制 AGC 的裁剪强度和数值稳定性。",
+    "codePath": "training_loop.py:gradient_guard → AGC/centralized → gradient transform → optimizer.step()"
+  },
+  "relatedConfigs": ["max_grad_norm", "gradient_guard_agc_clip_factor", "gradient_guard_agc_eps", "svd_grad_proj_enabled"]
+}

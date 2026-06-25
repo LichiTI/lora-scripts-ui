@@ -16,6 +16,8 @@ import {
   generateSummaryFromTaskLog,
   renderSummaryCard,
 } from '../utils/trainingMetrics.js';
+import { getMultiBatchEvidenceFromTask } from '../utils/multiBatchEvidence.js';
+import { getTrainingRuntimeSummaryFromTask } from '../utils/trainingRuntimeSummary.js';
 
 export function createTrainingMetadataActions({
   state,
@@ -79,6 +81,7 @@ export function createTrainingMetadataActions({
       startTime: null, lastStep: 0, totalSteps: 0,
       bTier: null, ghostReplay: null,
       memoryOptimization: null,
+      sdxlLoraLowVramProfile: null,
       precisionSwapProfile: null,
       nativeUnet: null,
       peakVramDiagnostics: null,
@@ -107,9 +110,63 @@ export function createTrainingMetadataActions({
   }
 
   function summaryRenderOptions() {
+    return summaryRenderOptionsForTask('');
+  }
+
+  function getTaskId(task) {
+    return String((task && (task.id || task.task_id)) || '');
+  }
+
+  function getBubbleAdvisorAbEvidenceForTask(taskId, explicitTask = null) {
+    var task = explicitTask || state.tasks.find(function(t) { return getTaskId(t) === taskId; }) || null;
+    var metadata = task && task.metadata && typeof task.metadata === 'object' ? task.metadata : {};
+    var cached = taskId && state.taskSummaries ? state.taskSummaries[taskId] : null;
+    cached = cached && typeof cached === 'object' ? cached : {};
+    var embedded = task && task._summary && typeof task._summary === 'object' ? task._summary : {};
+    var evidence = metadata.bubble_advisor_ab_evidence
+      || task?.bubble_advisor_ab_evidence
+      || cached.bubbleAdvisorAbEvidence
+      || cached.bubble_advisor_ab_evidence
+      || embedded.bubbleAdvisorAbEvidence
+      || embedded.bubble_advisor_ab_evidence
+      || null;
+    return evidence && typeof evidence === 'object' ? evidence : null;
+  }
+
+  function getBubbleClosedLoopStateForTask(taskId, explicitTask = null) {
+    var task = explicitTask || state.tasks.find(function(t) { return getTaskId(t) === taskId; }) || null;
+    var metadata = task && task.metadata && typeof task.metadata === 'object' ? task.metadata : {};
+    var cached = taskId && state.taskSummaries ? state.taskSummaries[taskId] : null;
+    cached = cached && typeof cached === 'object' ? cached : {};
+    var embedded = task && task._summary && typeof task._summary === 'object' ? task._summary : {};
+    var closedLoop = metadata.bubble_closed_loop_state
+      || task?.bubble_closed_loop_state
+      || cached.bubbleClosedLoopState
+      || cached.bubble_closed_loop_state
+      || embedded.bubbleClosedLoopState
+      || embedded.bubble_closed_loop_state
+      || null;
+    return closedLoop && typeof closedLoop === 'object' ? closedLoop : null;
+  }
+
+  function getMultiBatchEvidenceForTask(taskId, explicitTask = null) {
+    var task = explicitTask || state.tasks.find(function(t) { return getTaskId(t) === taskId; }) || null;
+    return getMultiBatchEvidenceFromTask(task, state.taskSummaries);
+  }
+
+  function getTrainingRuntimeSummaryForTask(taskId, explicitTask = null) {
+    var task = explicitTask || state.tasks.find(function(t) { return getTaskId(t) === taskId; }) || null;
+    return getTrainingRuntimeSummaryFromTask(task, state.taskSummaries);
+  }
+
+  function summaryRenderOptionsForTask(taskId) {
     return {
       pcieTransferBenchmark: state.pcieTransferBenchmark || null,
       showCompileRuntime: true,
+      bubbleAdvisorAbEvidence: getBubbleAdvisorAbEvidenceForTask(taskId),
+      bubbleClosedLoopState: getBubbleClosedLoopStateForTask(taskId),
+      multiBatchEvidence: getMultiBatchEvidenceForTask(taskId),
+      trainingRuntimeSummary: getTrainingRuntimeSummaryForTask(taskId),
     };
   }
 
@@ -132,6 +189,22 @@ export function createTrainingMetadataActions({
     const lines = await fetchTaskLogLines(taskId, 5000);
     if (lines.length=== 0) return null;
     const summary = generateSummaryFromTaskLog(lines);
+    const evidence = getBubbleAdvisorAbEvidenceForTask(taskId);
+    const closedLoop = getBubbleClosedLoopStateForTask(taskId);
+    const multiBatchEvidence = getMultiBatchEvidenceForTask(taskId);
+    const trainingRuntimeSummary = getTrainingRuntimeSummaryForTask(taskId);
+    if (evidence && summary && typeof summary === 'object') {
+      summary.bubbleAdvisorAbEvidence = evidence;
+    }
+    if (closedLoop && summary && typeof summary === 'object') {
+      summary.bubbleClosedLoopState = closedLoop;
+    }
+    if (multiBatchEvidence && summary && typeof summary === 'object') {
+      summary.multiBatchEvidence = multiBatchEvidence;
+    }
+    if (trainingRuntimeSummary && summary && typeof summary === 'object') {
+      summary.trainingRuntimeSummary = trainingRuntimeSummary;
+    }
     saveTaskSummary(taskId, summary);
 await saveLocalTaskHistory();
     return summary;
@@ -139,9 +212,25 @@ await saveLocalTaskHistory();
 
   /** Save task summary to session cache */
   function saveTaskSummary(taskId, summary) {
+    var task = state.tasks.find(function(t) { return getTaskId(t) === taskId; });
+    var evidence = getBubbleAdvisorAbEvidenceForTask(taskId, task);
+    var closedLoop = getBubbleClosedLoopStateForTask(taskId, task);
+    var multiBatchEvidence = getMultiBatchEvidenceForTask(taskId, task);
+    var trainingRuntimeSummary = getTrainingRuntimeSummaryForTask(taskId, task);
+    if (evidence && summary && typeof summary === 'object' && !summary.bubbleAdvisorAbEvidence && !summary.bubble_advisor_ab_evidence) {
+      summary = { ...summary, bubbleAdvisorAbEvidence: evidence };
+    }
+    if (closedLoop && summary && typeof summary === 'object' && !summary.bubbleClosedLoopState && !summary.bubble_closed_loop_state) {
+      summary = { ...summary, bubbleClosedLoopState: closedLoop };
+    }
+    if (multiBatchEvidence && summary && typeof summary === 'object' && !summary.multiBatchEvidence && !summary.multi_batch_evidence) {
+      summary = { ...summary, multiBatchEvidence };
+    }
+    if (trainingRuntimeSummary && summary && typeof summary === 'object' && !summary.trainingRuntimeSummary && !summary.training_runtime_summary) {
+      summary = { ...summary, trainingRuntimeSummary };
+    }
     state.taskSummaries[taskId] = summary;
     // 持久化：存到任务对象上，随 task_history.json 一起保存
-    var task = state.tasks.find(function(t) { return t.id === taskId; });
     if (task) { task._summary = summary; }
     state._taskHistoryDirty = true;
     try {
@@ -194,7 +283,7 @@ await saveLocalTaskHistory();
 
   // Check cache first
     if (state.taskSummaries[taskId] && state.taskSummaries[taskId]._v >= 2) {
-      panel.innerHTML = renderSummaryCard(state.taskSummaries[taskId], summaryRenderOptions());
+      panel.innerHTML = renderSummaryCard(state.taskSummaries[taskId], summaryRenderOptionsForTask(taskId));
       panel.style.display = 'block';
       panel.dataset.loaded = 'true';
       return;
@@ -210,10 +299,10 @@ await saveLocalTaskHistory();
         panel.dataset.loaded = 'true';
         return;
       }
-      panel.innerHTML = renderSummaryCard(summary, summaryRenderOptions());
+      panel.innerHTML = renderSummaryCard(summary, summaryRenderOptionsForTask(taskId));
       panel.dataset.loaded = 'true';
   } catch (e) {
-      panel.innerHTML= '<span style="color:#ef4444;font-size:0.82rem;">\u65e5\u5fd7\u83b7\u53d6\u5931\u8d25</span>';
+      panel.innerHTML= '<span style="color:var(--danger);font-size:0.82rem;">\u65e5\u5fd7\u83b7\u53d6\u5931\u8d25</span>';
     }
   }
 

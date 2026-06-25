@@ -1,0 +1,26 @@
+{
+  "key": "clip_skip",
+  "title": "CLIP Skip",
+  "category": "文本编码器 / 层级",
+  "appliesTo": ["sdxl-lora", "sd-lora", "finetune"],
+  "layers": ["文本编码器层"],
+  "standard": {
+    "summary": "跳过 CLIP 文本编码器 Transformer 的最后几层，使用更浅层的隐藏状态作为文本条件。浅层的语义表示更抽象/泛化，深层更具体/精确。",
+    "effect": "skip=1（默认）使用最后一层，语义最精确，适合写实和精确的 prompt 跟随。skip=2 使用倒数第二层，语义更宽泛，模型对 prompt 的具体措辞更宽容，增加生成多样性——这也是为什么动漫/插画社区偏好 skip=2。",
+    "recommendedValues": {
+      "1": "默认值。写实风格、需要精确 prompt 跟随时。SDXL 推荐",
+      "2": "动漫/插画/卡通风格常用。SD1.5 anime 模型训练时的标准选择",
+      "3+": "极少使用，语义过于抽象，通常导致 prompt 跟随能力明显下降"
+    },
+    "whenToUse": "训练动漫/插画风格 LoRA 时，如果底模（如 Anything V5、Counterfeit）本身训练时用了 clip_skip=2，那你的 LoRA 也应该用 2。训练写实风格或 SDXL 时保持 1。",
+    "avoidWhen": "FLUX、Anima、Newbie 等不使用 CLIP skip 的架构——这些设置会被忽略。finetune 时通常保持 1（需要精确的文本-图像对齐）。训练时用的 skip 值必须和推理时一致，否则生成效果会偏移。"
+  },
+  "advanced": {
+    "principle": "CLIP Transformer 有 12 层（SD1.5）或更多。每一层通过 self-attention 逐步抽象化文本语义：第 1 层主要编码词法和语法，中间层编码语义组合，最后几层编码与图像对齐的具象概念。跳过最后 N 层等价于截断 hidden_states[-(N+1)] 而非 hidden_states[-1]。NovelAI 的研究发现倒数第二层在动漫数据上的 CLIP score 更高。",
+    "intervention": "在 text_encoder forward 后，取 encoder_hidden_states 的第 -(skip+1) 层输出而非最后一层。如果 cache_text_encoder_outputs=True，缓存的是 skip 后的输出——换 skip 值后需要重新缓存。max_token_length 控制 token padding 长度（默认 225 对 SD1.5，SDXL 通常不需要调整）。",
+    "expectedImpact": "skip=2 让模型对 prompt 的同义词替换更宽容（例如 'girl' vs 'woman' 差异减小），增加生成多样性但降低精确控制能力。对 LoRA 训练而言，skip 主要影响训练时的文本条件质量——skip=2 的 LoRA 在推理时用 skip=1 会出现风格偏移。",
+    "tradeoffs": "network_train_text_encoder_only 或 LoRA 训练 TE 时，skip 的影响更复杂——训练的 TE 权重是针对特定 skip 层优化的。keep_tokens > 0 时前 N 个 token（通常是触发词）不打乱，但 skip 影响的是所有 token 的表示层。",
+    "codePath": "trainer.py:encode_prompt() → text_encoder(input_ids, output_hidden_states=True) → hidden_states[-(clip_skip+1)]"
+  },
+  "relatedConfigs": ["max_token_length", "cache_text_encoder_outputs", "network_train_text_encoder_only", "network_train_unet_only"]
+}

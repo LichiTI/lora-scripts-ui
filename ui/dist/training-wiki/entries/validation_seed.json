@@ -1,0 +1,19 @@
+{
+  "key": "validation_seed",
+  "title": "验证随机种子",
+  "category": "训练 / 评估",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "standard": {
+    "summary": "验证集评估时使用的随机种子，确保每次验证使用相同的随机状态（可重复比较）。",
+    "effect": "固定 validation_seed 后，相同模型在验证集上的 loss 评估完全可重复，方便跨训练运行比较。",
+    "whenToUse": "开启验证集评估（validate_every_n_steps）时设置，获得可重复的验证 loss。",
+    "avoidWhen": "不使用验证集时此参数无意义。"
+  },
+  "relatedConfigs": [
+    "validate_every_n_steps",
+    "seed"
+  ]
+}

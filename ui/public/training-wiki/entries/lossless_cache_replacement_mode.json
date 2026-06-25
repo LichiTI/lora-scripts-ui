@@ -1,0 +1,31 @@
+{
+  "key": "lossless_cache_replacement_mode",
+  "title": "无损缓存引擎后端",
+  "category": "速度 / 缓存",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "lossless_cache_replacement_codecs",
+    "lossless_cache_replacement_prefetch_depth",
+    "lossless_cache_replacement_read_mode",
+    "lossless_cache_replacement_fallback_to_raw",
+    "lossless_cache_replacement_decoded_payload_cache",
+    "lossless_cache_replacement_decoded_payload_cache_max_bytes"
+  ],
+  "standard": {
+    "summary": "选择训练缓存的存储引擎后端：off = 原版 npz/safetensors；lxfs/lynx = Lulynx 无损压缩引擎，提供更快的读写速度和更小的磁盘占用。",
+    "effect": "lxfs/lynx 模式完全替换 DataLoader 的缓存路径，使用自定义无损压缩格式（lz4fast/zstd 等）存储 latent，I/O 速度约快 20%~40%（取决于 SSD 速度）。",
+    "whenToUse": "数据集大、I/O 成为训练瓶颈（CPU/IO 等待时间 > 训练时间的 5%）时考虑开启。NVMe SSD 效果更明显。",
+    "avoidWhen": "小数据集（<100张）或 GPU-bound 训练（GPU 使用率持续 >95%）时，I/O 优化收益被 GPU 计算掩盖，提升不明显。"
+  },
+  "advanced": {
+    "principle": "lossless 引擎通过 lossless_cache_replacement_codecs（lz4fast/zstd1/raw）控制压缩算法；prefetch_depth 控制异步预取深度；decoded_payload_cache 将解压后的 latent 保留在内存（减少重复解压）；fallback_to_raw 在引擎错误时回退到原格式。",
+    "tradeoffs": "lossless 引擎复杂度更高，首次缓存生成需要转换格式（比 npz 慢）；但稳态读取速度更快。对于 anima 大基座的 GPU-bound 训练，提升约 2.3%（端到端）；数据密集型训练提升更显著。"
+  },
+  "relatedConfigs": [
+    "cache_latents",
+    "cache_latents_to_disk",
+    "latent_cache_disk_format"
+  ]
+}

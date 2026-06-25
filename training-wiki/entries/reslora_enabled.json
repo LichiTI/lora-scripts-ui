@@ -1,0 +1,27 @@
+{
+  "key": "reslora_enabled",
+  "title": "ResLoRA（残差 LoRA）",
+  "category": "LoRA 变体 / 残差",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "reslora_mode"
+  ],
+  "standard": {
+    "summary": "（实验性）ResLoRA：在 LoRA 层之间添加残差连接，缓解深层 LoRA 的梯度消失问题，提升学习稳定性。",
+    "effect": "在多个 LoRA 层之间建立跳跃连接，允许梯度直接传播跳过中间 LoRA 层，解决深层 LoRA 收敛缓慢的问题。",
+    "whenToUse": "实验性功能。注入层数较多（如全层 LoRA，注入 60+ 层）时可以尝试缓解深层梯度消失。",
+    "avoidWhen": "低 rank 或注入层数少时不需要。block_shortcut 实现需要相邻层的形状匹配，形状不一致时有自动 skip 保护（shape guard）。"
+  },
+  "advanced": {
+    "principle": "ResLoRA 在每 N 个 LoRA block 之间添加旁路连接（类似 ResNet 的 shortcut），前一 block 的输出直接加到后 N 个 block 后，绕过 N 个 LoRA 层的潜在梯度瓶颈。reslora_mode 控制残差连接的粒度（block/layer 级别）。",
+    "tradeoffs": "残差连接改变了 LoRA 的前向计算结构，与标准 LoRA 不完全兼容（推理时需要 ResLoRA-aware 的加载器）。跨层 shortcut 要求前后层形状匹配，不匹配时会自动跳过（但跳过意味着该位置没有残差保护）。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "network_module",
+    "dora_enabled"
+  ]
+}

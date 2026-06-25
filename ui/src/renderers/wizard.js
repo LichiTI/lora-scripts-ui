@@ -46,13 +46,13 @@ export function createWizardRenderer({ state, updateConfigValue, getFieldDefinit
  previewHtml += '</table>';
 
     // 网络模块选项
-    var netModOptions = ['networks.lora', 'lycoris.kohya', 'networks.dylora', 'networks.oft'];
+    var netModOptions = ['networks.lora', 'lycoris.kohya', 'networks.oft'];
     var netModSelect = netModOptions.map(function(m) {
       return '<option value="' + m + '"' + (c.network_module === m ? ' selected' : '') + '>' + escapeHtml(m) + '</option>';
     }).join('');
 
     // LyCORIS 算法选项
-    var lycoAlgos = ['locon', 'loha', 'lokr', 'ia3', 'dylora', 'glora', 'diag-oft', 'boft'];
+    var lycoAlgos = ['locon', 'loha', 'lokr', 'ia3', 'full', 'diag-oft'];
     var lycoSelect = lycoAlgos.map(function(a) {
       return '<option value="' + a + '"' + (c.lycoris_algo=== a ? ' selected' : '') + '>' + a + '</option>';
     }).join('');

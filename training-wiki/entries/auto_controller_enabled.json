@@ -1,0 +1,21 @@
+{
+  "key": "auto_controller_enabled",
+  "title": "Auto Controller (自动训练控制)",
+  "category": "训练 / 自动化",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "自动监控训练状态并做出决策：自动冻结文本编码器（防止过拟合）、智能早停（loss 不再改善时停止）、自适应学习率衰减。",
+    "effect": "减少手动调参需求。auto_freeze_te 在 TE 开始过拟合时自动冻结；smart_early_stop 在 loss 平台期超过阈值时停止训练。",
+    "whenToUse": "长训练且不想手动监控时。不确定最佳 TE 冻结时机时。",
+    "avoidWhen": "短训练或需要精确控制训练步数时。实验阶段需要可复现的行为时。"
+  },
+  "advanced": {
+    "principle": "AutoController 每 N 步评估：(1) TE 梯度范数与 UNet 梯度范数的比值——超过 clip_drift_threshold 时冻结 TE；(2) EMA loss 的改善率——低于阈值持续 patience 步时触发 early stop 或 lr decay；(3) LoRA 权重的 stable rank——低于 stable_rank_threshold 时警告可能的 rank collapse。",
+    "intervention": "在 training_step 后评估指标，可能触发：TE 参数 requires_grad=False、lr *= decay_factor、training loop break。",
+    "expectedImpact": "防止过拟合和浪费计算资源。不直接改善质量，但避免质量退化。",
+    "tradeoffs": "ac_enable_smart_lr_decay 和 lr_scheduler 的 loss_gated_cosine 可能冲突——建议只选一个。",
+    "codePath": "core/training_components/auto_controller.py:AutoController → per-step evaluation → freeze/stop/decay actions"
+  },
+  "relatedConfigs": ["auto_freeze_te", "smart_early_stop", "smart_lr_decay", "clip_drift_threshold"]
+}

@@ -1,0 +1,26 @@
+{
+  "key": "loss_type",
+  "title": "Loss 类型",
+  "category": "正则 / Loss",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["Loss 层"],
+  "standard": {
+    "summary": "选择损失函数的数学形式，决定模型如何衡量预测值和目标值之间的误差。不同 loss 对异常值的敏感度和对细节的关注度不同。",
+    "effect": "L2（MSE，默认）对大误差惩罚最重（平方关系），推动模型优先消除大偏差。Huber 在误差小于 huber_c 时等价于 L2，超过后切换为线性惩罚，对离群样本更鲁棒。L1（MAE）全程线性，在扩散训练中通常不如 L2。",
+    "recommendedValues": {
+      "l2": "默认，适合绝大多数场景。梯度信号最强，收敛最快",
+      "huber": "数据中有噪声标注（错误的 caption）、极端亮度/对比度样本时推荐。huber_c=0.1 是常用阈值",
+      "smooth_l1": "Huber 的 PyTorch 别名，beta 参数等价于 huber_c"
+    },
+    "whenToUse": "默认 L2 是稳妥的起点。如果 loss 曲线中偶尔出现极大的 spike（>10x 正常值），说明有离群样本，试试 Huber。wavelet_loss 在 L2 基础上额外计算频率域 loss，强调高频细节——适合追求纹理质量的场景但增加约 15% 计算开销。",
+    "avoidWhen": "不要在训练初期就用 wavelet/pattern loss——先用 L2 确认基本训练流程正常，再叠加频率域 loss 做对比实验。stepped_loss 允许训练中途切换 loss 类型（如前期 L2 后期 Huber），但需要经验来设置切换时机。"
+  },
+  "advanced": {
+    "principle": "L2 = mean((pred - target)²)，梯度 = 2*(pred-target)，误差越大梯度越大。Huber = mean(if |err| < c: err²/2 else c·|err| - c²/2)，梯度 = if |err|<c: err else c·sign(err)。c = huber_c 控制转折点。huber_schedule 允许 c 随训练变化：constant 固定值；exponential 按 exp(-decay*step) 递减（后期更鲁棒）；snr 根据 timestep 的 SNR 动态调整（高噪声 timestep 用更大的 c）。wavelet_loss 对 pred 和 target 做 DWT（离散小波变换），分别对 LL（低频近似）和 LH/HL/HH（高频细节）子带计算 loss，high_freq_weight 控制细节子带的权重倍数。pattern_loss 更进一步，允许对不同频带使用不同 loss 函数（如 LL 用 L2，高频用 Huber）。",
+    "intervention": "training_loop.py 的 _compute_diffusion_loss() 根据 loss_type 分发到 F.mse_loss / F.smooth_l1_loss / F.l1_loss。wavelet_loss 在 loss 计算后额外叠加：wl = wavelet_loss(pred, target, levels=2, high_freq_weight=2.0)；loss = loss + wl。pattern_loss 类似但使用 frequency-band-specific loss 函数。",
+    "expectedImpact": "Huber 在有 5-10% 噪声样本的数据集上可将 FID 改善 3-8%（通过减少离群样本对梯度的扭曲）。wavelet_loss 对高频细节（发丝、眼睛、文字）改善明显但可能降低整体构图稳定性——建议配合 min_snr_gamma 使用。",
+    "tradeoffs": "loss_precision 控制 loss 计算本身的精度（fp32_loss 在 FP32 中计算 loss 再转回 BF16，避免低精度下的累积误差）。huber_auto_percentile 在 auto 模式下从 batch 残差的指定百分位数计算 delta，自适应程度更高但实现更复杂。",
+    "codePath": "training_loop.py:_compute_diffusion_loss() → F.mse_loss / F.smooth_l1_loss → optional wavelet_loss() / pattern_loss()"
+  },
+  "relatedConfigs": ["huber_c", "huber_schedule", "huber_auto_percentile", "wavelet_loss_enabled", "wavelet_loss_high_freq_weight", "pattern_loss_enabled", "loss_precision", "stepped_loss_enabled"]
+}

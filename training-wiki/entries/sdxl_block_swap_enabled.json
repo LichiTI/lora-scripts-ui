@@ -1,0 +1,30 @@
+{
+  "key": "sdxl_block_swap_enabled",
+  "title": "SDXL Block Swap",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "sdxl_block_swap_input_blocks",
+    "sdxl_block_swap_middle_block",
+    "sdxl_block_swap_output_blocks",
+    "sdxl_block_swap_offload_after_backward",
+    "sdxl_block_swap_sequential_cpu_offload"
+  ],
+  "standard": {
+    "summary": "SDXL 专用的 block-level CPU offload 实现，将部分 UNet block 卸载到 CPU 内存以节省 VRAM。",
+    "effect": "可以在 8GB 显卡上训练 SDXL LoRA（正常需要 12~16GB）。input_blocks / output_blocks / middle_block 分别控制哪些层被 offload。",
+    "whenToUse": "8~12GB 显卡训练 SDXL 时的必选项。结合 gradient_checkpointing 和 xformers 使用。",
+    "avoidWhen": "显存充足（>16GB）时不需要，会降低训练速度（PCIe 传输开销）。"
+  },
+  "advanced": {
+    "principle": "SDXL UNet 有 input_blocks（下采样）、middle_block（瓶颈）、output_blocks（上采样）三组，各组可独立 offload。offload_after_backward 在 backward 完成后立即卸载（而非 step 结束），最大化 VRAM 节省。",
+    "tradeoffs": "SDXL block swap 实现是 SDXL 专用的，与 Anima 的 anima_block_prefetch 是不同的实现。sequential_cpu_offload 是最激进的（逐层 offload），最省 VRAM 但最慢。"
+  },
+  "relatedConfigs": [
+    "gradient_checkpointing",
+    "xformers",
+    "blocks_to_swap"
+  ]
+}

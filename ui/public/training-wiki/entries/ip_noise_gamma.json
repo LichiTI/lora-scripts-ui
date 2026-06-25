@@ -1,0 +1,32 @@
+{
+  "key": "ip_noise_gamma",
+  "title": "Input Perturbation 噪声",
+  "category": "训练 / 噪声控制",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "ip_noise_gamma_random_strength",
+    "noise_offset_random_strength",
+    "noise_offset_type",
+    "alpha_mask",
+    "color_aug",
+    "random_crop"
+  ],
+  "standard": {
+    "summary": "IP（Input Perturbation）噪声：在训练时对输入添加额外扰动，提升模型对噪声的鲁棒性。ip_noise_gamma 控制扰动强度；ip_noise_gamma_random_strength 开启随机化强度。",
+    "effect": "相比 noise_offset（全局亮度偏移），IP 噪声是更通用的输入扰动，从不同方向增加训练数据多样性。alpha_mask 使用图像 Alpha 通道作为 loss 掩码（只计算非透明区域的 loss）。color_aug 启用色彩数据增强（随机调整亮度/饱和度等）。random_crop 随机裁剪代替固定中心裁剪。",
+    "whenToUse": "alpha_mask 适合透明背景训练数据（角色切图）；color_aug 和 random_crop 是通用数据增强，小数据集时特别有效。",
+    "avoidWhen": "ip_noise 值过大（>0.1）会引入过多噪声干扰，降低训练质量；alpha_mask 要求所有训练图像有 Alpha 通道（PNG 格式，背景透明）。"
+  },
+  "advanced": {
+    "principle": "IP 噪声：x_noisy = x_t + gamma × N(0, I)，在标准加噪步骤的噪声上再叠加一层扰动。这与 noise_offset（改变全局亮度偏移）不同：IP 噪声改变整体噪声强度但不改变噪声方向。alpha_mask：loss = mean(mask × (pred - target)²) / mean(mask)，只对 Alpha>0 的像素计算 loss。",
+    "tradeoffs": "color_aug 和 random_crop 增加数据多样性但改变了每个 epoch 的训练样本分布，与缓存训练（cache_latents）存在矛盾（缓存是固定的，增强是动态的）——开启增强时应关闭 latent 缓存。"
+  },
+  "relatedConfigs": [
+    "noise_offset",
+    "cache_latents",
+    "resolution"
+  ]
+}

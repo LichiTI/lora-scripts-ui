@@ -1,0 +1,21 @@
+{
+  "key": "validation_split",
+  "title": "验证集划分",
+  "category": "训练 / 验证",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "从训练数据中划分一部分作为验证集，每 N 个 epoch 计算一次验证 loss。帮助检测过拟合。",
+    "effect": "validation_split=0.1 表示 10% 的数据用于验证。验证 loss 不下降而训练 loss 继续下降是过拟合的标志。",
+    "whenToUse": "数据量充足（>100 张）时推荐开启。想监控过拟合时。",
+    "avoidWhen": "数据极少（<30 张）时验证集太小统计不可靠。"
+  },
+  "advanced": {
+    "principle": "训练前按 validation_split 比例随机划分数据集。验证集不参与梯度更新，只用于计算 loss。validation_every_n_epochs 控制验证频率。validation_loss_only=True 时只计算 loss（不生成样本）。eval_data_dir 可以使用独立的验证数据集。",
+    "intervention": "DataLoader 划分后，每 N epoch 在验证集上 forward 计算 loss。",
+    "expectedImpact": "提供过拟合的早期预警。不直接影响训练质量。",
+    "tradeoffs": "validation_seed 控制划分的随机性。max_validation_steps 限制验证步数。",
+    "codePath": "training_loop.py:validation_split → subset dataset → per-epoch validation loss"
+  },
+  "relatedConfigs": ["validation_every_n_epochs", "validation_loss_only", "eval_data_dir", "max_validation_steps"]
+}

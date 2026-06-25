@@ -1,0 +1,29 @@
+{
+  "key": "lineart_loss_enabled",
+  "title": "线稿 Loss",
+  "category": "前沿储备 / 质量",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "lineart_loss_weight",
+    "dct_loss_enabled",
+    "dct_loss_weight",
+    "gram_matrix_loss_enabled",
+    "gram_matrix_loss_weight"
+  ],
+  "standard": {
+    "summary": "（实验性）质量感知辅助 loss 族：lineart_loss 通过边缘检测约束线条清晰度；dct_loss 通过 DCT 频域约束纹理细节；gram_matrix_loss 通过 Gram 矩阵约束风格一致性。",
+    "effect": "各辅助 loss 分别从不同维度约束训练输出质量，补充标准扩散模型 loss 的感知盲区。",
+    "whenToUse": "实验性功能，适合特定风格要求的 LoRA（如线稿风格、高频纹理风格）。各 loss 有独立的 weight 参数控制强度。",
+    "avoidWhen": "默认关闭。多个辅助 loss 叠加时需要仔细平衡各 weight，否则可能导致训练不稳定。"
+  },
+  "advanced": {
+    "principle": "lineart_loss: Canny 边缘检测后计算预测和目标边缘图的 L1；dct_loss: 对 latent/特征图做 DCT，计算高频系数的 L2 差异；gram_loss: 特征图 Gram 矩阵（G = F × F^T）的 L2，等价于捕捉特征的二阶统计量（风格信息）。",
+    "tradeoffs": "lineart 需要实时 Canny 计算（约 2ms/image GPU）；dct 开销极小（几乎免费）；gram 需要完整矩阵乘法（O(C²)，C = 通道数）。三者可以独立开启或叠加。"
+  },
+  "relatedConfigs": [
+    "perceptual_anchor_loss_enabled",
+    "scale_guidance_mode"
+  ]
+}

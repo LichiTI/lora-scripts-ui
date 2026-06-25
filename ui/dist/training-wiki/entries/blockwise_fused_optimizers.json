@@ -1,0 +1,21 @@
+{
+  "key": "blockwise_fused_optimizers",
+  "title": "融合优化器 (Block-Fused)",
+  "category": "优化器 / 融合",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["优化器层", "性能层"],
+  "standard": {
+    "summary": "将 AdamW 更新分解为多个融合的 CUDA kernel，减少 kernel launch 开销和中间显存分配。",
+    "effect": "blockwise_fused_optimizers 将 momentum update、variance update、param update 融合为单个 kernel 调用。减少 kernel launch 次数（从 3 次减到 1 次）和显存中间分配。",
+    "whenToUse": "追求极致训练速度时。optimizer 更新是瓶颈时。",
+    "avoidWhen": "训练稳定时不需要。增加代码复杂度。"
+  },
+  "advanced": {
+    "principle": "标准 AdamW 需要 3 次 kernel 调用：1) 计算 momentum（m = β₁·m + (1-β₁)·g），2) 计算 variance（v = β₂·v + (1-β₂)·g²），3) 更新参数（θ = θ - lr·m/√v）。融合版本将这 3 步合并为 1 个 kernel 调用，减少 2/3 的 kernel launch 开销和显存中间分配。",
+    "intervention": "替换 optimizer.step() 为 fused_adamw_step() 单 kernel 调用。",
+    "expectedImpact": "训练速度提升约 10-20%（减少 kernel launch 和显存分配）。",
+    "tradeoffs": "需要 CUDA 环境支持。实现复杂度高。",
+    "codePath": "core/lulynx/ → fused AdamW kernel → single-call optimizer update"
+  },
+  "relatedConfigs": ["fused_optimizer", "blockwise_fused_optimizers"]
+}

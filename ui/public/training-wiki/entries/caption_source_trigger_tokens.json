@@ -1,0 +1,25 @@
+{
+  "key": "caption_source_trigger_tokens",
+  "title": "触发词",
+  "category": "数据集 / 图说",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "训练时添加到图说前面的触发词（trigger token）。推理时使用相同触发词可激活 LoRA 的概念。",
+    "effect": "设置后，每个训练样本的图说前都会自动添加触发词，使模型将触发词与训练概念关联。",
+    "whenToUse": "训练角色/物体 LoRA 时强烈推荐设置唯一触发词（如 lulynx_char、mychar_v1）。风格 LoRA 可以不设置（直接用风格描述词）。",
+    "avoidWhen": "触发词不要与常用词（如 woman、cat）重叠，否则会影响模型对常规提示词的响应。"
+  },
+  "advanced": {
+    "principle": "触发词被添加到每个图说最前面（或通过特定位置策略插入），优化器学习建立触发词 embedding 与概念视觉特征的关联。训练 TE 时这种关联更紧密。",
+    "tradeoffs": "触发词越独特（如造词），干扰越小；但太生僻的词在 CLIP tokenizer 中可能被拆分为多个 subword，影响绑定效果。推荐使用 2~3 个简短常见词的组合（如 lulynx person）。"
+  },
+  "relatedConfigs": [
+    "caption_extension",
+    "caption_source_trigger_only_ratio",
+    "train_text_encoder"
+  ]
+}

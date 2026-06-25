@@ -1,0 +1,32 @@
+{
+  "key": "save_model_as",
+  "title": "保存格式",
+  "category": "训练 / 保存",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "aliases": [
+    "save_last_n_epochs",
+    "save_last_n_epochs_state",
+    "save_last_n_steps_state",
+    "save_n_epoch_ratio"
+  ],
+  "standard": {
+    "summary": "控制 LoRA 权重文件的保存格式：safetensors（推荐，快速加载，无安全风险）/ pt（PyTorch 原始格式）/ ckpt（旧格式，不推荐）。",
+    "effect": "safetensors = 最广泛兼容（A1111/ComfyUI 原生支持）；pt = PyTorch 原生，某些工具更好支持；ckpt = 旧格式，含 Python pickle 有安全风险。",
+    "whenToUse": "推荐 safetensors（最安全且兼容性最好）。",
+    "avoidWhen": "ckpt 格式因含 Python pickle 存在代码执行风险，不建议分发（作为分发给其他人的格式）。"
+  },
+  "advanced": {
+    "principle": "safetensors 是 HuggingFace 设计的安全格式：只存储 tensor 数据（无 Python 对象），并发安全（mmap 读取）。pt 通过 pickle 序列化完整 Python 对象，功能更全但有安全风险。",
+    "tradeoffs": "save_last_n_steps_state 控制是否同时保存优化器状态（用于恢复训练），状态文件约为 LoRA 文件的 2~4×（优化器 m/v 动量）。"
+  },
+  "relatedConfigs": [
+    "save_every_n_steps",
+    "output_dir",
+    "ema_enabled"
+  ]
+}

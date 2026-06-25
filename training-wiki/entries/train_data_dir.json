@@ -1,0 +1,34 @@
+{
+  "key": "train_data_dir",
+  "title": "训练数据目录",
+  "category": "数据集 / 基础",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "aliases": [
+    "train_length_mode",
+    "train_norm",
+    "data_backend",
+    "data_transfer_profile_enabled",
+    "data_transfer_profile_mode",
+    "data_transfer_profile_window"
+  ],
+  "standard": {
+    "summary": "训练图像数据集的目录路径。目录下的图像文件（.png/.jpg 等）和对应的图说文件（.txt/.caption）构成训练数据集。",
+    "effect": "支持绝对路径和相对路径。可以包含子目录（需要图说文件）。data_transfer_profile 记录数据加载的耗时统计，用于诊断 I/O 瓶颈。",
+    "whenToUse": "每次训练必须设置。建议为每次训练实验使用独立的数据目录。",
+    "avoidWhen": "数据目录中混入非训练文件（如 .DS_Store、Thumbs.db）可能被误识别，建议清理干净。"
+  },
+  "advanced": {
+    "principle": "训练器遍历数据目录，寻找支持格式的图像（png/jpg/webp）及同名图说文件（caption_extension 设定的扩展名）。子目录支持需要图说文件或子目录名被识别为概念名。data_backend 选择图像读取后端（pillow / opencv），影响读取速度和格式支持。",
+    "tradeoffs": "数据在 NVMe 上训练速度最快（I/O 延迟低）；HDD 上大数据集可能成为 I/O 瓶颈（配合缓存可改善）。"
+  },
+  "relatedConfigs": [
+    "caption_extension",
+    "cache_latents",
+    "resolution"
+  ]
+}

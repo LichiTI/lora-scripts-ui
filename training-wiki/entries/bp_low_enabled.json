@@ -1,0 +1,22 @@
+{
+  "key": "bp_low_enabled",
+  "title": "BP-Low（低范数 backward 传播）",
+  "category": "前沿储备 / 训练",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "（实验性）BP-Low：在 backward 传播时对梯度进行低范数正则化，有助于防止梯度爆炸并提升训练稳定性。",
+    "effect": "梯度范数过大时进行额外的 norm 约束，比 clip_grad_norm 更软性（不直接截断，而是正则化）。",
+    "whenToUse": "实验性功能。在 safeguard 触发梯度爆炸较频繁时可以叠加尝试。",
+    "avoidWhen": "默认关闭。与 max_grad_norm 功能有部分重叠，通常选择其中一种使用。"
+  },
+  "advanced": {
+    "principle": "BP-Low 在每次 backward 后对梯度向量添加 L2 惩罚项，拉向低范数方向，类似于优化器的 weight_decay 但作用于梯度而非权重。",
+    "tradeoffs": "低范数约束会减慢梯度方向的变化速度，可能影响收敛速度；但在高 LR 场景下显著提升稳定性。"
+  },
+  "relatedConfigs": [
+    "max_grad_norm",
+    "safeguard_enabled"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "adapter_target_policy",
+  "title": "FG-LoRA (前沿梯度/选择性注入)",
+  "category": "LoRA / FG-LoRA",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "FG-LoRA 不是对所有目标模块使用统一 rank，而是根据每个模块的重要性/梯度贡献选择性分配 rank 或跳过不重要的模块，实现更高效的参数利用。",
+    "effect": "adapter_target_policy='all'（默认，传统注入）。'profiled' 使用预计算 profile JSON 选择子集。'gradient_selected' 和 'cka_selected' 基于训练时梯度/CKA 分析动态选择。fg_lora_rank_policy 控制 rank 分配策略。",
+    "whenToUse": "想在不增加总参数量的情况下提升 LoRA 质量时。显存有限但想最大化有效容量时。",
+    "avoidWhen": "不确定哪些模块更重要时先用 'all'。需要 profile JSON 文件（'profiled' 模式）。"
+  },
+  "advanced": {
+    "principle": "adapter_target_policy 有两种哲学：(1) coupled_prune——选择不重要的模块直接删除，保留的模块按重要性 score 分配 rank，节省显存。(2) orthogonal_redistribute——保留所有模块，只重新分配 rank（如 center_peak 给中间层更多 rank，ascending/descending 给特定方向更多）。fg_lora_rank_conserve_budget=True 确保总 rank 预算不变（纯重分配）。adapter_target_policy_fraction/top_k/min_score 控制模块选择。",
+    "intervention": "LoRA 注入阶段根据 policy 决定哪些模块创建 adapter、每个模块的 rank。",
+    "expectedImpact": "同等参数量下质量提升 5-15%。或同等质量下参数量减少 20-40%。",
+    "tradeoffs": "fg_lora_rank_profile 支持 center_peak/ascending/descending/flat。fg_lora_rank_min/max 控制每层 rank 范围。",
+    "codePath": "core/lulynx_trainer/fg_lora_rank_policy.py → per-layer rank allocation → adapter injection"
+  },
+  "relatedConfigs": ["fg_lora_rank_policy", "fg_lora_rank_min", "fg_lora_rank_max", "fg_lora_rank_profile", "adapter_target_policy_fraction", "adapter_target_policy_top_k"]
+}

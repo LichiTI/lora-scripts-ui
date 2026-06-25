@@ -1,0 +1,30 @@
+{
+  "key": "qwen3",
+  "title": "Qwen3 LLM 路径",
+  "category": "模型 / 文本编码器",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "qwen3_max_token_length",
+    "t5_max_token_length",
+    "t5_tokenizer_path",
+    "llm_adapter_path",
+    "text_encoder_batch_size"
+  ],
+  "standard": {
+    "summary": "Anima 使用的文本编码器（LLM）配置：qwen3 指定 Qwen3 模型路径（Anima 的主文本编码器）；t5 参数配置 T5 编码器（备用或联合编码器）；text_encoder_batch_size 控制文本编码的 batch 大小（影响预缓存速度）。",
+    "effect": "qwen3_max_token_length 限制文本编码的最大 token 数（超出截断）；t5_max_token_length 同理。llm_adapter_path 指定预训练的 LLM Adapter 权重（若有）。",
+    "whenToUse": "通常保持默认（使用 Anima 内置的 LLM 配置）。只有需要替换 LLM 路径或调整 token 限制时才手动设置。",
+    "avoidWhen": "qwen3_max_token_length 设置过短会截断长描述，导致后半部分文本完全丢失；过长则增加内存和计算开销（注意力复杂度 O(n²)）。"
+  },
+  "advanced": {
+    "principle": "Anima 的双编码器架构：Qwen3（主 LLM，处理完整自然语言描述）+ T5（辅助，处理结构化描述）。两路 embedding 通过 cross-attention 共同条件化 DiT 的生成过程。text_encoder_batch_size 在预缓存阶段控制每次 LLM 推理处理多少个 caption（不影响训练 batch）。",
+    "tradeoffs": "Qwen3 的 max_token_length 设置影响显存：4096 token 的 attention 是 256 token 的 16× 显存（O(n²)）。实践中 512~1024 token 的自然语言描述已经足够详细，2048+ 一般不需要。"
+  },
+  "relatedConfigs": [
+    "anima_train_llm_adapter",
+    "anima_cache_llm_adapter_outputs",
+    "train_text_encoder"
+  ]
+}

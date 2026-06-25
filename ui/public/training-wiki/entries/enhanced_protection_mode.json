@@ -1,0 +1,24 @@
+{
+  "key": "enhanced_protection_mode",
+  "title": "增强防护模式",
+  "category": "训练 / 稳定性",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "swap_count",
+    "swap_ratio"
+  ],
+  "standard": {
+    "summary": "开启增强防护模式时，训练器会在多个层面加强稳定性保护：更频繁的梯度检查、自动 LR 回退、内存压力监控等。swap_count/ratio 控制相关的交换操作参数。",
+    "effect": "开启后训练更稳定但速度可能略慢（约 5~10%）。适合不稳定的训练环境（高 LR、小数据集、不稳定架构）。",
+    "whenToUse": "遇到频繁 NaN/Inf 或训练不稳定时作为综合保护措施。",
+    "avoidWhen": "稳定训练环境无需开启，避免额外开销。"
+  },
+  "relatedConfigs": [
+    "safeguard_enabled",
+    "max_grad_norm",
+    "peak_vram_control_enabled"
+  ]
+}

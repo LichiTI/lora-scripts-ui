@@ -1,0 +1,32 @@
+{
+  "key": "vae",
+  "title": "VAE 路径",
+  "category": "模型 / VAE",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "vae_batch_size",
+    "vae_chunk_size",
+    "vae_slicing",
+    "vae_tiling",
+    "no_half_vae"
+  ],
+  "standard": {
+    "summary": "指定训练时使用的 VAE 模型路径。不填则使用基础模型内置的 VAE。",
+    "effect": "使用独立 VAE 文件时（如 sdxl_vae.safetensors），可以获得比模型内置 VAE 更好的图像编解码质量（减少色彩偏差和细节损失）。",
+    "whenToUse": "SDXL 训练推荐使用官方发布的改进版 VAE（fp16-fix 版本），可修复原 VAE 的色彩偏差问题。",
+    "avoidWhen": "使用最新的已内置改进 VAE 的基础模型时无需单独指定。"
+  },
+  "advanced": {
+    "principle": "VAE（Variational Autoencoder）负责将像素空间图像编码到 latent 空间（VAE encode，训练时）和将 latent 解码回图像（VAE decode，生成时）。训练时只用 encode 方向，VAE 本身不被训练（权重冻结）。",
+    "intervention": "vae_batch_size 控制 VAE 编码时的 batch（影响预缓存速度）；vae_slicing 将 VAE 编码分块处理（节省显存，略降速度）；vae_tiling 对大图 VAE 编码分区域处理（高分辨率必备）；no_half_vae 禁止 VAE 使用 fp16（某些老 VAE 在 fp16 下有数值问题）。",
+    "tradeoffs": "vae_tiling 开启后解码结果可能有轻微 tile 边界痕迹；no_half_vae 使 VAE 运行在 fp32，增加显存约 50%（通常只对 VAE 部分有影响）。"
+  },
+  "relatedConfigs": [
+    "cache_latents",
+    "mixed_precision",
+    "resolution"
+  ]
+}

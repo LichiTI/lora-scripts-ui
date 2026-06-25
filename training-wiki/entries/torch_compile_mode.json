@@ -1,0 +1,30 @@
+{
+  "key": "torch_compile_mode",
+  "title": "torch.compile 模式",
+  "category": "速度 / 编译",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "torch_compile_fullgraph",
+    "torch_compile_dynamic",
+    "torch_compile_scope",
+    "torch_compile_allow_full_with_per_block"
+  ],
+  "standard": {
+    "summary": "torch.compile 的编译模式：default（均衡）/ reduce-overhead（最小化 Python 开销）/ max-autotune（最大化调优但编译最慢）。",
+    "effect": "default = 稳健平衡；reduce-overhead = 专注减少 CPU overhead（对小模型/高 batch 场景更有效）；max-autotune = 穷举所有 kernel 变体找最优（编译时间 5~30 分钟，只适合超长训练）。",
+    "whenToUse": "default 适合大多数训练。reduce-overhead 适合 GPU 利用率已很高但 CPU 是瓶颈时。max-autotune 只在训练步数 >1000 且追求极致性能时考虑。",
+    "avoidWhen": "max-autotune 编译时间极长，短训练不划算。"
+  },
+  "advanced": {
+    "principle": "torch_compile_fullgraph=True 要求无 graph break（全图编译），可能失败；dynamic=True 允许动态形状（生成更多 guard，略慢但更兼容）；scope 控制编译范围（forward only / forward+backward）。",
+    "tradeoffs": "fullgraph=True 不兼容含有 Python 控制流的代码（如 LoRA 的条件 hook）；dynamic=True 比 static 更慢但对变长序列更友好。"
+  },
+  "relatedConfigs": [
+    "torch_compile",
+    "dynamo_backend",
+    "compile_runtime"
+  ]
+}

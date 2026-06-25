@@ -1,0 +1,25 @@
+{
+  "key": "cpu_offload_checkpointing",
+  "title": "CPU Offload Checkpointing",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "cpu_offload_checkpointing_mode",
+    "cpu_offload_checkpointing_pool_gb",
+    "te_vae_offload_strategy"
+  ],
+  "standard": {
+    "summary": "将 gradient checkpoint 的中间激活值卸载到 CPU，而非只是丢弃（标准 checkpointing 是丢弃后重算）。比标准 checkpointing 节省更多 VRAM，但增加 CPU-GPU 传输开销。",
+    "effect": "mode 控制卸载策略（哪些激活卸载，哪些保留 GPU）；pool_gb 限制 CPU 内存池大小（防止占满 RAM）。te_vae_offload_strategy 控制文本编码器和 VAE 的卸载时机。",
+    "whenToUse": "开启标准 gradient_checkpointing 仍然 OOM 时的进一步措施。比 block_swap 更细粒度。",
+    "avoidWhen": "CPU-GPU 传输速度（PCIe 带宽）成为瓶颈时，offload checkpointing 可能比重算更慢。"
+  },
+  "relatedConfigs": [
+    "gradient_checkpointing",
+    "anima_block_prefetch",
+    "activation_compression_enabled"
+  ]
+}

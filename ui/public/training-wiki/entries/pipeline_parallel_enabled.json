@@ -1,0 +1,21 @@
+{
+  "key": "pipeline_parallel_enabled",
+  "title": "流水线并行 (多 GPU 切分)",
+  "category": "性能 / 分布式",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["性能层", "模型层"],
+  "standard": {
+    "summary": "将模型层切分到多个 GPU 上并行计算，实现接近线性的多卡加速比。",
+    "effect": "pipeline_parallel_chunks 控制微批次数量。pipeline_parallel_split_points 手动指定切分点（空=自动均衡）。",
+    "whenToUse": "多 GPU 训练且模型太大单卡放不下时。",
+    "avoidWhen": "单卡训练不需要。模型较小时开销不划算。"
+  },
+  "advanced": {
+    "principle": "Pipeline Parallelism 将模型的不同层分配到不同 GPU 上。每个 GPU 只负责部分层的计算，层与层之间通过通信传递中间激活。pipeline_parallel_chunks 控制切分数量。split_points 允许手动指定切分位置。",
+    "intervention": "在模型构建时将 layers 按 split_points 分配到不同 device/rank。",
+    "expectedImpact": "训练速度接近线性提升（N 卡约 N 倍速）。需要 GPU 间通信。",
+    "tradeoffs": "通信开销随切分数量增加。需要足够大的 batch 来分摊通信成本。",
+    "codePath": "core/pipeline_parallel/ → layer split → device assignment → inter-GPU communication"
+  },
+  "relatedConfigs": ["pipeline_parallel_chunks", "pipeline_parallel_split_points", "multi_gpu"]
+}

@@ -1,0 +1,25 @@
+{
+  "key": "save_last_n_steps",
+  "title": "只保留最近 N 个 checkpoint",
+  "category": "训练 / 保存",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "standard": {
+    "summary": "限制最多保留多少个中间 checkpoint（最近的 N 个），旧的自动删除。0 = 保留所有。",
+    "effect": "防止磁盘被大量 checkpoint 占满，仅保留最近几个版本用于对比。",
+    "whenToUse": "磁盘空间有限时推荐设为 3~5，只保留最近几个版本。",
+    "avoidWhen": "希望保留全部 checkpoint 对比时设为 0。"
+  },
+  "advanced": {
+    "principle": "每次保存新 checkpoint 时，检查现有 checkpoint 数量，超过 N 则删除最旧的（按时间戳排序）。",
+    "tradeoffs": "删除是不可逆的，若误删了最优 checkpoint 则无法恢复。建议至少保留 3 个以上。"
+  },
+  "relatedConfigs": [
+    "save_every_n_steps",
+    "save_every_n_epochs"
+  ]
+}

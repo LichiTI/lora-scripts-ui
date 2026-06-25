@@ -1,0 +1,27 @@
+{
+  "key": "safeguard_max_nan_count",
+  "title": "最大连续 NaN 次数",
+  "category": "训练 / 稳定性",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "lulynx_safeguard_max_nan_count"
+  ],
+  "standard": {
+    "summary": "连续检测到多少次 NaN/Inf loss 后强制停止训练。默认 3。",
+    "effect": "设为 1 = 首次 NaN 立即停止（最严格）；设为 10 = 允许偶发 NaN 继续，仅持续 NaN 时停止。",
+    "whenToUse": "默认 3 适合大多数场景。使用 FP16 且 NaN 偶发概率较高时可提高到 5~10。",
+    "avoidWhen": "不建议设为 0（不停止）或过大（掩盖真实崩溃）。"
+  },
+  "advanced": {
+    "principle": "维护连续 NaN 计数器：正常步归零，触发时递增，超过阈值抛出 SafeGuardException 终止训练。",
+    "tradeoffs": "设置过低（=1）可能因混合精度偶发数值噪声误触发；设置过高则真实崩溃时浪费更多 GPU 时间。"
+  },
+  "relatedConfigs": [
+    "safeguard_enabled",
+    "safeguard_nan_check_interval"
+  ]
+}

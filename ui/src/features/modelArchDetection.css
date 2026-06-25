@@ -1,0 +1,215 @@
+/* Model Architecture Detection - Dialog Styles */
+
+.arch-mismatch-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.arch-mismatch-dialog {
+  background: var(--bg-primary, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 480px;
+  width: 90%;
+  overflow: hidden;
+  animation: slideUp 0.3s ease-out;
+}
+
+.arch-mismatch-dialog .dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.arch-mismatch-dialog .icon-warning {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.arch-mismatch-dialog h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+}
+
+.arch-mismatch-dialog .dialog-body {
+  padding: 24px;
+}
+
+.arch-mismatch-dialog .dialog-message {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary, #6b7280);
+}
+
+.arch-mismatch-dialog .dialog-message strong {
+  color: var(--text-primary, #1f2937);
+  font-weight: 600;
+}
+
+.arch-mismatch-dialog .dialog-model-path {
+  background: var(--bg-secondary, #f9fafb);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.arch-mismatch-dialog .model-path-label {
+  font-size: 12px;
+  color: var(--text-muted, #9ca3af);
+  margin-bottom: 4px;
+}
+
+.arch-mismatch-dialog .model-path-value {
+  font-size: 13px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: var(--text-primary, #1f2937);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arch-mismatch-dialog .dialog-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background: #eff6ff;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1e40af;
+}
+
+.arch-mismatch-dialog .icon-info {
+  color: #3b82f6;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.arch-mismatch-dialog .dialog-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--bg-secondary, #f9fafb);
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.arch-mismatch-dialog .dialog-footer button {
+  flex: 1;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  outline: none;
+}
+
+.arch-mismatch-dialog .btn-continue {
+  background: transparent;
+  border: 1px solid var(--border-color, #d1d5db);
+  color: var(--text-secondary, #6b7280);
+}
+
+.arch-mismatch-dialog .btn-continue:hover {
+  background: var(--bg-secondary, #f3f4f6);
+  border-color: var(--border-hover, #9ca3af);
+}
+
+.arch-mismatch-dialog .btn-switch {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.arch-mismatch-dialog .btn-switch:hover {
+  background: #2563eb;
+}
+
+.arch-mismatch-dialog .btn-continue:active,
+.arch-mismatch-dialog .btn-switch:active {
+  transform: scale(0.98);
+}
+
+/* Warning Indicator (shown after user chooses "continue anyway") */
+.arch-warning-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #92400e;
+}
+
+.arch-warning-indicator .icon {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .arch-mismatch-dialog {
+    --bg-primary: #1f2937;
+    --bg-secondary: #111827;
+    --text-primary: #f9fafb;
+    --text-secondary: #d1d5db;
+    --text-muted: #9ca3af;
+    --border-color: #374151;
+    --border-hover: #4b5563;
+  }
+
+  .arch-mismatch-dialog .dialog-hint {
+    background: #1e3a5f;
+    color: #93c5fd;
+  }
+
+  .arch-mismatch-dialog .icon-info {
+    color: #60a5fa;
+  }
+
+  .arch-warning-indicator {
+    background: #451a03;
+    border-color: #78350f;
+    color: #fbbf24;
+  }
+}

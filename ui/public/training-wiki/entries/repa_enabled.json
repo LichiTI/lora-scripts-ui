@@ -1,0 +1,21 @@
+{
+  "key": "repa_enabled",
+  "title": "REPA (表示对齐辅助 Loss)",
+  "category": "Loss / 高级",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora"],
+  "layers": ["Loss 层"],
+  "standard": {
+    "summary": "REPA（Representation Alignment）在标准 diffusion loss 之外添加一个辅助 loss，让 UNet 中间层的表示与外部视觉模型（如 DINOv2/CLIP）的表示对齐，提升生成质量。",
+    "effect": "repa_loss_type 控制对齐方式（cosine/mse）。repa_loss_weight 控制辅助 loss 的权重。repa_target_modules 指定哪些 UNet 层参与对齐。",
+    "whenToUse": "追求比标准 training 更好的生成质量和多样性时。",
+    "avoidWhen": "需要额外下载外部视觉模型。增加训练计算开销。"
+  },
+  "advanced": {
+    "principle": "REPA 的核心思想：预训练视觉模型（如 DINOv2）的中间表示捕获了丰富的语义信息。通过让 UNet 的中间特征与这些表示对齐，UNet 可以学到更好的语义理解。repa_projection_dim 控制投影维度。softrepa 是 REPA 的改进版，使用 sigma 相关的调度策略在不同噪声级别上调整对齐强度。repa_stop_grad_target=True 时不对外部模型计算梯度。",
+    "intervention": "forward pass 时同时计算 diffusion loss 和 REPA alignment loss，加权求和。",
+    "expectedImpact": "生成质量和多样性提升约 3-8%。对复杂场景改善更明显。",
+    "tradeoffs": "softrepa_schedule 控制 sigma 相关的权重调度。",
+    "codePath": "core/lulynx_trainer/repa.py → DINOv2 feature alignment → auxiliary loss"
+  },
+  "relatedConfigs": ["repa_target_modules", "repa_loss_type", "repa_loss_weight", "repa_projection_dim", "softrepa_enabled"]
+}

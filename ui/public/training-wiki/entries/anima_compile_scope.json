@@ -1,0 +1,28 @@
+{
+  "key": "anima_compile_scope",
+  "title": "Anima Compile 范围",
+  "category": "速度 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "compile_anima_full_core_enabled",
+    "compile_cache_enabled",
+    "compile_cache_prewarm"
+  ],
+  "standard": {
+    "summary": "控制 torch.compile 应用于 Anima 模型的哪些部分：block（逐 block 编译）/ full_core（编译整个 DiT 核心）/ off（不编译）。",
+    "effect": "block = 更细粒度，兼容性好；full_core = 更大编译单元，理论更快但对动态分支敏感；off = 不编译，最安全。",
+    "whenToUse": "长训练（>200步）推荐尝试 block 模式。full_core 在确认无 graph break 后可获得更大加速。",
+    "avoidWhen": "短训练或调试时保持 off。full_core 遇到动态分支（如 LoRA hook）可能频繁 graph break，实际比 block 更慢。"
+  },
+  "advanced": {
+    "principle": "compile_cache 将编译结果缓存到磁盘（通常 ~/.cache/torch_compile），下次相同代码和参数时直接加载编译结果，跳过编译时间。compile_cache_prewarm 在首步训练前主动触发编译并填充缓存。",
+    "tradeoffs": "缓存编译结果依赖代码未改变（代码变更后缓存失效）；prewarm 增加首步等待时间但让第一步训练立即享受编译加速。"
+  },
+  "relatedConfigs": [
+    "torch_compile",
+    "compile_runtime",
+    "dynamo_backend"
+  ]
+}

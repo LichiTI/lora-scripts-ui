@@ -1,0 +1,26 @@
+{
+  "key": "blocks_to_swap",
+  "title": "换入/换出的 Block 数",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "block_swap_strategy"
+  ],
+  "standard": {
+    "summary": "将指定数量的 transformer block 权重换出到 CPU 内存，只在需要时换入 GPU，降低 VRAM 峰值。",
+    "effect": "每个 block 约占 400MB~2GB VRAM（取决于模型），换出 N 个 block 可节省相应 VRAM。代价是训练速度下降（PCIe 传输开销）。",
+    "whenToUse": "显存不足但不想用 gradient_checkpointing 时的替代方案；或两者结合使用以最大化显存节省。",
+    "avoidWhen": "显存充足时无需使用（会降低训练速度）。"
+  },
+  "advanced": {
+    "principle": "类似 CPU offload 但以整个 block 为单位。选择换出频率最低（离输出最远）的 block，最大化换出收益与换入开销比。",
+    "tradeoffs": "block_swap 的速度开销取决于 PCIe 带宽。NVMe → GPU Direct Storage 可以绕过 CPU，提升传输速度（实验性）。"
+  },
+  "relatedConfigs": [
+    "gradient_checkpointing",
+    "anima_block_prefetch"
+  ]
+}

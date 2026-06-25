@@ -1,0 +1,28 @@
+{
+  "key": "dora_enabled",
+  "title": "DoRA（方向-幅度分解 LoRA）",
+  "category": "LoRA 变体 / DoRA",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "dora_mode",
+    "dora_wd"
+  ],
+  "standard": {
+    "summary": "DoRA（Weight-Decomposed Low-Rank Adaptation）：将权重更新分解为方向变化（LoRA 负责）和幅度变化（可学习缩放负责），更精确地模拟全量微调的行为。",
+    "effect": "相比标准 LoRA，DoRA 在相同 rank 下通常能达到更高的质量，因为分离方向和幅度变化允许更灵活的学习。",
+    "whenToUse": "追求更高 LoRA 质量（相当于升高 rank 的效果但不增加参数量）时尝试。dora_mode 控制幅度分解的实现方式；dora_wd 控制幅度的 weight decay。",
+    "avoidWhen": "DoRA 增加每层一个可学习幅度参数（约 rank/d_out 个额外参数，很少），开销极小；但与某些 LoRA 加载器（老版 A1111）不兼容，确认推理端支持 DoRA 再使用。"
+  },
+  "advanced": {
+    "principle": "DoRA: W_DoRA = (m / ‖W_0 + BA‖) × (W_0 + BA)，m ∈ R^{d_out} 是可学习的逐输出通道幅度向量。初始化 m = ‖W_0‖（保持 parity），训练中 m 独立于 B/A 方向变化更新。",
+    "tradeoffs": "DoRA 文件比标准 LoRA 略大（多出 m 向量）；推理时需要专门的 DoRA 加载逻辑（ComfyUI 1.3+ 已原生支持）。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "network_alpha",
+    "pissa_init"
+  ]
+}

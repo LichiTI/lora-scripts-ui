@@ -1,0 +1,21 @@
+{
+  "key": "dual_caption_enabled",
+  "title": "双 Caption 训练",
+  "category": "Caption / 高级",
+  "appliesTo": ["sdxl-lora", "anima-lora", "newbie-lora", "flux-lora"],
+  "layers": ["数据层", "Caption 层"],
+  "standard": {
+    "summary": "每张图使用两种 caption（如短描述 + 长描述）交替或混合训练。让模型同时学习精确触发和泛化描述。",
+    "effect": "短 caption（如触发词）绑定概念身份，长 caption（自然语言描述）绑定视觉属性。dual_caption_short_key 和 dual_caption_long_key 指定 JSON sidecar 中的键名。",
+    "whenToUse": "数据有 JSON sidecar 且同时包含短标签和长描述时。想让模型既能被精确触发又能响应自然语言时。",
+    "avoidWhen": "只有纯 .txt caption 且没有结构化数据时。"
+  },
+  "advanced": {
+    "principle": "每步从短/长 caption 中按比例选择一种作为当前 batch 的文本条件。可以理解为 caption 层面的 dropout——有时只给触发词（强化身份绑定），有时给完整描述（强化视觉属性学习）。",
+    "intervention": "DataLoader 读取 JSON sidecar 时提取 short/long 字段，按比例选择。",
+    "expectedImpact": "在同时需要精确触发和自然语言控制的场景下改善 5-10%。",
+    "tradeoffs": "与 caption_source_mix_enabled 互斥——两者都做多路 caption 采样。",
+    "codePath": "dataset/elements.py:dual_caption_loader() → select short/long by ratio"
+  },
+  "relatedConfigs": ["dual_caption_short_key", "dual_caption_long_key", "caption_source_mix_enabled"]
+}

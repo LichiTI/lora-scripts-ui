@@ -1,0 +1,29 @@
+{
+  "key": "lr_finder_enabled",
+  "title": "LR Finder（学习率探索器）",
+  "category": "训练 / 学习率",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "lr_finder_start_lr",
+    "lr_finder_end_lr",
+    "lr_finder_num_steps"
+  ],
+  "standard": {
+    "summary": "（实验性）LR Finder：在正式训练前运行一段测试训练，从低到高扫描学习率，记录 loss 曲线，帮助找到最优学习率范围。",
+    "effect": "运行 lr_finder_num_steps 步，LR 从 start_lr 指数增长到 end_lr，记录各 LR 下的 loss。loss 开始上升前的 LR 区间是推荐的最大 LR。",
+    "whenToUse": "不确定目标模型的最优 LR 时，先运行 LR Finder 再正式训练。特别适合新架构（Anima）或新优化器组合。",
+    "avoidWhen": "LR Finder 只是参考，不保证精确找到最优 LR；小数据集下 loss 曲线噪声大，参考价值有限。运行 Finder 后会重置模型到初始状态（浪费这些步骤的学习）。"
+  },
+  "advanced": {
+    "principle": "基于 fastai LR Range Test：从 start_lr 开始，每步按指数增长 LR（LR_t = start_lr × (end_lr/start_lr)^(t/num_steps)），记录 loss 曲线。最优 LR ≈ loss 开始快速下降的 LR 的 1/3（steepest descent 点再降一个数量级）。",
+    "tradeoffs": "LR Finder 运行期间消耗实际 GPU 时间但不保留权重更新（Finder 完成后重置）；在小数据集上 loss 曲线噪声大，最优点不易判断。"
+  },
+  "relatedConfigs": [
+    "learning_rate",
+    "optimizer_type",
+    "lr_scheduler"
+  ]
+}

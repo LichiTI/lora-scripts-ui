@@ -1,0 +1,30 @@
+{
+  "key": "max_train_steps",
+  "title": "最大训练步数",
+  "category": "训练 / 基础",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "aliases": [
+    "num_train_steps",
+    "train_steps"
+  ],
+  "standard": {
+    "summary": "控制训练的总步数上限（优先于 epoch 数）。一步 = 一次优化器更新（forward + backward + optimizer.step）。",
+    "effect": "典型范围：简单风格 100~300步；角色 LoRA 300~1000步；复杂概念 1000~3000步。",
+    "whenToUse": "推荐用步数控制训练时长（比 epoch 更直观，尤其是数据集大小变化时）。",
+    "avoidWhen": "步数过多（>5000步且数据集<50张）容易过拟合，建议配合 EMA 和 safeguard 使用。"
+  },
+  "advanced": {
+    "principle": "有效步数 = max_train_steps / gradient_accumulation_steps（若使用梯度累积）。实际消耗显卡时间正比于步数 × 每步时间。",
+    "tradeoffs": "步数 vs epoch：相同数据集大小时等效，但 max_train_steps 在数据集大小变化时更稳定（不随数据量变化而意外变长/变短）。"
+  },
+  "relatedConfigs": [
+    "num_train_epochs",
+    "train_batch_size",
+    "gradient_accumulation_steps"
+  ]
+}

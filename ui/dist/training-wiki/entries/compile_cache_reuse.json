@@ -1,0 +1,23 @@
+{
+  "key": "compile_cache_reuse",
+  "title": "编译缓存复用",
+  "category": "速度 / 编译",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "compile_cache_root"
+  ],
+  "standard": {
+    "summary": "compile_cache_reuse 控制是否跨会话复用 torch.compile 的编译缓存；compile_cache_root 指定缓存文件的存储目录。",
+    "effect": "开启 reuse 后，相同代码和模型的训练可以直接使用之前的编译缓存，跳过首次编译等待（节省 1~5 分钟）。",
+    "whenToUse": "多次训练同一模型类型时开启 reuse，充分利用已有编译缓存。",
+    "avoidWhen": "代码频繁变动时缓存会失效（自动重编译），reuse 对这种场景意义不大。"
+  },
+  "relatedConfigs": [
+    "torch_compile",
+    "compile_runtime",
+    "anima_compile_scope"
+  ]
+}

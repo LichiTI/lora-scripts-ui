@@ -1,0 +1,40 @@
+{
+  "key": "sdxl_low_vram_optimization",
+  "title": "SDXL 低显存优化套件",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "sdxl_low_vram_auto_protection",
+    "sdxl_low_vram_auto_resolution_probe",
+    "sdxl_low_vram_bucket_reso_steps",
+    "sdxl_low_vram_component_cpu_residency",
+    "sdxl_low_vram_fixed_block_swap",
+    "sdxl_low_vram_preview_policy",
+    "sdxl_low_vram_resolution_mode",
+    "sdxl_low_vram_two_phase_cache",
+    "sdxl_low_vram_swap_input_blocks",
+    "sdxl_low_vram_swap_middle_block",
+    "sdxl_low_vram_swap_output_blocks",
+    "sdxl_low_vram_swap_offload_after_backward",
+    "sdxl_low_vram_swap_vram_threshold",
+    "sdxl_block_swap_vram_threshold",
+    "sdxl_unet_backend"
+  ],
+  "standard": {
+    "summary": "SDXL 专用低显存优化套件，整合 block swap、分辨率自适应、两阶段缓存等多种显存节省策略，让 8GB 显卡能够训练 SDXL LoRA。",
+    "effect": "一键启用多种低显存策略组合：自动分辨率下探（防止 OOM）、智能 block swap、两阶段缓存（先缓存文本 embedding，再缓存 latent）、CPU 组件驻留等。",
+    "whenToUse": "8~12GB 显卡训练 SDXL 时的综合优化套件。比手动逐一配置各个显存选项更方便。",
+    "avoidWhen": "16GB+ 显卡无需使用（会降低训练速度）。单独需要某项优化时可以只开启对应的具体选项。"
+  },
+  "advanced": {
+    "principle": "套件按优先级自动组合策略：auto_resolution_probe 先探测在当前显存下可用的最大分辨率；two_phase_cache 优先缓存文本（轻量），再缓存 latent（重量）；fixed_block_swap 固定 offload 特定 block，不动态调整；unet_backend 控制 SDXL UNet 的计算后端（影响 kernel 选择和内存布局）。",
+    "tradeoffs": "组合策略的交互效果复杂，auto_protection 开启时会自动降低分辨率（可能影响训练图像比例）；建议先了解单个选项再启用套件。"
+  },
+  "relatedConfigs": [
+    "sdxl_block_swap_enabled",
+    "gradient_checkpointing",
+    "xformers"
+  ]
+}

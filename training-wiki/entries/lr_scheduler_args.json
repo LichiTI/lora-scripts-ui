@@ -1,0 +1,24 @@
+{
+  "key": "lr_scheduler_args",
+  "title": "自定义调度器参数",
+  "category": "训练 / 学习率",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "以 key=value 格式（一行一个）传递给自定义调度器的参数。",
+    "effect": "每行解析为一个构造函数参数，数值类型自动转换（int/float），字符串保持原样。",
+    "whenToUse": "配合 lr_scheduler_type 使用，如：T_max=500\\neta_min=1e-6。",
+    "avoidWhen": "使用内置调度器时无需填写。"
+  },
+  "advanced": {
+    "principle": "参数解析：按行分割 → 按 = 分割 → 尝试 int/float 转换 → 作为 kwargs 传入调度器构造函数。",
+    "tradeoffs": "参数名必须与调度器的 __init__ 签名完全匹配，否则会抛出 TypeError。"
+  },
+  "relatedConfigs": [
+    "lr_scheduler_type",
+    "lr_scheduler"
+  ]
+}

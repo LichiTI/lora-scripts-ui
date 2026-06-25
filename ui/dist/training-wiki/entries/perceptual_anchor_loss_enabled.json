@@ -1,0 +1,26 @@
+{
+  "key": "perceptual_anchor_loss_enabled",
+  "title": "感知锚点 Loss",
+  "category": "前沿储备 / 质量",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "perceptual_anchor_loss_weight"
+  ],
+  "standard": {
+    "summary": "（实验性）在训练 loss 中加入感知特征对齐项：利用预训练视觉特征提取器（DINO/CLIP 等）计算训练输出与参考的特征相似度，补充像素级 loss 的不足。",
+    "effect": "感知 loss 有助于训练输出在语义层面更接近参考（如保持细节纹理、结构一致性），而不只是像素级重建。",
+    "whenToUse": "实验性功能。当 MSE loss 的训练结果感知质量不满意时可以叠加尝试。",
+    "avoidWhen": "默认关闭。感知特征提取器需要额外显存（约 0.5~2GB），且提取计算增加约 10%~20% 训练时间。"
+  },
+  "advanced": {
+    "principle": "感知 loss = ||ϕ(x_pred) - ϕ(x_target)||²，其中 ϕ 是预训练网络的特征提取函数（如 DINO-ViT 的中间层激活）。用于补充像素 MSE 无法捕捉的高级语义信息。",
+    "tradeoffs": "感知 loss 的权重（perceptual_anchor_loss_weight）需要谨慎设置：权重过大会主导训练，使模型追求特征匹配而忽略去噪目标；权重过小则无明显效果。"
+  },
+  "relatedConfigs": [
+    "lineart_loss_enabled",
+    "dct_loss_enabled",
+    "gram_matrix_loss_enabled"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "key": "gradient_accumulation_mode",
+  "title": "梯度累积模式",
+  "category": "训练 / 梯度",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "gradient_release_mode",
+    "gradient_guard_agc_clip_factor",
+    "gradient_guard_agc_eps"
+  ],
+  "standard": {
+    "summary": "高级梯度累积控制：mode 选择标准梯度累积（standard）还是即时梯度释放（immediate）；release_mode 控制 fused backward 中的梯度释放时机。",
+    "effect": "immediate 模式在每层 backward 完成后立即释放不再需要的梯度，减少梯度累积的峰值显存。AGC（自适应梯度裁剪）通过按层参数范数归一化裁剪，比全局 clip_grad_norm 更精细。",
+    "whenToUse": "显存极度紧张时可以尝试 immediate 模式；AGC 在训练不稳定时可以替代或补充 max_grad_norm。",
+    "avoidWhen": "immediate 模式与某些优化器实现不完全兼容；AGC 参数（agc_clip_factor/agc_eps）设置不当可能过度裁剪。"
+  },
+  "advanced": {
+    "principle": "AGC（Adaptive Gradient Clipping）：clip_threshold = agc_clip_factor × max(‖W‖_F, agc_eps)；若 ‖∇W‖_F > clip_threshold 则裁剪 ∇W *= clip_threshold / ‖∇W‖_F。等价于\"梯度范数不超过权重范数的 agc_clip_factor 倍\"，对每层独立计算（不像 max_grad_norm 是全局）。",
+    "tradeoffs": "AGC 与 max_grad_norm 同时使用时双重裁剪，应选其一。AGC 对大权重层（如 MLP）的裁剪阈值更大，对小权重层（如 LoRA）更严格。"
+  },
+  "relatedConfigs": [
+    "gradient_accumulation_steps",
+    "max_grad_norm",
+    "turbocore_fused_backward_enabled"
+  ]
+}

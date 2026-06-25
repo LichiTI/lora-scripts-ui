@@ -1,0 +1,33 @@
+{
+  "key": "module_offload_backbone_ratio",
+  "title": "模块级 Offload 配置",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "module_offload_enhanced",
+    "module_offload_exclude_patterns",
+    "module_offload_include_patterns",
+    "module_offload_min_param_mb",
+    "module_offload_optimizer_enabled",
+    "module_offload_optimizer_device",
+    "module_offload_strategy",
+    "module_offload_te_ratio"
+  ],
+  "standard": {
+    "summary": "细粒度模块级 CPU offload 配置：按模块名称模式或参数量大小选择性地 offload 特定模块，比全量 offload 更精确。",
+    "effect": "backbone_ratio 控制基座模型权重的 offload 比例；te_ratio 控制文本编码器的 offload 比例；include/exclude_patterns 支持正则表达式精确控制。",
+    "whenToUse": "需要精确控制哪些模块 offload 时（比 blocks_to_swap 更细粒度）。高级 VRAM 管理场景。",
+    "avoidWhen": "不了解模型各模块结构时，使用更简单的 blocks_to_swap 或 gradient_checkpointing 即可。"
+  },
+  "advanced": {
+    "principle": "模块 offload 通过 register_forward_pre_hook 和 register_forward_hook 在每次 forward 前/后执行 to(device) 操作。enhanced 模式增加异步传输和预取优化。min_param_mb 避免对小模块频繁传输（传输开销 > 节省收益）。",
+    "tradeoffs": "细粒度 offload 配置灵活但复杂；参数名 pattern 需要与实际模型的 module 命名匹配，建议先用 print(model) 查看模块结构。"
+  },
+  "relatedConfigs": [
+    "blocks_to_swap",
+    "anima_block_prefetch",
+    "gradient_checkpointing"
+  ]
+}

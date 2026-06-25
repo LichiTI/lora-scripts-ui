@@ -1,0 +1,27 @@
+{
+  "key": "mn_lora_enabled",
+  "title": "MN-LoRA (矩阵归一化 LoRA)",
+  "category": "训练 / MN-LoRA",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["优化器层", "适配器层"],
+  "standard": {
+    "summary": "MN-LoRA 是 Lulynx 的旗舰训练特性——通过矩阵归一化、梯度子空间投影（GSP）和训练梯度方向加权（TG-WD）等技术，在不增加 rank 的情况下显著提升 LoRA 训练质量。",
+    "effect": "mn_lora_preset 提供四档预设：slim（最小开销）、fast（快速收敛）、balanced（均衡）、quality（最高质量）。balanced 通常能比标准 LoRA 提升 5-15% 质量。",
+    "recommendedValues": {
+      "slim": "最小开销，只开启 GSP 和 TG-WD 基础功能",
+      "fast": "加速收敛，增加自适应稀疏和信任区域",
+      "balanced": "推荐默认值，均衡质量和速度",
+      "quality": "最高质量，开启所有子模块包括 KFAC-Lite 和 Fisher EWC"
+    },
+    "whenToUse": "追求比标准 LoRA 更好质量时。数据量中等（50-500 张）时收益最大。rank 较低（16-32）但想要更高有效容量时。",
+    "avoidWhen": "极短训练（<100 步）时子模块还没充分预热。显存极度紧张时（MN-LoRA 有额外 state 开销）。"
+  },
+  "advanced": {
+    "principle": "MN-LoRA 核心思想：(1) GSP 将梯度投影到 LoRA 权重当前 SVD 子空间中，确保更新方向与已学到的子空间一致；(2) TG-WD 通过有限差分估算每个参数方向的 loss 曲率，对梯度做方向加权；(3) 自适应稀疏只更新活跃的 LoRA 层（hot layers），跳过冷层节省计算。mn_lora_k_ratio 控制 GSP 的子空间维度比例。mn_lora_update_interval 控制 GSP 基的重算频率。",
+    "intervention": "替换标准 optimizer.step() 为 MN-LoRA 的多阶段更新：GSP projection → TG-WD weighting → trust region clip → param update。",
+    "expectedImpact": "balanced 预设比标准 LoRA FID 改善约 5-15%。quality 预设可进一步改善 2-5%。训练速度开销约 10-25%（取决于预设）。",
+    "tradeoffs": "mn_lora_plus_plus 是 MN-LoRA 的增强版，额外增加自适应 rank 调整和模块级学习率适配。mn_lora_kfac_lite 引入 KFAC 预条件器进一步加速。mn_lora_trust_region 限制每步更新幅度防止过大跳跃。",
+    "codePath": "core/training_components/mn_lora/ → GSP + TG-WD + adaptive sparse + trust region → optimizer step"
+  },
+  "relatedConfigs": ["mn_lora_preset", "mn_lora_gsp_enabled", "mn_lora_tgwd_enabled", "mn_lora_k_ratio", "mn_lora_update_interval", "mn_lora_plus_plus_enabled", "mn_lora_kfac_lite_enabled"]
+}

@@ -1,0 +1,23 @@
+{
+  "key": "adaptive_noise_scale",
+  "title": "自适应噪声缩放",
+  "category": "训练 / 噪声控制",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "自适应调整 noise offset 的幅度：根据每步噪声的实际统计量动态设置偏移大小，而非固定值。",
+    "effect": "使 noise offset 根据实际噪声分布自动调整，比固定 noise_offset 更精准地覆盖极端亮度范围。",
+    "whenToUse": "开启 noise_offset 时可以考虑改用 adaptive_noise_scale 获得更稳定的效果。",
+    "avoidWhen": "不了解 noise offset 的效果时，两者都不开启更安全。"
+  },
+  "advanced": {
+    "principle": "对每步噪声 tensor 计算统计量（如 std），以此动态确定 offset 大小，使偏移幅度与噪声强度自适应匹配。",
+    "tradeoffs": "自适应版本实现略复杂，在某些步骤中偏移幅度可能意外过大（噪声统计量异常时）。"
+  },
+  "relatedConfigs": [
+    "noise_offset",
+    "zero_terminal_snr"
+  ]
+}

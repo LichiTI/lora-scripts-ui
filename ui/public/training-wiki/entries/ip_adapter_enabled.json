@@ -1,0 +1,21 @@
+{
+  "key": "ip_adapter_enabled",
+  "title": "IP-Adapter (图像提示适配)",
+  "category": "训练 / 适配器",
+  "appliesTo": ["sdxl-lora", "sd-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "IP-Adapter 允许用参考图像作为额外条件输入训练。模型学习从图像特征中提取风格/内容信息，实现图像驱动的生成控制。",
+    "effect": "ip_adapter_scale 控制图像条件的强度。ip_adapter_num_image_tokens 控制图像特征注入的 token 数量。ip_adapter_cond_mode 控制注入方式（concat/cross-attn）。",
+    "whenToUse": "想训练图像驱动的风格迁移或参考图生成时。",
+    "avoidWhen": "增加训练复杂度和显存开销。推理时需要提供图像条件。"
+  },
+  "advanced": {
+    "principle": "IP-Adapter 使用 CLIP image encoder 提取参考图像的特征向量，通过 cross-attention 或 concat 方式注入 UNet。ip_image_encoder_path 指定 image encoder 模型。ip_num_tokens 控制注入的 image token 数量（SD1.5 默认 4，SDXL 默认 16）。",
+    "intervention": "在 UNet 中添加 IP-Adapter cross-attention 层。训练时同时优化 LoRA 和 IP-Adapter 权重。",
+    "expectedImpact": "实现图像条件的生成控制。需要专门的推理管线。",
+    "tradeoffs": "easy_control_enabled 是更简单的图像条件方案。",
+    "codePath": "core/lulynx_trainer/ip_adapter_trainer.py → CLIP image encoder + cross-attention injection"
+  },
+  "relatedConfigs": ["ip_image_encoder_path", "ip_num_tokens", "ip_adapter_scale", "ip_adapter_cond_mode"]
+}

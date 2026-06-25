@@ -5,6 +5,7 @@
 
 export const BASE_OPTIMIZERS = [
   'AdamW',
+  'SingularityAwareAdamW',
   'AdamW8bit',
   'PagedAdamW8bit',
   'PagedAdamW',
@@ -32,8 +33,8 @@ export const BASE_OPTIMIZERS = [
   'pytorch_optimizer.CAME',
   'pytorch_optimizer.StableAdamW',
   'pytorch_optimizer.SCION',
-  'bitsandbytes.optim.AdEMAMix8bit',
-  'bitsandbytes.optim.PagedAdEMAMix8bit',
+  'KL-Shampoo',
+  'Gluon',
 ];
 
 export const CURATED_PYTORCH_OPTIMIZER_NAMES = [
@@ -42,7 +43,42 @@ export const CURATED_PYTORCH_OPTIMIZER_NAMES = [
   'SCION',
 ];
 
-export const PYTORCH_OPTIMIZER_NAMES = [
+export const FRONTIER_OPTIMIZER_CANDIDATE_OPTIONS = [
+  { value: 'ADOPT', label: 'ADOPT' },
+  { value: 'KahanAdamW', label: 'KahanAdamW' },
+  { value: 'KahanAdamW8bit', label: 'KahanAdamW8bit' },
+  { value: 'Muon', label: 'Muon' },
+  { value: 'Riemannion', label: 'Riemannion' },
+  { value: 'Rose', label: 'Rose' },
+  { value: 'Aurora', label: 'Aurora' },
+];
+
+const FRONTIER_RELEASE_HOLD_OPTIMIZER_BASE_NAMES = new Set([
+  'adopt',
+  'adamwkahan',
+  'adamw8bitkahan',
+  'adamuon',
+  'aurora',
+  'auroraopt',
+  'auroraoptimizer',
+  'distributedmuon',
+  'mars',
+  'muon',
+  'riemann',
+  'riemannion',
+  'riemannlora',
+  'riemannionlora',
+  'rose',
+  'roseopt',
+  'roseoptimizer',
+  'soap',
+]);
+
+function isFrontierReleaseHoldOptimizer(name) {
+  return FRONTIER_RELEASE_HOLD_OPTIMIZER_BASE_NAMES.has(optimizerBaseName(name));
+}
+
+const RAW_PYTORCH_OPTIMIZER_NAMES = [
   'LBFGS',
   'SGD',
   'Adam',
@@ -50,7 +86,6 @@ export const PYTORCH_OPTIMIZER_NAMES = [
   'NAdam',
   'RMSprop',
   'A2Grad',
-  'ADOPT',
   'APOLLO',
   'ASGD',
   'AccSGD',
@@ -65,7 +100,6 @@ export const PYTORCH_OPTIMIZER_NAMES = [
   'AdaLOMO',
   'AdaMax',
   'AdaMod',
-  'AdaMuon',
   'AdaNorm',
   'AdaPNM',
   'AdaShift',
@@ -92,7 +126,6 @@ export const PYTORCH_OPTIMIZER_NAMES = [
   'BSAM',
   'CAME',
   'Conda',
-  'Compass',
   'DAdaptAdaGrad',
   'DAdaptAdam',
   'DAdaptAdan',
@@ -100,7 +133,7 @@ export const PYTORCH_OPTIMIZER_NAMES = [
   'DAdaptSGD',
   'DeMo',
   'DiffGrad',
-  'DistributedMuon',
+  'DualAdam',
   'EXAdam',
   'EmoFact',
   'EmoLynx',
@@ -109,6 +142,7 @@ export const PYTORCH_OPTIMIZER_NAMES = [
   'FOCUS',
   'FTRL',
   'Fira',
+  'FlashAdamW',
   'Fromage',
   'GaLore',
   'Grams',
@@ -118,13 +152,12 @@ export const PYTORCH_OPTIMIZER_NAMES = [
   'Kron',
   'LARS',
   'LOMO',
+  'LoRARite',
   'LaProp',
   'Lamb',
   'Lion',
   'MADGRAD',
-  'MARS',
   'MSVAG',
-  'Muon',
   'Nero',
   'NovoGrad',
   'PAdam',
@@ -144,7 +177,6 @@ export const PYTORCH_OPTIMIZER_NAMES = [
   'SGDSaI',
   'SGDW',
   'SM3',
-  'SOAP',
   'SPAM',
   'SPlus',
   'SRMM',
@@ -165,6 +197,9 @@ export const PYTORCH_OPTIMIZER_NAMES = [
   'Yogi',
   'SpectralSphere',
 ];
+
+export const PYTORCH_OPTIMIZER_NAMES = RAW_PYTORCH_OPTIMIZER_NAMES
+  .filter((name) => !isFrontierReleaseHoldOptimizer(name));
 
 function optimizerBaseName(name) {
   const value = String(name || '').trim();
@@ -196,11 +231,43 @@ function invertKeepFirst(mapping) {
 const BASE_OPTIMIZER_BASE_NAMES = new Set(BASE_OPTIMIZERS.map(optimizerBaseName));
 
 export const ALL_OPTIMIZERS = dedupeKeepOrder([
-  ...BASE_OPTIMIZERS,
+  ...BASE_OPTIMIZERS.filter((name) => !isFrontierReleaseHoldOptimizer(name)),
   ...CURATED_PYTORCH_OPTIMIZER_NAMES
     .filter((name) => !BASE_OPTIMIZER_BASE_NAMES.has(name.toLowerCase()))
     .map((name) => `pytorch_optimizer.${name}`),
+  ...PYTORCH_OPTIMIZER_NAMES
+    .filter((name) => !BASE_OPTIMIZER_BASE_NAMES.has(name.toLowerCase()))
+    .map((name) => `pytorch_optimizer.${name}`),
 ]);
+
+const TARGET_LORA_OPTIMIZERS_BASE = dedupeKeepOrder([
+  ...ALL_OPTIMIZERS,
+  'Automagic++',
+  'AutoProdigy',
+  'KahanAdamW',
+  'KahanAdamW8bit',
+  'bitsandbytes.optim.AdEMAMix8bit',
+  'bitsandbytes.optim.PagedAdEMAMix8bit',
+  'PytorchOptimizer',
+  'GenericOptimizer',
+  'AnimaFactoredAdamW',
+]).filter((name) => !isFrontierReleaseHoldOptimizer(name));
+
+// Export as function to support filtering based on training mode
+export function getOptimizersForTrainingMode(modelTrainType) {
+  const trainType = String(modelTrainType || '').trim().toLowerCase();
+
+  // AnimaFactoredAdamW is only for full model fine-tuning (anima-finetune)
+  // For LoRA training, it's counterproductive (slower with no memory benefit)
+  if (trainType !== 'anima-finetune') {
+    return TARGET_LORA_OPTIMIZERS_BASE.filter((name) => name !== 'AnimaFactoredAdamW');
+  }
+
+  return TARGET_LORA_OPTIMIZERS_BASE;
+}
+
+// Legacy export for backward compatibility (returns all optimizers)
+export const TARGET_LORA_OPTIMIZERS = TARGET_LORA_OPTIMIZERS_BASE;
 
 export const BUILTIN_SCHEDULERS = [
   'linear',

@@ -1,0 +1,26 @@
+{
+  "key": "mixed_precision",
+  "title": "混合精度",
+  "category": "精度 / 训练",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora", "controlnet"],
+  "layers": ["内存层", "计算层"],
+  "standard": {
+    "summary": "混合精度（AMP）在 forward/backward 时使用 FP16 或 BF16 低精度计算，同时保留 FP32 主权重副本用于参数更新。在显存和速度上取得显著优势的同时几乎不影响训练质量。",
+    "effect": "BF16 是现代 GPU（Ampere A100/RTX 30xx 及以上）的首选——它有 8 位指数，数值范围与 FP32 接近，不需要梯度缩放。FP16 只有 5 位指数，容易溢出但在老 GPU 上可能更快。显存占用约为 FP32 的一半，Tensor Core 加速使训练速度提升 30-50%。",
+    "recommendedValues": {
+      "bf16": "首选。RTX 30xx/40xx/A100/H100 必选。数值最稳定",
+      "fp16": "GTX 16xx/20xx 等不支持 BF16 的旧 GPU 使用。需配合梯度缩放",
+      "no": "仅调试或验证精度时使用。显存和速度代价极大"
+    },
+    "whenToUse": "几乎所有正式训练都应该开启混合精度。BF16 是最安全的选择。如果 loss 出现 NaN，首先检查是否用了 FP16（换成 BF16 通常立即解决）。",
+    "avoidWhen": "full_bf16 模式全程使用 BF16（无 FP32 主权重），速度最快但累积精度损失可能导致长训练（>5000 步）收敛质量下降。fp8_base 将冻结权重压到 FP8，进一步省显存但可能影响精度——建议配合 weight_compression_verify=True 校验。"
+  },
+  "advanced": {
+    "principle": "AMP 通过 torch.autocast 上下文管理器实现。在 autocast 区域内，矩阵乘法（matmul/conv）自动使用 FP16/BF16，而累加和归约操作保持 FP32。FP16 AMP 使用 GradScaler 对 loss 乘以放大因子（默认 65536），防止小梯度在 FP16 下变为 0（下溢），然后在 optimizer.step() 前缩放回来。BF16 因为指数位足够多，不需要 GradScaler。",
+    "intervention": "training_loop.py 在 forward 和 loss 计算外包一层 with torch.autocast(device_type='cuda', dtype=amp_dtype)。FP16 时额外创建 GradScaler 并在 scaler.scale(loss).backward() 和 scaler.step(optimizer) / scaler.update() 中管理缩放因子。主权重副本通过 optimizer 的 master_weights 机制维护。",
+    "expectedImpact": "SDXL LoRA 训练中，BF16 AMP 相比 FP32：activation 显存峰值降低约 45%（从 ~4.2GB 降到 ~2.3GB @ 1024px batch=1）；训练速度提升约 35%（RTX 4090 实测）。最终 LoRA 质量差异 < 0.5%（通过 FID 对比）。",
+    "tradeoffs": "full_bf16 跳过 FP32 主权重，所有运算全程 BF16。好处是再省 ~30% 显存（不需要 FP32 副本），速度再快 ~10%。风险是 AdamW 的 m_t 和 v_t 也在 BF16 中累积，长训练可能精度漂移。loss_precision 参数控制 loss 计算本身的精度（fp32_loss 默认在 FP32 中算 loss 再 cast 回去）。",
+    "codePath": "training_loop.py:training_step() → torch.autocast(dtype=amp_dtype) → GradScaler (fp16 only) → optimizer.step()"
+  },
+  "relatedConfigs": ["save_precision", "full_bf16", "full_fp16", "loss_precision", "fp8_base", "weight_compression_enabled"]
+}

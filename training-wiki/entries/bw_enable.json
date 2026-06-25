@@ -1,0 +1,21 @@
+{
+  "key": "bw_enable",
+  "title": "Block Weight (分层权重)",
+  "category": "LoRA / 分层",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "对 UNet 的不同 block（down/mid/up）设置不同的 LoRA 训练权重。可以让某些层学得更多、某些层学得更少。",
+    "effect": "例如加强 up_blocks 的权重让模型更注重细节生成，或降低 mid_block 权重减少全局构图干扰。",
+    "whenToUse": "需要精细控制不同层的学习强度时。已有经验知道哪些层对目标任务更重要时。",
+    "avoidWhen": "初次训练或对模型层级结构不熟悉时。设错权重可能导致训练不稳定。"
+  },
+  "advanced": {
+    "principle": "SDXL UNet 有 9 个 down_blocks、1 个 mid_block、9 个 up_blocks。bw_in_weights 指定 down_blocks 的权重（逗号分隔），bw_mid_weight 指定 mid，bw_out_weights 指定 up_blocks。权重 > 1 加强该层学习，< 1 减弱。bw_te_weight 控制文本编码器 LoRA 的全局权重。block_lr_zero_threshold 将低于阈值的层学习率设为 0（完全冻结）。",
+    "intervention": "在 optimizer 构造时按 block 设置不同的 param group 学习率。",
+    "expectedImpact": "精细控制可以让特定概念（如面部表情 vs 整体风格）的学习更均衡。",
+    "tradeoffs": "bw_preset 提供命名预设（如 'attn-heavy'、'up-focused'）。",
+    "codePath": "training_loop.py:_build_optimizer() → per-block param groups with scaled lr"
+  },
+  "relatedConfigs": ["bw_preset", "bw_in_weights", "bw_mid_weight", "bw_out_weights", "bw_te_weight", "block_lr_zero_threshold"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "dop_enabled",
+  "title": "DOP (差分输出保持)",
+  "category": "正则 / 正则化",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["Loss 层"],
+  "standard": {
+    "summary": "DOP 在训练过程中保持模型输出与训练前基线输出的差异稳定，防止 LoRA 过度偏离底模行为。类似知识蒸馏但更轻量。",
+    "effect": "dop_weight=0.1 时，10% 的 loss 来自保持输出一致性。减少「灾难性遗忘」——学了新概念后忘记底模原有的生成能力。",
+    "whenToUse": "长训练或高 rank 训练时防止底模能力退化。学了新概念后发现其他 prompt 质量下降时。",
+    "avoidWhen": "短训练或低 rank 时通常不需要。dop 增加少量计算开销（需要额外的 reference forward）。"
+  },
+  "advanced": {
+    "principle": "训练开始前对每个 timestep 记录一次底模的输出（reference）。训练中每 dop_interval 步计算当前输出与 reference 的差异，作为额外的正则化 loss。dop_detach_reference=True 时 reference 不参与梯度，只做监督信号。",
+    "intervention": "training_step 中额外计算 dop_loss = MSE(current_output, reference_output) * dop_weight。",
+    "expectedImpact": "在多概念训练中保持底模特性的能力更强。对单一概念训练效果不明显。",
+    "tradeoffs": "dop_target='output' 比较最终预测，'features' 比较中间特征（更强约束但开销更大）。",
+    "codePath": "training_loop.py:DOP loss = MSE(pred, reference) * dop_weight"
+  },
+  "relatedConfigs": ["dop_weight", "dop_target", "dop_interval", "dop_detach_reference"]
+}

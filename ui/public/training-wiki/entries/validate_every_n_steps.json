@@ -1,0 +1,29 @@
+{
+  "key": "validate_every_n_steps",
+  "title": "验证集评估",
+  "category": "训练 / 评估",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "validate_every_n_epochs",
+    "eval_data_dir",
+    "eval_batch_size",
+    "max_validation_steps"
+  ],
+  "standard": {
+    "summary": "每 N 步在验证集上评估 loss，用于检测过拟合（训练 loss 下降但验证 loss 上升）。",
+    "effect": "开启后每 N 步暂停训练，在 eval_data_dir 的验证集上计算 loss（不更新权重）。可以早期发现过拟合。",
+    "whenToUse": "有独立验证集（与训练集图像不重叠）时使用。验证集通常取训练集的 10%~20%。",
+    "avoidWhen": "LoRA 训练数据集通常很小（<50张），难以分出有效验证集；多数 LoRA 训练不使用正式验证集（用预览图目测代替）。"
+  },
+  "advanced": {
+    "principle": "验证评估仅计算 forward pass 的 loss（torch.no_grad()），不计算梯度，速度快且不影响权重。max_validation_steps 限制验证集的最大评估批次数（大验证集时避免过长暂停）。",
+    "tradeoffs": "验证 loss 是比训练 loss 更可信的过拟合指标；但 LoRA 的目标通常是主观质量而非 loss 数值，单纯追踪 loss 可能与实际生成质量不完全对应。"
+  },
+  "relatedConfigs": [
+    "sample_every_n_steps",
+    "save_every_n_steps"
+  ]
+}

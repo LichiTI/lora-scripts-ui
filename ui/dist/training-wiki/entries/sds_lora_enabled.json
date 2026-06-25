@@ -1,0 +1,24 @@
+{
+  "key": "sds_lora_enabled",
+  "title": "SDS-LoRA（奇异值分解 LoRA）",
+  "category": "LoRA 变体 / SDS",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "standard": {
+    "summary": "（实验性）SDS-LoRA（Spectral Decomposed Symmetric LoRA）：对 LoRA 的 A/B 矩阵做谱分解，通过正交化保证 LoRA 更新的各向同性，防止训练过程中出现的奇异值偏态（少数方向主导更新）。",
+    "effect": "开启后 LoRA 更新在各方向更均匀（各向异性消除），有助于稳定训练、防止某些特征方向过度拟合。",
+    "whenToUse": "实验性功能，cleanroom 实现已完成并验证（7/7 smoke 通过）。与标准 LoRA parity 兼容，默认 off。",
+    "avoidWhen": "默认关闭。SDS-LoRA 在 LLM/ViT 上验证，DiT（Anima）未全面验证，建议先实验确认效果再用于正式训练。"
+  },
+  "advanced": {
+    "principle": "维护 Q_A/Q_B 的 detached buffer（不参与 autograd），对 A/B 做定期 QR 刷新（orthogonalization）使梯度条件数降低（实测从 8.28 → 2.71）。warmup 阶段先做 SVD 重参数化，确保训练初期权重已正交化。系数 1/(2s) 而非论文的 1/√(2s)（原论文有笔误）。",
+    "tradeoffs": "QR 刷新有额外计算开销（每 N 步一次 SVD/QR，约 1~5ms）；orthogonalization 改变了梯度传播路径，与标准 LoRA 的训练轨迹不同（虽然初始权重 parity）。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "pissa_init",
+    "dora_enabled"
+  ]
+}

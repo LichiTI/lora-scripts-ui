@@ -1,0 +1,35 @@
+{
+  "key": "scale_weight_norms",
+  "title": "权重范数缩放",
+  "category": "LoRA / 训练控制",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "block_merge_size",
+    "bypass_mode",
+    "down_lr_weight",
+    "mid_lr_weight",
+    "up_lr_weight",
+    "disable_mmap_load_safetensors",
+    "no_metadata",
+    "training_comment"
+  ],
+  "standard": {
+    "summary": "对 LoRA 权重矩阵的 Frobenius 范数进行软约束（Max Norm regularization），防止权重无限增大。与 weight_decay 互补。",
+    "effect": "设为正数（如 1.0）时，若权重矩阵范数超过该值则按比例缩放。对防止过拟合有帮助，但不如 weight_decay 那么系统性。",
+    "whenToUse": "训练后期 LoRA 权重范数持续增大时（通过 advanced_stats 监控）可以开启。",
+    "avoidWhen": "与 weight_decay 同时使用时有功能重叠，通常选一种即可。"
+  },
+  "advanced": {
+    "principle": "Max Norm：对每个权重矩阵 W，若 ‖W‖_F > scale_weight_norms，则 W = W × (scale / ‖W‖_F)。等价于投影到范数球内。与 weight_decay（每步乘以 1-lr×wd 的硬约束）相比，max norm 是软约束（只在超出时才生效）。down/mid/up_lr_weight 是 SDXL/SD UNet 各段的学习率权重（与 lulynx_block_weight 类似但直接命名）。disable_mmap_load_safetensors 关闭 safetensors 的 mmap 加载（某些 NFS 挂载或 Windows 兼容性问题时需要）。no_metadata 不在输出文件中写入训练元数据（隐私场景）。training_comment 写入到输出文件的元数据注释字段。",
+    "tradeoffs": "Max Norm 对全精度（fp32）权重效果更显著；在混合精度训练中，只有主权重（fp32 copy）受约束，fp16 副本由 GradScaler 管理。"
+  },
+  "relatedConfigs": [
+    "weight_decay",
+    "max_grad_norm",
+    "network_dim"
+  ]
+}

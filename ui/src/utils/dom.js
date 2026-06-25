@@ -1,5 +1,6 @@
 // DOM 辅助函数集：选择器、HTML 转义、图标、toast
 // 这些函数无业务依赖、可被 renderers / actions / main.js 共用。
+import { gsap, ANIM_DEFAULTS } from './anim.js';
 
 /** 查询单个 DOM 元素，没找到返回 null */
 export const $ = (selector) => document.querySelector(selector);
@@ -31,7 +32,7 @@ export function _ico(id, size) {
 /**
  * 轻量级 toast 提示。
  * 容器 #toast-container 会自动创建，如果不存在。
- * 过渡动画依赖 style.css 中的 .toast-item.show 规则。
+ * 进入/退出动画用 GSAP（back.out 弹性进入 + 柔和退出）。
  */
 export function showToast(message, duration = 2500) {
   let container = $('#toast-container');
@@ -44,10 +45,33 @@ export function showToast(message, duration = 2500) {
   toast.className = 'toast-item';
   toast.textContent = message;
   container.appendChild(toast);
-  requestAnimationFrame(() => toast.classList.add('show'));
+
+  // 标记 .show 以应用最终背景/边框样式（style.css 仍使用该类设置静态颜色）
+  toast.classList.add('show');
+
+  // 进入动画 — 从右侧弹入
+  gsap.fromTo(toast,
+    { x: ANIM_DEFAULTS.toastOffsetX, opacity: 0, scale: 0.95 },
+    {
+      x: 0,
+      opacity: 1,
+      scale: 1,
+      duration: ANIM_DEFAULTS.toastEnterDuration,
+      ease: ANIM_DEFAULTS.toastEnterEase,
+      overwrite: 'auto',
+    }
+  );
+
   setTimeout(() => {
-    toast.classList.remove('show');
-    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
-    setTimeout(() => toast.remove(), 400);
+    // 退出动画 — 滑出 + 缩小 + 淡出
+    gsap.to(toast, {
+      x: ANIM_DEFAULTS.toastOffsetX,
+      opacity: 0,
+      scale: 0.95,
+      duration: ANIM_DEFAULTS.toastExitDuration,
+      ease: ANIM_DEFAULTS.toastExitEase,
+      overwrite: 'auto',
+      onComplete: () => toast.remove(),
+    });
   }, duration);
 }

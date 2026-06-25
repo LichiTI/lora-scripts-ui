@@ -25,16 +25,6 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPlug
       await loadPluginSdkStatus();
     }
 
-    var pytorchOptimizerSettings = null;
-    try {
-      if (api && typeof api.getPluginSettings === 'function') {
-        var settingsResp = await api.getPluginSettings('lulynx.optimizer.pytorch_optimizer');
-        pytorchOptimizerSettings = settingsResp?.data || settingsResp || null;
-      }
-    } catch (_e) {
-      pytorchOptimizerSettings = null;
-    }
-
     if (pluginStore.error) {
       el.innerHTML = '<section class="form-section">'
         + '<div class="section-content" style="display:block;">'
@@ -108,7 +98,7 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPlug
     } else {
       html += '<div class="plugin-list">';
       for (var i = 0; i < plugins.length; i++) {
-        html += _renderPluginCard(plugins[i], pytorchOptimizerSettings);
+        html += _renderPluginCard(plugins[i]);
       }
       html += '</div>';
     }
@@ -199,13 +189,18 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPlug
     var permissions = Array.isArray(runner.permissions) ? runner.permissions : [];
     if (permissions.length === 0 && review && Array.isArray(review.required_permissions)) permissions = review.required_permissions;
     var artifacts = review && Array.isArray(review.artifact_types) ? review.artifact_types : [];
+    var schemaPolicy = review && review.schema_policy && typeof review.schema_policy === 'object' ? review.schema_policy : null;
+    var entrypointPolicy = review && review.entrypoint_policy && typeof review.entrypoint_policy === 'object' ? review.entrypoint_policy : null;
+    var sandboxPolicy = review && review.sandbox_policy && typeof review.sandbox_policy === 'object' ? review.sandbox_policy : null;
+    var safeRootRoles = schemaPolicy && Array.isArray(schemaPolicy.safe_root_roles) ? schemaPolicy.safe_root_roles : [];
+    var pathIntents = schemaPolicy && Array.isArray(schemaPolicy.path_intents) ? schemaPolicy.path_intents : [];
     var warnings = review && Array.isArray(review.warnings) ? review.warnings : [];
     var approvalReady = runner.approval_ready === true || runner.approved === true;
     if (review && typeof review.approval_ready === 'boolean') approvalReady = review.approval_ready;
     var executionAvailable = runner.execution_available !== false;
     if (review && typeof review.execution_available === 'boolean') executionAvailable = review.execution_available;
     var statusText = approvalReady && executionAvailable ? '可试运行' : (approvalReady ? '等待执行环境' : '待审批');
-    var statusColor = approvalReady && executionAvailable ? '#22c55e' : (approvalReady ? '#f59e0b' : '#ef4444');
+    var statusColor = approvalReady && executionAvailable ? 'var(--success)' : (approvalReady ? 'var(--warning)' : 'var(--danger)');
     var schemaForRun = schemas.length > 0 ? schemas[0] : '';
 
     var html = '<div class="plugin-card">'
@@ -217,8 +212,9 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPlug
       + '</div>'
       + '<div class="plugin-card-actions">';
 
-    if (!approvalReady && pluginId) {
-      html += '<button class="btn btn-sm" style="background:#22c55e;color:#fff;font-size:0.7rem;padding:2px 8px;" type="button" onclick="pluginApprove(' + _pluginOnClickArg(pluginId) + ')">审批插件</button>';
+    if (!approvalReady && pluginId && runnerId) {
+      html += '<button class="btn btn-sm" style="background:var(--success);color:#fff;font-size:0.7rem;padding:2px 8px;" type="button" onclick="pluginApproveRunner(' + _pluginOnClickArg(pluginId) + ', ' + _pluginOnClickArg(runnerId) + ')">审批 Runner</button>';
+      html += '<button class="btn btn-outline btn-sm" style="font-size:0.7rem;padding:2px 8px;" type="button" onclick="pluginApprove(' + _pluginOnClickArg(pluginId) + ')">审批插件</button>';
     }
     if (approvalReady && executionAvailable && runnerId) {
       html += '<button class="btn btn-outline btn-sm" style="font-size:0.7rem;padding:2px 8px;" type="button" onclick="pluginExecuteSdkRunner(' + _pluginOnClickArg(runnerId) + ', ' + _pluginOnClickArg(schemaForRun) + ')">提交试运行</button>';
@@ -235,10 +231,34 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPlug
     if (artifacts.length > 0) {
       html += '<div class="plugin-card-tags"><span class="plugin-tag-label">产物:</span>' + _formatListTags(artifacts) + '</div>';
     }
+    if (safeRootRoles.length > 0 || pathIntents.length > 0) {
+      html += '<div class="plugin-card-tags"><span class="plugin-tag-label">路径策略:</span>'
+        + _formatListTags(safeRootRoles.map(function(role) { return 'root:' + role; }).concat(pathIntents.map(function(intent) { return 'intent:' + intent; })))
+        + '</div>';
+    }
     if (review && review.request_schema && review.request_schema.schema_path) {
       html += '<div class="plugin-card-meta"><span>Schema 文件: <code>'
         + escapeHtml(review.request_schema.schema_path)
         + '</code></span></div>';
+    }
+    if (entrypointPolicy && entrypointPolicy.entrypoint) {
+      html += '<div class="plugin-card-meta"><span>入口: <code>'
+        + escapeHtml(entrypointPolicy.entrypoint)
+        + '</code></span><span>'
+        + escapeHtml(entrypointPolicy.available ? '已解析' : '需检查')
+        + '</span></div>';
+    }
+    if (sandboxPolicy && sandboxPolicy.execution_mode) {
+      var elevated = Array.isArray(sandboxPolicy.elevated_permissions) ? sandboxPolicy.elevated_permissions : [];
+      html += '<div class="plugin-card-meta"><span>隔离: <code>'
+        + escapeHtml(sandboxPolicy.execution_mode)
+        + '</code></span><span>'
+        + escapeHtml(String(sandboxPolicy.timeout_seconds || 30))
+        + 's</span>';
+      if (elevated.length > 0) {
+        html += '<span>高权限: ' + escapeHtml(elevated.join(', ')) + '</span>';
+      }
+      html += '</div>';
     }
     if (warnings.length > 0) {
       html += '<div class="plugin-card-meta" style="color:var(--warning,#f59e0b);">'
@@ -353,10 +373,10 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPlug
     return parts.join(' — ');
   }
 
-  function _renderPluginCard(p, pytorchOptimizerSettings) {
+  function _renderPluginCard(p) {
     var isLoaded = p.loaded === true || p.active === true;
     var loadError = p.load_error || p.error || '';
-    var statusColor = isLoaded ? '#22c55e' : (loadError ? '#ef4444' : 'var(--text-muted)');
+    var statusColor = isLoaded ? 'var(--success)' : (loadError ? 'var(--danger)' : 'var(--text-muted)');
     var statusText = isLoaded ? '已加载' : (loadError ? '加载失败' : '未加载');
     var statusDot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + statusColor + ';"></span>';
     var policy = (p && p.policy && typeof p.policy === 'object') ? p.policy : {};
@@ -369,7 +389,7 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPlug
     var actionPluginId = _pluginOnClickArg(p.plugin_id);
     var tierBadge = '';
     if (p.tier != null) {
-      var tierColors = { 0: '#22c55e', 1: '#3b82f6', 2: '#f59e0b', 3: '#ef4444' };
+      var tierColors = { 0: 'var(--success)', 1: 'var(--info)', 2: 'var(--warning)', 3: 'var(--danger)' };
       tierBadge = '<span class="plugin-tier-badge" style="background:' + (tierColors[p.tier] || 'var(--text-muted)') + ';">Tier ' + p.tier + '</span>';
     }
 
@@ -384,7 +404,7 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPlug
       + '<div class="plugin-card-actions">';
 
     if (canApprove) {
-      html += '<button class="btn btn-sm" style="background:#22c55e;color:#fff;font-size:0.7rem;padding:2px 8px;" type="button" onclick="pluginApprove(' + actionPluginId + ')">审批</button>';
+      html += '<button class="btn btn-sm" style="background:var(--success);color:#fff;font-size:0.7rem;padding:2px 8px;" type="button" onclick="pluginApprove(' + actionPluginId + ')">审批</button>';
     }
     if (canRevoke) {
       html += '<button class="btn btn-outline btn-sm" style="font-size:0.7rem;padding:2px 8px;" type="button" onclick="pluginRevoke(' + actionPluginId + ')">撤销审批</button>';
@@ -436,58 +456,49 @@ export function createPluginsRenderer({ pluginStore, loadPluginRuntime, loadPlug
       html += '</div>';
     }
 
-    if (p.plugin_id === 'lulynx.optimizer.pytorch_optimizer') {
-      html += _renderPytorchOptimizerSettings(pytorchOptimizerSettings);
+    if (_pluginHasSettingsPanel(p)) {
+      html += _renderPluginSettingsPanel(p);
     }
 
     html += '</div>';
     return html;
   }
 
-  function _renderPytorchOptimizerSettings(settingsPayload) {
-    if (!settingsPayload || typeof settingsPayload !== 'object') {
-      return '<div class="plugin-card-error">无法读取插件设置。</div>';
-    }
-    var schema = settingsPayload.schema || {};
-    var values = settingsPayload.values || {};
-    var visibleSpec = schema.visible_optimizers || {};
-    var options = Array.isArray(visibleSpec.options) ? visibleSpec.options : [];
-    var selected = new Set(Array.isArray(values.visible_optimizers) ? values.visible_optimizers.map(String) : []);
-    var exposeAll = values.expose_all_optimizers === true;
-    var recommended = new Set(['AdEMAMix', 'CAME', 'Ranger', 'Ranger21', 'ScheduleFreeAdamW', 'StableAdamW']);
+  function _pluginHasSettingsPanel(plugin) {
+    var panel = plugin && plugin.settings_panel && typeof plugin.settings_panel === 'object' ? plugin.settings_panel : null;
+    if (!panel) return false;
+    return _pluginSettingsFieldCount(panel) > 0;
+  }
 
-    var html = '<div class="plugin-card-settings" style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">'
-      + '<strong style="font-size:0.82rem;">优化器显示设置</strong>'
-      + '<div style="display:flex;gap:6px;">'
-      + '<button class="btn btn-outline btn-sm" type="button" onclick="pluginResetPytorchOptimizerSettings()">恢复默认</button>'
-      + '<button class="btn btn-primary btn-sm" type="button" onclick="pluginSavePytorchOptimizerSettings()">保存设置</button>'
-      + '</div></div>'
-      + '<label class="plugin-toggle-label" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">'
-      + '<input type="checkbox" id="po-expose-all" ' + (exposeAll ? 'checked' : '') + '> 显示全部 pytorch-optimizer 优化器'
-      + '</label>'
-      + '<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px;">'
-      + '关闭「显示全部」时，训练配置下拉框只显示下面勾选的扩展优化器；保存后刷新/重新进入配置页生效。'
+  function _pluginSettingsFieldCount(panel) {
+    var schema = panel && panel.settings_schema && typeof panel.settings_schema === 'object' ? panel.settings_schema : {};
+    return Object.keys(schema).length;
+  }
+
+  function _renderPluginSettingsPanel(plugin) {
+    var pluginId = String(plugin.plugin_id || plugin.id || '').trim();
+    if (!pluginId) return '';
+    var panel = plugin.settings_panel && typeof plugin.settings_panel === 'object' ? plugin.settings_panel : {};
+    var title = String(panel.title || '插件控制面板');
+    var desc = String(panel.description || '这个插件声明了自己的高级设置。');
+    var fieldCount = _pluginSettingsFieldCount(panel);
+    return '<div class="plugin-card-settings plugin-settings-panel" data-plugin-settings-panel="' + escapeHtml(pluginId) + '">'
+      + '<div class="plugin-settings-header">'
+      + '<div class="plugin-settings-title-block">'
+      + '<strong>' + escapeHtml(title) + '</strong>'
+      + '<span>' + escapeHtml(desc) + '</span>'
+      + '</div>'
+      + '<button class="btn btn-outline btn-sm" type="button" onclick="pluginToggleSettingsPanel(' + _pluginOnClickArg(pluginId) + ')">'
+      + _ico('settings', 12) + ' 设置'
+      + '</button>'
+      + '</div>'
+      + '<div class="plugin-settings-preview">' + fieldCount + ' 个可配置项</div>'
+      + '<div class="plugin-settings-body" id="plugin-settings-body-' + escapeHtml(_pluginDomId(pluginId)) + '" style="display:none;"></div>'
       + '</div>';
+  }
 
-    if (options.length === 0) {
-      html += '<p style="color:var(--text-muted);font-size:0.78rem;">未发现 pytorch-optimizer 优化器列表。</p>';
-    } else {
-      html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;max-height:260px;overflow:auto;padding:6px;border:1px solid var(--border);border-radius:8px;">';
-      for (var i = 0; i < options.length; i++) {
-        var name = String(options[i] || '').trim();
-        if (!name) continue;
-        var checked = selected.has(name) || (!Array.isArray(values.visible_optimizers) && recommended.has(name));
-        html += '<label style="display:flex;align-items:center;gap:6px;font-size:0.76rem;color:var(--text-main);">'
-          + '<input class="po-visible-optimizer" type="checkbox" value="' + escapeHtml(name) + '" ' + (checked ? 'checked' : '') + '> '
-          + '<span>' + escapeHtml(name) + '</span>'
-          + (recommended.has(name) ? '<span style="color:var(--accent);font-size:0.66rem;">推荐</span>' : '')
-          + '</label>';
-      }
-      html += '</div>';
-    }
-    html += '</div>';
-    return html;
+  function _pluginDomId(pluginId) {
+    return String(pluginId || '').replace(/[^A-Za-z0-9_-]/g, '_');
   }
 
   return {

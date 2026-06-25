@@ -1,0 +1,31 @@
+{
+  "key": "sample_every_n_steps",
+  "title": "每 N 步生成预览图",
+  "category": "训练 / 预览",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "aliases": [
+    "sample_every_n_epochs",
+    "sample_at_first",
+    "sample_cfg",
+    "sample_cache_seam_window_size"
+  ],
+  "standard": {
+    "summary": "每隔 N 步使用当前 LoRA 权重生成预览图，用于监控训练进度。0 = 不生成预览。",
+    "effect": "设为 50 = 每 50 步生成一组预览图保存到输出目录。可以直观看到 LoRA 在不同步数的学习效果。",
+    "whenToUse": "长训练（>200步）推荐开启，帮助判断最佳停止点（防止过拟合后才发现）。",
+    "avoidWhen": "生成预览会暂停训练约 5~30 秒（取决于生成步数和分辨率），频率过高会浪费训练时间。建议不超过每 50 步一次。"
+  },
+  "advanced": {
+    "principle": "每 N 步后暂停优化器，使用 eval 模式运行 DDIM/DPM 等采样器生成固定 prompt 的图像，然后恢复训练。sample_at_first = 是否在第 0 步（训练前）也生成一张作为基准对比。sample_cfg 控制生成时的 CFG 强度。",
+    "tradeoffs": "生成预览使用训练器的 GPU，会短暂打断 GPU 的训练计算流。batch 越大、采样步数越多，预览越耗时。建议 sample_num_steps 设为 20~25（快速采样）。"
+  },
+  "relatedConfigs": [
+    "save_every_n_steps",
+    "output_dir"
+  ]
+}

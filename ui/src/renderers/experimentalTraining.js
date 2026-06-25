@@ -1,4 +1,12 @@
 import { escapeHtml, _ico } from '../utils/dom.js';
+import {
+  buildBubbleAdvisorShortItems,
+  hasBubbleAdvisorPatch,
+} from '../utils/bubbleAdvisorNarrative.js';
+import {
+  collectPreflightRecommendedConfigPatch,
+  recommendedConfigPatchKeys,
+} from '../utils/preflightRecommendedPatch.js';
 
 const EXPERIMENTAL_TYPES = new Set([
   'lab-distiller',
@@ -120,16 +128,14 @@ function collectAdvisorItems(typeId, config, preflight) {
     }
   }
 
-  const advisor = preflight?.training_advisor || {};
-  const patch = {
-    ...(advisor.vram?.recommended_config_patch || {}),
-    ...(advisor.a_tier?.recommended_config_patch || {}),
-  };
-  const patchKeys = Object.keys(patch);
+  const patchKeys = recommendedConfigPatchKeys(collectPreflightRecommendedConfigPatch(preflight));
+  buildBubbleAdvisorShortItems(preflight).slice(0, 4).forEach(function(item) {
+    items.push(item);
+  });
   if (patchKeys.length > 0) {
-    items.push({ tone: 'ok', text: `后端 advisor 提供了 ${patchKeys.length} 个可应用建议，可点击“应用 Advisor 建议”。` });
+    items.push({ tone: 'ok', text: `后端预检提供了 ${patchKeys.length} 个可应用建议，可点击“应用建议”。` });
   }
-  return items.slice(0, 7);
+  return items.slice(0, 9);
 }
 
 function renderLabPanel(config) {
@@ -227,11 +233,9 @@ export function createExperimentalTrainingRenderer({ state }) {
   function renderFloatingTrainingAssistant() {
     const config = state.config || {};
     const items = collectAdvisorItems(state.activeTrainingType, config, state.preflight);
-    const advisor = state.preflight?.training_advisor || {};
-    const hasPatch = Boolean(
-      Object.keys(advisor.vram?.recommended_config_patch || {}).length
-      || Object.keys(advisor.a_tier?.recommended_config_patch || {}).length
-    );
+    const patchKeys = recommendedConfigPatchKeys(collectPreflightRecommendedConfigPatch(state.preflight));
+    const hasBubblePatch = hasBubbleAdvisorPatch(state.preflight);
+    const hasPatch = patchKeys.length > 0 || hasBubblePatch;
     const status = state.preflight
       ? state.preflight.can_start
         ? '预检通过'
@@ -240,8 +244,7 @@ export function createExperimentalTrainingRenderer({ state }) {
     const collapsed = Boolean(state.trainingAdvisorCollapsed);
     const tone = advisorTone(state.preflight);
     const itemCount = items.length;
-    const patchCount = Object.keys(advisor.vram?.recommended_config_patch || {}).length
-      + Object.keys(advisor.a_tier?.recommended_config_patch || {}).length;
+    const patchCount = patchKeys.length + (hasBubblePatch ? 1 : 0);
     const toggleLabel = collapsed ? '展开训练助手' : '收起训练助手';
     const pos = state.trainingAdvisorPosition;
     const positionStyle = pos
@@ -274,6 +277,27 @@ export function createExperimentalTrainingRenderer({ state }) {
           <div class="floating-advisor-actions">
             <button class="btn btn-outline btn-sm" type="button" onclick="runPreflight()">${_ico('check-circle', 13)} 预检</button>
             <button class="btn btn-outline btn-sm" type="button" onclick="applyTrainingAdvisorPatch()" ${hasPatch ? '' : 'disabled'}>${_ico('zap', 13)} 应用建议</button>
+            <button class="btn btn-outline btn-sm" type="button" onclick="toggleAIMode()">${_ico('message-circle', 13)} AI 模式</button>
+          </div>
+        </div>
+        <div id="training-assistant-chat-panel" class="training-assistant-chat-panel" style="display:none;">
+          <div class="chat-preset-bar">
+            <button class="chat-preset-btn active" data-preset="lora_expert" onclick="switchChatPreset('lora_expert')">专家</button>
+            <button class="chat-preset-btn" data-preset="diagnostics" onclick="switchChatPreset('diagnostics')">诊断</button>
+            <button class="chat-preset-btn" data-preset="calculator" onclick="switchChatPreset('calculator')">计算器</button>
+            <button class="chat-preset-btn" data-preset="concise" onclick="switchChatPreset('concise')">简洁</button>
+            <button class="chat-config-btn" onclick="toggleAssistantConfig()" title="配置">${_ico('settings', 12)}</button>
+            <button class="chat-clear-btn" onclick="clearChat()" title="清空对话">${_ico('trash-2', 12)}</button>
+          </div>
+          <div id="assistant-config-panel" class="assistant-config-panel" style="display:none;">
+            <!-- 配置面板内容由 trainingAssistantConfig.js 渲染 -->
+          </div>
+          <div id="chat-messages" class="chat-messages">
+            <div class="chat-empty">开始对话，问我任何关于训练的问题</div>
+          </div>
+          <div class="chat-input-area">
+            <input type="text" id="chat-input" class="chat-input" placeholder="输入问题..." />
+            <button class="chat-send-btn" onclick="sendChatMessage()">${_ico('send', 14)}</button>
           </div>
         </div>
       </aside>

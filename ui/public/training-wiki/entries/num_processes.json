@@ -1,0 +1,32 @@
+{
+  "key": "num_processes",
+  "title": "并行进程数",
+  "category": "训练 / 分布式",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "num_machines",
+    "main_process_ip",
+    "main_process_port",
+    "ddp_gradient_as_bucket_view",
+    "ddp_static_graph",
+    "ddp_timeout",
+    "gpu_ids"
+  ],
+  "standard": {
+    "summary": "分布式训练（DDP）的进程数（通常等于 GPU 数量）。num_processes=1 = 单卡训练（默认）；>1 = 多卡数据并行。",
+    "effect": "多卡训练：每卡各自计算一个 batch 的梯度，汇总后同步更新参数。等效 batch size = batch_size × num_processes。",
+    "whenToUse": "有多块 GPU 且希望加速训练时使用。DDP 提供线性加速（2 卡 ≈ 2× 速度）但需要正确配置通信参数。",
+    "avoidWhen": "LoRA 训练数据集通常很小（<100张），多卡并行在数据层面意义不大；单卡高效率通常比多卡 DDP 更实用。"
+  },
+  "advanced": {
+    "principle": "DDP（DistributedDataParallel）：每个进程持有完整模型副本，独立计算本地 batch 梯度，all-reduce 操作同步梯度后各自更新。ddp_gradient_as_bucket_view 优化 all-reduce 的内存效率；ddp_static_graph 在计算图固定时提供额外优化。",
+    "tradeoffs": "DDP 有通信开销（all-reduce），小模型/小 batch 时通信可能成为瓶颈（多卡反而比单卡慢）。LoRA 参数量少（约 1~100MB），通信开销相对可控。"
+  },
+  "relatedConfigs": [
+    "train_batch_size",
+    "gradient_accumulation_steps"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "key": "pissa_oversample",
+  "title": "PiSSA 过采样",
+  "category": "LoRA 变体 / PiSSA",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "standard": {
+    "summary": "（实验性）PiSSA 的过采样选项：对初始化 SVD 时的奇异值进行过采样，以获得更准确的主方向估计，特别对大矩阵有效。",
+    "effect": "开启后 SVD 初始化使用随机化 SVD 方法（RSVD）而非完整 SVD，通过过采样获得近似主奇异方向，速度更快但精度略低。",
+    "whenToUse": "大型权重矩阵（如 d_in × d_out > 10000²）的 PiSSA 初始化时，标准 SVD 过慢，可用过采样 RSVD 加速。",
+    "avoidWhen": "小矩阵（如 LoRA 常见的 1024×1024）用标准 SVD 即可，无需过采样。"
+  },
+  "relatedConfigs": [
+    "pissa_init",
+    "network_dim"
+  ]
+}

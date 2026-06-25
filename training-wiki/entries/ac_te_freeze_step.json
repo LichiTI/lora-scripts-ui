@@ -1,0 +1,22 @@
+{
+  "key": "ac_te_freeze_step",
+  "title": "TE 冻结步数",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "在第几个优化步冻结文本编码器。需开启 ac_enable_auto_te_freeze 才生效。",
+    "effect": "在此步数后 TE 不再被优化器更新，后续步骤只训练 UNet/DiT 层。",
+    "whenToUse": "通常设为总步数的 40%~60%。如总步数 500，可设为 200~300。",
+    "avoidWhen": "设为 0 时等于立即冻结（从第 0 步就不训练 TE），相当于关闭 TE 训练。"
+  },
+  "advanced": {
+    "principle": "step >= ac_te_freeze_step 时触发一次性冻结操作，之后每步跳过 TE backward。",
+    "tradeoffs": "需要与 train_text_encoder 联动，确认 TE 确实在前半段被训练。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_enable_auto_te_freeze"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "newbie_lora_target",
+  "title": "Newbie LoRA 目标",
+  "category": "Newbie / 配置",
+  "appliesTo": ["newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "Newbie 模型的 LoRA 注入范围预设。minimal 只注入最关键的层；balanced 注入 attention + 部分 FFN；full 注入所有层。",
+    "effect": "minimal 参数最少训练最快；balanced 是推荐默认值；full 参数最多但质量天花板最高。",
+    "whenToUse": "balanced 适合大多数场景。minimal 用于快速原型验证。full 在大数据集上追求最高质量时使用。",
+    "avoidWhen": "full 在数据量少时容易过拟合。"
+  },
+  "advanced": {
+    "principle": "Newbie 使用 Gemma3 作为文本编码器。newbie_gemma3_prompt 可以指定额外的系统 prompt。newbie_use_flash_attn2 启用 Flash Attention 2 加速。newbie_block_residency 控制 DiT block 的 GPU 驻留策略。newbie_adapter_type 可以切换 lora/lora_fa/vera/lokr。",
+    "intervention": "trainer.py 根据 newbie_lora_target 预设决定注入哪些 Transformer 层。",
+    "expectedImpact": "balanced 在参数效率和表达能力之间取得最佳平衡。",
+    "tradeoffs": "newbie_target_modules 允许手动指定目标模块列表（覆盖预设）。newbie_force_cache_only 强制使用缓存路径。",
+    "codePath": "trainer.py:Newbie route → lora_target preset → layer injection"
+  },
+  "relatedConfigs": ["newbie_diffusers_path", "newbie_gemma3_prompt", "newbie_block_residency", "newbie_adapter_type"]
+}

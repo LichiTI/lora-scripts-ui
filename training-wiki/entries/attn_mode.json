@@ -1,0 +1,32 @@
+{
+  "key": "attn_mode",
+  "title": "注意力模式",
+  "category": "速度 / 注意力",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "cross_attn_fused_kv",
+    "fused_projection_memory_mode",
+    "experimental_attention_profile_enabled",
+    "experimental_attention_profile_backend",
+    "experimental_attention_profile_torch_max_tokens",
+    "experimental_attention_profile_window"
+  ],
+  "standard": {
+    "summary": "选择注意力计算的实现方式：sdpa（默认，PyTorch 内置）/ flash（FlashAttention）/ sage（SageAttention）/ xformers / vanilla（标准 PyTorch，最慢）。",
+    "effect": "flash/sage 速度最快，显存效率最高；sdpa 是稳健的通用选择；vanilla 是调试用最慢实现。cross_attn_fused_kv 将 cross-attention 的 K/V 融合投影，减少 kernel launch 次数。",
+    "whenToUse": "优先使用 flash（已安装 flash-attention）或 sdpa（未安装 flash 时默认）。",
+    "avoidWhen": "vanilla 只用于调试；experimental_attention_profile 是性能分析工具，正式训练不需要。"
+  },
+  "advanced": {
+    "principle": "FlashAttention：IO-aware 分块计算，将 Q/K/V 分块加载到 SRAM，避免 n² 注意力矩阵 HBM 读写；SageAttention 进一步量化 QK 计算到 INT8，提升吞吐。fused_projection_memory_mode 控制 QKV 投影的内存布局（通道优先 vs 批量优先），影响 GPU L2 缓存命中率。",
+    "tradeoffs": "flash/sage 的加速主要来自长序列（高分辨率 latent，token 数 >256），短序列优势不明显。anima native runtime 的注意力实现在 Rust 侧（Python 是 shape-only stub），此参数影响 Python 侧的注意力（如 TE cross-attention）。"
+  },
+  "relatedConfigs": [
+    "xformers",
+    "mixed_precision",
+    "compile_runtime"
+  ]
+}

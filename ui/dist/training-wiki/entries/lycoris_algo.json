@@ -1,0 +1,21 @@
+{
+  "key": "lycoris_algo",
+  "title": "LyCORIS 算法族",
+  "category": "LoRA / LyCORIS",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "LyCORIS 提供多种替代 LoRA 的低秩适配器算法：LoHa（Hadamard 积）、LoKr（Kronecker 积）、IA³（特征调制）、Diag-OFT（正交微调）、LoCon（卷积扩展 LoRA）。",
+    "effect": "不同算法在参数效率、表达能力和文件大小上各有优劣。LoHa 和 LoKr 通常比标准 LoRA 质量更高但文件更大。IA³ 参数最少但表达能力有限。",
+    "whenToUse": "LoHa/LoKr 在追求最高质量时推荐。IA³ 在极小文件需求时使用。LoCon 在需要卷积层适配时使用。",
+    "avoidWhen": "不确定时用标准 LoRA——兼容性最好，工具链支持最完善。"
+  },
+  "advanced": {
+    "principle": "LoHa: ΔW = (A⊙B)·(C⊙D)，用 Hadamard 积表达更丰富的权重更新。LoKr: ΔW = A⊗B，Kronecker 积在保持参数量的同时表达力更强。lycoris_lokr_factor 控制 Kronecker 分解比例。IA³: 只学习 per-channel 缩放向量。Diag-OFT: 对权重施加正交变换。lycoris_conv_dim/conv_alpha 控制卷积层的独立 rank。",
+    "intervention": "network_module 设为 lycoris.locon 时激活 LyCORIS 注入，lycoris_algo 选择具体算法。",
+    "expectedImpact": "LoHa/LoKr 比标准 LoRA 质量提升约 3-10%，但文件体积可能增加 2-4 倍。",
+    "tradeoffs": "lycoris_train_norm 允许训练 LayerNorm 层。lycoris_use_effective_conv 优化卷积层计算。",
+    "codePath": "lycoris/ → algorithm dispatch → LoHa/LoKr/IA3/OFT/LoCon layer injection"
+  },
+  "relatedConfigs": ["network_module", "conv_dim", "conv_alpha", "lycoris_lokr_factor", "lycoris_conv_dim"]
+}

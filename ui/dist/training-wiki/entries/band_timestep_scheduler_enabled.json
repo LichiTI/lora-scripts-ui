@@ -1,0 +1,23 @@
+{
+  "key": "band_timestep_scheduler_enabled",
+  "title": "Band Timestep Scheduler（频带时间步调度器）",
+  "category": "前沿储备 / 训练",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "（实验性）基于小波分析的自适应时间步采样器：对每个训练样本动态计算其高/低频能量，并据此调整时间步采样分布，使高频细节丰富的图像获得更多高频对应的噪声步训练。",
+    "effect": "对高频丰富的图像（纹理细腻）增加高噪声步的采样概率，让模型为该图像多学习细节方向的去噪；低频主导的图像（大色块）多采样低噪声步。",
+    "whenToUse": "数据集高频/低频内容差异较大时（如同时包含线稿和照片）可以尝试，让训练自适应图像内容。实验性功能。",
+    "avoidWhen": "默认关闭。内容均匀的数据集（全是同风格图像）使用意义不大。"
+  },
+  "advanced": {
+    "principle": "对每张图像的 latent 做 DCT/小波变换，计算高频能量 E_high 和低频能量 E_low，以此调制时间步采样的偏置（类似 P2 weighting 但基于内容感知而非全局统计）。",
+    "tradeoffs": "每步额外的小波计算增加约 3~8% 的训练开销；对于 GPU-bound 训练此额外开销相对不明显。"
+  },
+  "relatedConfigs": [
+    "anima_weighting_scheme",
+    "p2_weighting_enabled",
+    "scale_guidance_mode"
+  ]
+}

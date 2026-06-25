@@ -1,0 +1,23 @@
+{
+  "key": "ac_clip_drift_consecutive",
+  "title": "CLIP 漂移连续触发次数",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "连续多少步 CLIP 漂移超过危险阈值才触发干预。默认 5。",
+    "effect": "防止偶发的 CLIP 分数波动误触发干预，要求持续异常才响应。",
+    "whenToUse": "默认 5 适合大多数场景。训练 batch 较小时 CLIP 分数波动更大，可适当增大到 8~10。",
+    "avoidWhen": "不建议设为 1（太容易误触发）。"
+  },
+  "advanced": {
+    "principle": "维护连续超阈值计数器，正常步归零，超阈值递增，达到阈值才触发干预。",
+    "tradeoffs": "值越大越稳健，但检测延迟越长；实际触发时已经连续多步异常，可能已有一定偏移。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_clip_drift_danger",
+    "ac_clip_drift_warning"
+  ]
+}

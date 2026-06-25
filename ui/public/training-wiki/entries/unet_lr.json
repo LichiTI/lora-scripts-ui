@@ -1,0 +1,28 @@
+{
+  "key": "unet_lr",
+  "title": "UNet/DiT 学习率",
+  "category": "训练 / 学习率",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "network_module_lr"
+  ],
+  "standard": {
+    "summary": "单独设置 UNet（或 DiT）的学习率，与文本编码器的学习率分开控制。",
+    "effect": "设置后总 learning_rate 对 UNet 失效。允许 UNet 和 TE 使用不同步长，常见配置是 UNet LR > TE LR（因为 UNet 是主要学习目标）。",
+    "whenToUse": "希望分别控制 UNet 和 TE 学习节奏时使用。典型：UNet LR=1e-4，TE LR=5e-5。",
+    "avoidWhen": "不需要差异化控制时，只设总 learning_rate 即可。同时设置两者会使总 LR 失效。"
+  },
+  "advanced": {
+    "principle": "通过 param_groups 对不同模块设置独立 lr，允许 optimizer 对 UNet 和 TE 参数使用不同步长。",
+    "tradeoffs": "如果 TE LR 过高，TE 的语义理解会偏离预训练，导致推理时文本控制力下降。"
+  },
+  "relatedConfigs": [
+    "learning_rate",
+    "text_encoder_lr",
+    "lr_scheduler"
+  ]
+}

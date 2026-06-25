@@ -1,0 +1,27 @@
+{
+  "key": "cooldown_minutes",
+  "title": "GPU 温控冷却",
+  "category": "速度 / GPU 管理",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "cooldown_poll_seconds",
+    "cooldown_until_temp_c"
+  ],
+  "standard": {
+    "summary": "在训练过程中，若 GPU 温度超过阈值则暂停 N 分钟等待冷却，防止持续高温损坏 GPU。",
+    "effect": "cooldown_until_temp_c = 降到此温度后才恢复训练；poll_seconds = 每隔多少秒检查一次温度；minutes = 最大等待时间（超过后强制继续）。",
+    "whenToUse": "GPU 温度经常超过 85°C 的训练环境（散热不良、超频显卡）推荐设置保护。",
+    "avoidWhen": "GPU 温度正常（<80°C）或有良好散热时无需设置，徒增训练时间。"
+  },
+  "advanced": {
+    "principle": "通过 nvidia-smi 轮询 GPU 温度，超过阈值时调用 time.sleep 暂停训练步骤。cooldown_until_temp_c 比 cooldown_minutes 更精准（基于实际温度），两者可以一起设置（哪个条件先满足就继续）。",
+    "tradeoffs": "频繁冷却暂停会显著延长总训练时间；建议先改善散热条件（清灰、增加机箱风扇）再依赖软件温控。"
+  },
+  "relatedConfigs": [
+    "gpu_lock_clocks_mhz",
+    "gpu_target_temp_c"
+  ]
+}

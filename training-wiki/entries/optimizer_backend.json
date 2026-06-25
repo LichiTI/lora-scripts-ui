@@ -1,0 +1,24 @@
+{
+  "key": "optimizer_backend",
+  "title": "优化器后端",
+  "category": "训练 / 优化器",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "AdamW 路线的实现档位：auto（自动检测最优）、fused（CUDA fused 最快）、foreach（批处理，次快）、bnb（bitsandbytes 量化）。",
+    "effect": "fused ≈ 1.8ms/step；foreach ≈ 5ms/step；bnb ≈ 36ms/step（8bit 省显存但慢）。compiled_step = torch.compile 包装任意优化器 step。",
+    "whenToUse": "auto 在大多数情况下自动选择最优。显存极紧时用 bnb；追求极致速度时用 fused（需 CUDA）。",
+    "avoidWhen": "compiled_step 是实验性功能，首次编译慢且可能在某些优化器上失败（有自动回退）。"
+  },
+  "advanced": {
+    "principle": "fused：将 AdamW 多个 kernel 合并为一次 CUDA launch，减少 kernel 发射开销；foreach：向量化遍历所有参数，比逐参数循环快约 3×；compiled_step：torch.compile 将整个 step 编译为 TorchScript/Triton kernel。",
+    "tradeoffs": "fused 要求 CUDA 且不支持所有 tensor dtype；bnb 8bit 对 LoRA 小权重量化误差相对大，可能影响精细收敛。"
+  },
+  "relatedConfigs": [
+    "optimizer_type",
+    "compile_runtime"
+  ]
+}

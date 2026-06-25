@@ -1,0 +1,29 @@
+{
+  "key": "tlora_rank_schedule",
+  "title": "T-LoRA（张量环 LoRA）",
+  "category": "LoRA 变体 / 张量",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "tlora_min_rank",
+    "tlora_orthogonal_init"
+  ],
+  "standard": {
+    "summary": "（实验性）T-LoRA（Tensor-Ring LoRA）：使用张量环分解替代标准矩阵分解，在参数量不变的情况下增加 LoRA 的隐式秩。",
+    "effect": "tlora_rank_schedule 控制不同训练阶段的有效 rank（如从高 rank 逐渐降低）；tlora_orthogonal_init 使用正交初始化提升训练稳定性。",
+    "whenToUse": "实验性功能。追求比标准 LoRA 更高的参数效率（相同参数量 → 更高隐式秩）时尝试。",
+    "avoidWhen": "默认关闭。张量环分解的前向计算比标准 LoRA 更复杂，且推理时需要专门支持。"
+  },
+  "advanced": {
+    "principle": "张量环（Tensor Ring）分解：W ≈ Tr(G_1, G_2, ..., G_k)，通过闭环收缩多个三阶张量核来表示权重矩阵。隐式秩 = 各核维度的乘积，远超标准 LoRA 的显式 rank。",
+    "tradeoffs": "张量环计算比矩阵乘法更复杂（多次收缩），训练速度可能慢 2~3×；但参数效率理论上更高，适合参数量受限的场景。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "network_alpha",
+    "krona_enabled",
+    "cdka_enabled"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "max_token_length",
+  "title": "最大 Token 长度",
+  "category": "Caption / 编码",
+  "appliesTo": ["sdxl-lora", "sd-lora", "finetune"],
+  "layers": ["文本编码器层"],
+  "standard": {
+    "summary": "限制文本编码器的最大 token 数量。CLIP 原生限制 77 token；Lulynx 通过分段编码支持更长文本，max_token_length 控制上限。",
+    "effect": "SD1.5 默认 225（3×75 token）；SDXL 默认无额外限制。设太大会增加 TE 计算时间和显存。",
+    "whenToUse": "caption 较长（自然语言描述）时适当增大。使用短 tag 时默认值足够。",
+    "avoidWhen": "不要设得比实际 caption 长度大太多——浪费显存。"
+  },
+  "advanced": {
+    "principle": "CLIP 的单次前向最多处理 77 token（含 BOS/EOS）。Lulynx 将长文本分成多个 75-token chunk（不含 BOS/EOS），分别编码后拼接。max_token_length=225 表示最多 3 个 chunk。SDXL 使用两个 TE（CLIP-L + CLIP-G），拼接方式不同。",
+    "intervention": "在 tokenize 后截断到 max_token_length，然后分段 encode。",
+    "expectedImpact": "长 caption 场景下保留更多文本信息。对短 tag 无影响。",
+    "tradeoffs": "enable_fixed_token_padding 强制 pad 到固定长度，配合 torch.compile 的 static shape 需求。",
+    "codePath": "trainer.py:encode_prompt() → tokenize → chunk → encode → concat"
+  },
+  "relatedConfigs": ["clip_skip", "cache_text_encoder_outputs", "enable_fixed_token_padding"]
+}

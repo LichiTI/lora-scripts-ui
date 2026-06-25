@@ -1,0 +1,36 @@
+{
+  "key": "conditioning_data_dir",
+  "title": "条件化数据目录",
+  "category": "训练 / 条件化",
+  "appliesTo": [
+    "sdxl-lora",
+    "anima-lora"
+  ],
+  "aliases": [
+    "controlnet_model_name_or_path",
+    "control_net_lr",
+    "model_to_condition_enabled",
+    "diff_target_name",
+    "target_image_path",
+    "target_prompt",
+    "original_image_path",
+    "original_prompt",
+    "dop_weight",
+    "dpo_weight"
+  ],
+  "standard": {
+    "summary": "条件化训练相关设置：conditioning_data_dir 包含条件图像（如边缘图、深度图）；controlnet_model_name_or_path 指定 ControlNet 模型路径；diff 系列参数用于差异对比训练。",
+    "effect": "条件化训练允许同时学习原始概念和条件化生成（如同时学习角色外观和对应的边缘图条件）。dop_weight/dpo_weight 控制不同目标的损失权重。",
+    "whenToUse": "需要训练 ControlNet LoRA 或条件化 LoRA 时使用。大多数标准 LoRA 训练不需要条件化数据。",
+    "avoidWhen": "不需要条件化生成时不要设置（增加复杂度和计算量）。"
+  },
+  "advanced": {
+    "principle": "ControlNet LoRA 在标准 LoRA 基础上额外学习条件化控制：condition_image → ControlNet encoder → 条件特征注入 UNet/DiT。diff_target 系列用于\"差分微调\"（PALP/Custom Diffusion 等方法的实现）：对比 target（新概念）和 original（基础概念），只保留差异方向的更新。",
+    "tradeoffs": "条件化训练需要额外准备条件图像数据集（与训练图像对应的边缘图/深度图等），数据准备工作量是主要障碍。"
+  },
+  "relatedConfigs": [
+    "pretrained_model_name_or_path",
+    "network_dim",
+    "learning_rate"
+  ]
+}

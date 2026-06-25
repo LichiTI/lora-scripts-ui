@@ -1,0 +1,36 @@
+{
+  "key": "concept_edit_mode",
+  "title": "Concept Edit 模式",
+  "category": "训练 / 概念编辑",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "concept_edit_data_dir",
+    "concept_edit_diff_alt_ratio",
+    "concept_edit_fixed_timestep_per_batch",
+    "concept_edit_use_diff_mask",
+    "concept_geometry_compute_backend",
+    "concept_geometry_density_power",
+    "concept_geometry_loss_weighting",
+    "concept_geometry_path",
+    "concept_geometry_sampler_mode",
+    "concept_geometry_semantic_enabled",
+    "concept_geometry_translation_enabled"
+  ],
+  "standard": {
+    "summary": "概念编辑训练模式：在保留模型其他能力的同时，针对性地修改或替换特定概念（如修改特定角色外观、移除特定风格倾向）。",
+    "effect": "concept_edit_mode 选择编辑策略：diff_mask = 只修改概念差异区域；fixed_timestep = 固定时间步训练特定概念。geometry 相关参数控制基于 3D/几何感知的概念编辑（利用深度/法线图信息）。",
+    "whenToUse": "实验性高级功能。需要精确编辑现有概念（而非简单添加新概念）时使用。",
+    "avoidWhen": "普通 LoRA 训练（添加新角色/风格）不需要使用概念编辑模式，复杂度高收益有限。"
+  },
+  "advanced": {
+    "principle": "概念编辑通过构建\"原始概念\"和\"目标概念\"的对比损失，引导模型在保留其他语义的同时，只修改目标概念方向的表征。geometry_path 提供 3D/几何先验（如深度图），使编辑更符合 3D 一致性。",
+    "tradeoffs": "概念编辑需要精心准备原始/目标对比数据集；geometry 功能需要额外的深度/法线图数据，准备工作量较大。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "learning_rate"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "key": "ac_early_stopping_patience",
+  "title": "早停耐心值",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "loss 在多少次连续评估窗口内没有改善就触发早停。默认 5。",
+    "effect": "patience=5 表示允许连续 5 个评估窗口（每窗口 ac_loss_plateau_window 步）没有改善才停止。",
+    "whenToUse": "训练初期 loss 波动大时建议设为 8~10；稳定训练可保持 5。",
+    "avoidWhen": "不建议设为 1~2（太容易误触发）。"
+  },
+  "advanced": {
+    "principle": "统计连续未改善评估次数，超过 patience 触发。每次 loss 有改善时计数器归零。",
+    "tradeoffs": "与 loss_plateau_window 乘积决定总容忍步数：patience=5, window=50 → 250 步无改善才停止。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_enable_smart_early_stopping",
+    "ac_early_stopping_threshold",
+    "ac_loss_plateau_window"
+  ]
+}

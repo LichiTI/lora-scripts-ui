@@ -1,0 +1,21 @@
+{
+  "key": "save_state",
+  "title": "保存训练状态",
+  "category": "保存 / 恢复",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["输出层"],
+  "standard": {
+    "summary": "除了保存模型权重外，还保存完整的训练状态（optimizer state、step、epoch、scheduler state 等），用于从断点恢复训练。",
+    "effect": "save_state=True 时在每次 save checkpoint 时额外保存 optimizer/scheduler/rng state。恢复时用 resume_path 指向状态目录。",
+    "whenToUse": "长训练且可能中途中断时。需要精确恢复训练状态时。",
+    "avoidWhen": "磁盘空间紧张时（状态文件可能比模型文件还大，因为包含 optimizer state）。"
+  },
+  "advanced": {
+    "principle": "state 包含：(1) optimizer.state_dict()（包括 m_t 和 v_t）；(2) scheduler.state_dict()；(3) torch.random.get_rng_state()；(4) CUDA rng state。resume 时按顺序恢复这些状态，确保从断点继续训练的行为与不间断训练一致。",
+    "intervention": "checkpoint_manager 在 save_model 后额外 torch.save(state_dict, path)。",
+    "expectedImpact": "确保 resume 后的训练行为与不间断训练完全一致。",
+    "tradeoffs": "save_state_on_train_end 在训练正常结束时也保存状态。save_last_n_epochs_state/save_last_n_steps_state 控制保留多少个历史状态。",
+    "codePath": "training_loop.py:save_state() → torch.save(optimizer + scheduler + rng state)"
+  },
+  "relatedConfigs": ["resume_path", "save_state_on_train_end", "save_last_n_epochs_state", "save_every_n_epochs"]
+}

@@ -1,0 +1,33 @@
+{
+  "key": "sync_config_from_main",
+  "title": "配置同步（主仓库）",
+  "category": "训练 / 配置管理",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "sync_asset_keys",
+    "sync_config_keys_from_main",
+    "sync_main_repo_dir",
+    "sync_main_toml",
+    "sync_missing_assets_from_main",
+    "sync_ssh_password",
+    "sync_ssh_port",
+    "sync_ssh_user",
+    "sync_use_password_auth"
+  ],
+  "standard": {
+    "summary": "从主训练仓库同步配置和资产（如数据集、基础模型路径）到当前训练环境，支持本地路径或 SSH 远程同步。",
+    "effect": "开启后会从 sync_main_repo_dir（本地）或 SSH 远程拉取 sync_main_toml 中指定的配置字段和文件资产，覆盖本地配置。",
+    "whenToUse": "多机训练或团队协作时，通过配置同步确保各机器使用一致的训练配置。",
+    "avoidWhen": "单机训练或本地配置已经完整时无需使用同步功能。"
+  },
+  "advanced": {
+    "principle": "本地同步通过文件系统直接复制；SSH 同步通过 Paramiko/fabric 连接远程机器，sync_asset_keys 指定需要同步的具体配置键列表，sync_missing_assets_from_main 自动发现并同步主仓库有但本地缺失的资源文件。",
+    "tradeoffs": "SSH 同步需要远程机器的访问权限（密码/密钥），sync_ssh_password 明文存储在配置中有安全风险，建议改用密钥认证（use_password_auth=false）。"
+  },
+  "relatedConfigs": [
+    "output_dir",
+    "train_data_dir"
+  ]
+}

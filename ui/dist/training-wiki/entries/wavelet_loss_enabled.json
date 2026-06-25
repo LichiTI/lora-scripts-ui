@@ -1,0 +1,21 @@
+{
+  "key": "wavelet_loss_enabled",
+  "title": "小波频率 Loss",
+  "category": "正则 / Loss",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["Loss 层"],
+  "standard": {
+    "summary": "在标准 loss 基础上额外计算小波变换（DWT）频率域的 loss，让模型更关注高频细节（发丝、纹理、边缘）。",
+    "effect": "wavelet_loss_levels=2 做 2 级 DWT 分解，high_freq_weight=2.0 让高频子带（LH/HL/HH）的 loss 权重翻倍。约增加 15% 计算开销。",
+    "whenToUse": "追求细节质量（纹理、毛发、文字）时。标准 loss 训练后细节不够锐利时。",
+    "avoidWhen": "训练初期（先用标准 loss 确认基本训练正常）。低分辨率训练（<512px 时高频信息本就很少）。"
+  },
+  "advanced": {
+    "principle": "对 pred 和 target 做 2D DWT（Haar 小波），得到 LL（低频近似）、LH（水平细节）、HL（垂直细节）、HH（对角细节）四个子带。分别计算每个子带的 loss，加权求和。wavelet_loss_base_loss 控制子带内用的 loss 函数（l2 或 l1）。",
+    "intervention": "training_step 中 loss 计算后叠加 wavelet loss。",
+    "expectedImpact": "高频细节改善明显（发丝、织物纹理）。可能略微降低整体构图稳定性。",
+    "tradeoffs": "与 min_snr_gamma 组合效果更好。wavelet_loss_approx_weight 控制 LL 子带权重（通常设 0 因为标准 loss 已覆盖）。",
+    "codePath": "training_loop.py:wavelet_loss(pred, target, levels, high_freq_weight) → add to main loss"
+  },
+  "relatedConfigs": ["wavelet_loss_levels", "wavelet_loss_high_freq_weight", "wavelet_loss_base_loss", "pattern_loss_enabled"]
+}

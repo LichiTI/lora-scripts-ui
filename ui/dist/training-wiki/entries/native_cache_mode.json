@@ -1,0 +1,21 @@
+{
+  "key": "native_cache_mode",
+  "title": "DiT 缓存模式",
+  "category": "DiT / 缓存",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["数据层", "缓存层"],
+  "standard": {
+    "summary": "控制 Anima/Newbie DiT 模型的 latent 缓存策略。DiT 模型的 VAE encode 比 UNet 更昂贵，缓存策略对训练速度影响巨大。",
+    "effect": "cache_first 先全量缓存再训练（最快但需磁盘空间）；online_cache 边训练边缓存；raw_online 不缓存直接训练（最慢）。",
+    "whenToUse": "cache_first 是大数据集的首选。磁盘空间不足时用 online_cache。",
+    "avoidWhen": "trust_cache=True 会跳过缓存指纹校验——只在确认缓存与数据一致时使用。"
+  },
+  "advanced": {
+    "principle": "DiT 的 VAE 通常是大型 autoencoder（如 FLUX AE），encode 一张 1024px 图片需要数百毫秒。cache_first 在训练前遍历所有图片做 VAE encode 并写入磁盘。训练时直接从磁盘加载 latent，跳过 VAE。rebuild_cache 强制重建所有缓存。",
+    "intervention": "trainer.py 在 setup 阶段根据 cache_mode 决定缓存行为。",
+    "expectedImpact": "cache_first 可让训练速度提升 2-5 倍（跳过 VAE encode）。",
+    "tradeoffs": "anima_cache_mode 是 native_cache_mode 的 Anima 专用别名。",
+    "codePath": "trainer.py:cache_mode dispatch → cache_first/online_cache/raw_online/rebuild_cache"
+  },
+  "relatedConfigs": ["cache_latents", "cache_latents_to_disk", "latent_cache_disk_format", "trust_cache"]
+}

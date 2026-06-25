@@ -1,0 +1,32 @@
+{
+  "key": "max_bucket_reso",
+  "title": "Bucket 最大分辨率",
+  "category": "数据集 / 分辨率",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "min_bucket_reso",
+    "num_vectors_per_token",
+    "training_comment",
+    "ephemeral_preview_pipeline",
+    "preview_device",
+    "preview_groups"
+  ],
+  "standard": {
+    "summary": "Bucket 训练的分辨率范围：max_bucket_reso 设置最大分辨率（超过的图像不会放入更大的桶而是缩小）；min_bucket_reso 设置最小分辨率（低于的图像按需放大或丢弃）。",
+    "effect": "限制分辨率范围可以控制训练的显存使用上限（max）和确保训练分辨率不会过低（min）。",
+    "whenToUse": "max_bucket_reso 在数据集包含超高分辨率图像时防止 OOM；min_bucket_reso 在数据集包含低分辨率图像时避免无效训练。",
+    "avoidWhen": "与 resolution（全局目标分辨率）重复设置时，max/min 是 bucket 分组的上下界，resolution 是理想桶面积目标，两者共同约束。"
+  },
+  "advanced": {
+    "principle": "Bucket 算法在 [min_bucket_reso, max_bucket_reso] 范围内枚举所有可能的 bucket 尺寸，步长为 bucket_reso_steps。超出范围的图像会被缩放到范围边界最近的 bucket。",
+    "tradeoffs": "max/min 设置过紧（范围太小）会导致大量图像被强制缩放（偏离原始比例），可能影响训练质量。"
+  },
+  "relatedConfigs": [
+    "enable_bucket",
+    "resolution",
+    "bucket_reso_steps"
+  ]
+}

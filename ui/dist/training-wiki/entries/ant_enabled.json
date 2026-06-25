@@ -1,0 +1,25 @@
+{
+  "key": "ant_enabled",
+  "title": "ANT（自适应噪声训练）",
+  "category": "前沿储备 / 训练",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "ant_blend"
+  ],
+  "standard": {
+    "summary": "（实验性）ANT（Adaptive Noise Training）：在训练噪声中加入来自数据集的可学习对抗噪声，使模型更鲁棒。",
+    "effect": "开启后，训练噪声不再是纯高斯，而是混合了少量从数据集统计量派生的\"对抗方向\"噪声，提升模型对相关分布的鲁棒性。",
+    "whenToUse": "实验性功能，适合研究对比。ant_blend 控制对抗噪声的混合比例（0.0~1.0）。",
+    "avoidWhen": "默认关闭。普通 LoRA 训练无需开启。"
+  },
+  "advanced": {
+    "principle": "ANT 在噪声采样时混合 ε_gaussian 和 ε_adaptive（基于数据集梯度方向的噪声），比例由 ant_blend 控制。对抗噪声让模型被迫对更难的噪声方向进行去噪，提升泛化性。",
+    "tradeoffs": "对抗噪声的计算需要额外的 forward pass 来估计数据方向，增加约 20%~50% 的计算量。效果在大数据集上更显著。"
+  },
+  "relatedConfigs": [
+    "noise_offset",
+    "anima_weighting_scheme"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "key": "loss_scheduler_ema_alpha",
+  "title": "Loss 调度器平滑系数",
+  "category": "训练 / Loss 调度器",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "loss_scheduler_min_delta",
+    "loss_scheduler_relative_delta",
+    "loss_scheduler_patience",
+    "loss_scheduler_cooldown",
+    "loss_scheduler_max_hold_steps",
+    "loss_scheduler_late_gamma",
+    "loss_scheduler_lock_weight_threshold",
+    "loss_scheduler_min_advance_ratio"
+  ],
+  "standard": {
+    "summary": "Loss 门控余弦（loss_gated_cosine）/ Loss 加权退火余弦（loss_weighted_annealed_cosine）调度器的 EMA 平滑系数，控制 loss 平滑度以过滤 batch 抖动。",
+    "effect": "值越大（接近 1）= 对 loss 波动越不敏感，需要持续更长时间的下降才视为\"有效下降\"；值越小 = 响应更快但容易被噪声影响。",
+    "whenToUse": "配合 loss_gated_cosine 或 loss_weighted_annealed_cosine 调度器使用，让调度器的「进退」决策基于平滑后的 loss，而非单步噪声。",
+    "avoidWhen": "使用其他调度器（cosine_with_restarts / linear 等）时这些参数均无效。"
+  },
+  "advanced": {
+    "principle": "loss_ema = ema_alpha × loss_ema + (1-ema_alpha) × current_loss，用平滑 loss 替代原始 loss 做调度决策。min_delta / relative_delta 定义\"有效下降\"的阈值；patience 是连续多少次无效下降才推进余弦相位；cooldown 防止来回抖动；max_hold_steps 限制最长锁定时间。",
+    "tradeoffs": "参数组合较多，调整时建议一次只改一个参数观察效果。loss_gated_cosine 比 cosine_with_restarts 更复杂但对 loss 收敛的响应更精准。"
+  },
+  "relatedConfigs": [
+    "lr_scheduler",
+    "learning_rate"
+  ]
+}

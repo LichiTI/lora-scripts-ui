@@ -1,0 +1,24 @@
+{
+  "key": "lora_target_linear",
+  "title": "LoRA 目标线性层",
+  "category": "LoRA / 网络结构",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "是否将 LoRA 注入所有线性层（包括 MLP 的 fc1/fc2）。开启后注入面更广，表达力更强。",
+    "effect": "默认 False = 只注入注意力层（Q/K/V/Out）；True = 同时注入 MLP 的全连接层，参数量大幅增加。",
+    "whenToUse": "复杂概念/多角色训练时开启，以获得更强的表达力。简单风格 LoRA 可保持 False。",
+    "avoidWhen": "显存紧张时，注入 MLP 线性层会显著增加参数量和显存。"
+  },
+  "advanced": {
+    "principle": "遍历模型所有 nn.Linear 层（而非只有 attention projection），为每个线性层添加 LoRA 旁路。MLP 层的激活函数位于线性层之间，不受 LoRA 影响。",
+    "tradeoffs": "注入 MLP 可以捕获特征空间的变化，不只是注意力路径，但参数量约增加 2~3 倍。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "network_module"
+  ]
+}

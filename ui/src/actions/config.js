@@ -3,6 +3,7 @@
 //   syncConfigState / refreshFieldHighlights / getPresetLabel /
 //   updateConfigValue / resetFieldValue / undoFieldValue /
 //   resetAllParams / applyPreset
+import { OPTIMIZER_ARG_TEMPLATES } from '../features/optimizerParams.js';
 //
 // 依赖（工厂注入）：state, getFieldDefinition, normalizeDraftValue,
 //   createDefaultConfig, CONDITIONAL_KEYS,DRAFT_STORAGE_KEY,
@@ -91,7 +92,7 @@ updateJSONPreview,
     return `预设 ${index + 1}`;
   }
 
-  function updateConfigValue(key, rawValue) {
+  async function updateConfigValue(key, rawValue) {
     const field = getFieldDefinition(key);
     const normalizedValue = normalizeDraftValue(field, rawValue);
     const previousValue = state.config[key];
@@ -100,6 +101,28 @@ updateJSONPreview,
     }
     state.config[key] = normalizedValue;
     enforceLycorisDoraSafety();
+
+    if (key === 'optimizer_type') {
+      const prevKey = String(previousValue ?? '').trim().toLowerCase();
+      const nextKey = String(normalizedValue ?? '').trim().toLowerCase();
+      if (prevKey !== nextKey) {
+        const prevTemplate = OPTIMIZER_ARG_TEMPLATES[prevKey] || '';
+        const nextTemplate = OPTIMIZER_ARG_TEMPLATES[nextKey] || '';
+        const current = String(state.config.optimizer_args_custom ?? '').trim();
+        if (!current || current === prevTemplate) {
+          state.config.optimizer_args_custom = nextTemplate;
+        }
+      }
+    }
+
+    // Model architecture detection for model path fields
+    if (key === 'pretrained_model_name_or_path' && normalizedValue) {
+      // Import validation function dynamically
+      if (window.validateModelSelection) {
+        await window.validateModelSelection(normalizedValue, key);
+      }
+    }
+
     if (CONDITIONAL_KEYS.has(key) && state.activeModule === 'config') {
       saveDraft();
       renderView('config');

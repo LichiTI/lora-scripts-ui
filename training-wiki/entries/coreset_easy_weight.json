@@ -1,0 +1,25 @@
+{
+  "key": "coreset_easy_weight",
+  "title": "Coreset 数据重要性采样",
+  "category": "数据集 / 采样",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "coreset_hard_weight"
+  ],
+  "standard": {
+    "summary": "（实验性）Coreset 采样：根据数据点对训练的\"难易度\"（loss 大小）差异化采样。hard 样本（loss 高）被采样更多次；easy 样本（loss 低）被采样更少次。",
+    "effect": "coreset_hard_weight 控制高 loss（难样本）的相对采样权重；easy_weight 控制低 loss（易样本）权重。有助于让训练聚焦于模型还未充分学习的样本。",
+    "whenToUse": "实验性功能。数据集质量参差不齐（部分样本 loss 持续高）时可以用 coreset 提高对困难样本的关注度。",
+    "avoidWhen": "数据集很小（<30张）时 loss 统计不稳定，coreset 权重误差大。loss 高的样本不一定是\"重要\"样本，可能是标注质量差的样本（此时增加采样反而有害）。"
+  },
+  "advanced": {
+    "principle": "Coreset 维护每个样本的历史 loss EMA，在 DataLoader 采样时按 loss 加权（高 loss → 高权重 → 更频繁采样）。hard_weight/easy_weight 控制高/低 loss 样本的相对采样倍率比。",
+    "tradeoffs": "Coreset 改变了数据集的采样分布（不再是均匀 i.i.d.），与标准 ERM（经验风险最小化）有理论偏差。对于小数据集 LoRA，数据多样性比重要性采样更重要。"
+  },
+  "relatedConfigs": [
+    "train_data_dir",
+    "caption_tag_dropout_rate"
+  ]
+}

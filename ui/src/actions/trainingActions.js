@@ -3,6 +3,9 @@
 //
 // 依赖较多，均通过工厂注入。保持零行为变更。
 
+import { getTaskId, isTaskActive, isTaskQueued } from '../utils/taskStatus.js';
+import { attachBubbleClosedLoopActionHistory } from '../utils/bubbleClosedLoopEvidence.js';
+
 export function createTrainingActions({
   state,
   api,
@@ -22,7 +25,15 @@ export function createTrainingActions({
   refreshTrainingLog,
   startTrainingLogPolling,
   startSysMonitorPolling,
-}) {
+  }) {
+  const placeholderTrainingTypes = new Map([
+    ['lumina-lora', 'Lumina LoRA'],
+    ['lumina-finetune', 'Lumina Finetune'],
+    ['qwen-image-lora', 'Qwen Image LoRA'],
+    ['hunyuan-dit-lora', 'HunyuanDiT LoRA'],
+    ['hunyuan-image-lora', 'HunyuanDiT LoRA'],
+  ]);
+
   function switchToTrainingMonitor() {
     state.activeModule = 'training';
     state.trainSubTab = 'monitor';
@@ -44,6 +55,7 @@ export function createTrainingActions({
     const loraType = String(c.lora_type || '').trim().toLowerCase();
     const optimizerText = `${c.optimizer_type || ''} ${c.optimizer || ''}`.toLowerCase();
     const routeText = String((tt || '') + ' ' + (c.model_train_type || '')).toLowerCase();
+    const isAnimaRoute = routeText.includes('anima');
     const isNativeDitSelectiveRoute = routeText.includes('anima') || routeText.includes('newbie');
     const swapGranularity = String(c.swap_granularity || 'off').trim().toLowerCase().replace('-', '_');
     const validSwapGranularities = new Set(['off', 'auto', 'block', 'merged_block', 'layer']);
@@ -73,9 +85,9 @@ export function createTrainingActions({
       'networks.tlora',
       'networks.lora_flux',
       'networks.tlora_flux',
-      'networks.lora_sd3',
       'networks.lora_lumina',
-      'networks.lora_hunyuan_image',
+      'networks.lora_qwen_image',
+      'networks.lora_hunyuan_dit',
       'networks.lora_anima',
       'networks.tlora_anima',
     ]);
@@ -247,21 +259,26 @@ export function createTrainingActions({
     }
 
     // 14. Flow Matching 参数校验
+    if (placeholderTrainingTypes.has(tt)) {
+      errors.push(`${placeholderTrainingTypes.get(tt)} 当前只是轻量选择入口，训练核心尚未接入。可以先保存配置，暂不能直接启动训练。`);
+    }
+
+    // 15. Flow Matching 参数校验
     if (flowEnabled && toBool(c.v_parameterization)) {
       errors.push('Flow Matching 不能与「V 参数化」同时开启。请二选一。');
     }
 
-    // 15. 对比 Flow Matching 依赖 Rectified Flow
+    // 16. 对比 Flow Matching 依赖 Rectified Flow
     if (toBool(c.contrastive_flow_matching) && !flowEnabled) {
       errors.push('启用「对比 Flow Matching」前，必须先开启「Rectified Flow」。');
     }
 
-    // 16. RF logit-normal 标准差必须大于 0
+    // 17. RF logit-normal 标准差必须大于 0
     if (flowEnabled && timestepSampling === 'logit_normal' && toNum(c.flow_logit_std) <= 0) {
       errors.push('RF Logit Std 必须大于 0。');
     }
 
-    // 17. RF 固定偏移比率不能小于 0
+    // 18. RF 固定偏移比率不能小于 0
     if (flowEnabled && c.flow_uniform_static_ratio !== '' && c.flow_uniform_static_ratio != null && toNum(c.flow_uniform_static_ratio) < 0) {
       errors.push('RF 固定偏移比率不能小于 0。');
     }
@@ -282,6 +299,7 @@ export function createTrainingActions({
   async function executeTraining() {
     state.loading.run = true;
     const runConfig = buildRunConfig(state.config, state.activeTrainingType);
+    attachBubbleClosedLoopActionHistory(runConfig, state.tasks, state.taskSummaries, 3);
     const launchMetadata = buildTaskMetadataFromConfig(runConfig, state.activeTrainingType);
     const labLaunchApi = getLabLaunchApi(state.activeTrainingType);
     syncFooterAction();
@@ -347,15 +365,22 @@ export function createTrainingActions({
       trainingLaunched = true;
 
       state.trainingFailed = false;
-      state.lastMessage = response.message || (labLaunchApi ? '实验训练任务已提交。' : '训练已启动。');
+      const responseData = response?.data || {};
+      const responseQueued = isTaskQueued(responseData?.status || responseData?.native_status);
+      state.lastMessage = response.message || (responseQueued ? '训练已加入队列。' : (labLaunchApi ? '实验训练任务已提交。' : '训练已启动。'));
       showToast(state.lastMessage);
       resetTrainingMetrics();
-      const responseTaskId = response?.data?.task_id || response?.data?.id || '';
-      if (response?.data?.execution_profile_id) {
-        launchMetadata.execution_profile_id = response.data.execution_profile_id;
+      const responseTaskId = responseData.task_id || responseData.id || responseData.run_id || '';
+      if (responseData.execution_profile_id) {
+        launchMetadata.execution_profile_id = responseData.execution_profile_id;
       }
-      if (response?.data?.resolved_attention_backend) {
-        launchMetadata.attention_backend = response.data.resolved_attention_backend;
+      if (responseData.resolved_attention_backend) {
+        launchMetadata.attention_backend = responseData.resolved_attention_backend;
+      }
+      if (responseQueued) {
+        launchMetadata.queue_position = responseData.queue_position;
+        launchMetadata.queue_depth = responseData.queue_depth;
+        launchMetadata.queue_message = responseData.message || '';
       }
       if (responseTaskId) state.activeTrainingTaskId = responseTaskId;
       if (responseTaskId) rememberTrainingTaskMetadata(responseTaskId, launchMetadata);
@@ -365,12 +390,12 @@ export function createTrainingActions({
       const freshTasks = tasksResponse?.data?.tasks || [];
       const localHistory = await loadLocalTaskHistory();
       for (const t of freshTasks) {
-        // 为刚启动的新任务注入元数据，后端 dump 只返回 id/status/returncode
-        // 对 RUNNING 任务且缺少 output_name 的注入元数据（新任务 or 之前漏注入的）
-        if (t.status === 'RUNNING') {
-          const meta = getPendingTrainingMetadata(t.id) || (!state.activeTrainingTaskId ? launchMetadata : null);
+        // 为刚提交的新任务注入元数据，queued/running 都属于前端可见的活跃训练。
+        if (isTaskActive(t)) {
+          const taskId = getTaskId(t);
+          const meta = getPendingTrainingMetadata(taskId) || (!state.activeTrainingTaskId ? launchMetadata : null);
           if (meta) {
-            if (!state.activeTrainingTaskId) rememberTrainingTaskMetadata(t.id, meta);
+            if (!state.activeTrainingTaskId) rememberTrainingTaskMetadata(taskId, meta);
             applyTaskMetadata(t, meta, { force: false });
           }
         }

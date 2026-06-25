@@ -1,0 +1,25 @@
+{
+  "key": "anima_ema_feat_align_enabled",
+  "title": "EMA 特征自蒸馏",
+  "category": "前沿储备 / Anima",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "anima_ema_feat_align_weight"
+  ],
+  "standard": {
+    "summary": "（实验性）使用 EMA 影子模型输出的特征作为教师信号，通过特征对齐 loss 约束主模型训练，类似知识蒸馏机制。",
+    "effect": "开启后增加一个辅助 loss：主模型特征与 EMA 影子模型特征之间的 MSE 对齐。有助于稳定训练，防止训练偏离 EMA 太远。",
+    "whenToUse": "实验性功能，适合研究探索。对特别长步数训练（>1000步）的稳定性有潜在收益。",
+    "avoidWhen": "默认关闭。普通 LoRA 训练无需开启，增加的辅助 loss 会改变训练动力学。"
+  },
+  "advanced": {
+    "principle": "维护一个 EMA 影子副本（decay=0.999），每步计算主模型和 EMA 模型在相同输入上的特征差（L2）作为 alignment_loss，权重 ema_feat_align_weight 控制其对总 loss 的影响。EMA 影子是一个\"滑动平均的稳定版本\"，作为教师引导主模型不要偏离太远。",
+    "tradeoffs": "额外的 EMA forward pass 增加约 50% 显存（EMA 副本需要存储所有参数）和约 20% 计算量。权重设置不当（过大）会过度约束主模型的学习速度。"
+  },
+  "relatedConfigs": [
+    "ema_enabled",
+    "ema_decay"
+  ]
+}

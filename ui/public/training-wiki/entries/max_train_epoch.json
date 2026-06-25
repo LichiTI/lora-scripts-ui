@@ -1,0 +1,21 @@
+{
+  "key": "max_train_epochs",
+  "title": "训练轮数 / 步数",
+  "category": "训练 / 控制",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "控制训练的总时长。max_train_epochs 按数据集遍历次数计；max_train_steps 按优化器更新次数计。两者设一个即可，另一个设为 0。",
+    "effect": "1 epoch = 遍历整个数据集一次。步数 = epoch × (数据集大小 / effective_batch)。",
+    "whenToUse": "小数据集（<50 张）通常 10-30 epochs。大数据集通常 1-5 epochs。用 max_train_steps 更精确。",
+    "avoidWhen": "不要同时设两者（max_train_steps > 0 会覆盖 epochs）。epoch 过多会过拟合。"
+  },
+  "advanced": {
+    "principle": "每 epoch 数据集被完整遍历一次（考虑 bucket 和 shuffle）。DataLoader 每 epoch 重新 shuffle。total_steps = epochs × ceil(dataset_size / effective_batch)。initial_epoch 和 initial_step 用于 resume 时跳过已完成的步数。",
+    "intervention": "training_loop 在 epoch/step 到达上限时退出循环。",
+    "expectedImpact": "直接决定训练的计算预算。不足则欠拟合，过多则过拟合。",
+    "tradeoffs": "save_every_n_epochs 和 validation_every_n_epochs 基于 epoch 触发。",
+    "codePath": "training_loop.py:for epoch in range(initial_epoch, max_train_epochs): → for step in dataloader:"
+  },
+  "relatedConfigs": ["max_train_steps", "initial_epoch", "initial_step", "skip_until_initial_step"]
+}

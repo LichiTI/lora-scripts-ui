@@ -1,0 +1,22 @@
+{
+  "key": "copilot_tool",
+  "title": "训练 Copilot 工具",
+  "category": "训练 / 辅助工具",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "goal_forecast_tool",
+    "ui_custom_params"
+  ],
+  "standard": {
+    "summary": "训练辅助工具：copilot 在训练过程中提供实时建议（如 LR 调整建议、过拟合预警）；goal_forecast 预测达到目标 loss 所需的额外步数；ui_custom_params 允许传递自定义 UI 参数。",
+    "effect": "copilot_tool 开启后，训练日志中会包含训练健康状态的诊断建议（基于当前 loss 趋势和梯度统计）。",
+    "whenToUse": "实验性功能，适合希望获得训练过程智能建议的场景。",
+    "avoidWhen": "这些工具增加监控开销，追求纯粹训练速度时关闭。"
+  },
+  "relatedConfigs": [
+    "advanced_stats_enabled",
+    "wandb_api_key"
+  ]
+}

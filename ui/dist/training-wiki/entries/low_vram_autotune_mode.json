@@ -1,0 +1,21 @@
+{
+  "key": "low_vram_autotune_mode",
+  "title": "Triton 低显存调优模式",
+  "category": "性能 / 内核",
+  "appliesTo": ["anima-lora", "newbie-lora", "flux-lora", "qwen-image-lora", "hunyuan-dit-lora", "hunyuan-image-lora"],
+  "layers": ["性能层"],
+  "standard": {
+    "summary": "给低显存卡一个显式的 Triton 保守模式，避免首步在线 autotune 把临时池顶爆。",
+    "effect": "off 保持现有 Triton 行为。conservative 会让支持的 fused LoRA / QKV / FFN 内核绕开在线 autotune，改用单一保守 launch config。",
+    "whenToUse": "8GB 或更紧张的显存卡，已经确认开启 Triton fused 路线但首步容易 OOM 时手动启用。",
+    "avoidWhen": "显存充足且追求最高吞吐时。conservative 主要是救峰值，不保证最快。"
+  },
+  "advanced": {
+    "principle": "Triton 在线 autotune 会在首个真实 shape 上尝试多组 kernel config，常见现象是第一步 temporary pool / reserved memory 突然抬高。该开关不会自动替用户判断显存，而是提供一个显式 opt-in：conservative 时直接跳过在线 autotune，使用预选的低峰值单配置。",
+    "intervention": "训练器在 Triton 注入阶段读取 low_vram_autotune_mode；conservative 会透传到 fused kernel 调用路径，切换到单配置 launch。",
+    "expectedImpact": "降低首步显存峰值和 temporary pool 暴涨概率，特别适合 8GB 卡。代价是部分 shape 下吞吐可能低于 autotune 最优配置。",
+    "tradeoffs": "它只影响接入了该策略的 Triton fused 路线；如果本次训练没开 Triton，或瓶颈不在 autotune 峰值，这个开关不会带来收益。",
+    "codePath": "core/triton_ops/autotune_policy.py -> triton_inject.py -> fused LoRA/QKV/FFN kernels"
+  },
+  "relatedConfigs": ["triton_ops_enabled", "triton_ops_inject_lora", "triton_ops_inject_qkv", "triton_ops_inject_ffn", "triton_ops_fp32_backward"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "compile_runtime",
+  "title": "编译运行时",
+  "category": "性能 / 编译",
+  "appliesTo": ["sdxl-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["计算层"],
+  "standard": {
+    "summary": "控制 torch.compile 的执行策略。off 不编译；compile 标准编译；compile_cache 编译并缓存；cudagraph 使用 CUDA Graph 录制回放。",
+    "effect": "compile_cache 在首次编译后将产物持久化，后续启动直接加载。cudagraph 在固定 shape 场景下额外提速 10-20%。",
+    "whenToUse": "compile_cache 是推荐的编译模式。cudagraph 在 DiT 模型（Anima/Newbie）上效果最好。",
+    "avoidWhen": "cudagraph 与动态 shape（bucket 多分辨率）不兼容——需要 compile_shape_strategy 配合。"
+  },
+  "advanced": {
+    "principle": "compile: torch.compile 捕获 FX graph → Inductor 编译为 CUDA kernel。compile_cache: 将编译产物保存到 compile_cache_root 目录。cudagraph: 在前几步 warmup 后录制 CUDA Graph，后续直接回放录制的 kernel 序列，消除所有 CPU 端 kernel launch 开销。compile_cudagraph 组合两者。",
+    "intervention": "trainer.py 在模型构建后根据 compile_runtime 选择编译策略。",
+    "expectedImpact": "compile 提速 10-30%。cudagraph 额外提速 10-20%。总计可达 30-50%。",
+    "tradeoffs": "compile_probe_enabled 在训练前做 3 步性能探测，确认加速有效才继续使用。compile_contract_strict 在训练前检查 compile 与当前配置的兼容性。",
+    "codePath": "trainer.py:compile_runtime dispatch → torch.compile / CUDAGraph record-replay"
+  },
+  "relatedConfigs": ["torch_compile", "compile_cache_enabled", "compile_cache_root", "compile_shape_strategy", "compile_probe_enabled"]
+}

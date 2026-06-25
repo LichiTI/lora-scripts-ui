@@ -1,0 +1,25 @@
+{
+  "key": "output_dir",
+  "title": "输出目录",
+  "category": "训练 / 输出",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "standard": {
+    "summary": "LoRA 权重文件的保存目录。训练完成后，最终 LoRA 和所有中间 checkpoint 保存在此目录下。",
+    "effect": "目录不存在时自动创建。支持绝对路径和相对路径（相对于训练器工作目录）。",
+    "whenToUse": "每次训练建议使用独立的输出目录，便于区分不同实验的结果。",
+    "avoidWhen": "多个训练任务共用同一输出目录时，文件名可能冲突，建议使用不同目录或不同 output_name。"
+  },
+  "advanced": {
+    "principle": "输出文件命名规则：{output_name}-{step}.safetensors（中间）/ {output_name}.safetensors（最终）。EMA 文件额外添加 _ema 后缀。",
+    "tradeoffs": "磁盘空间需要留足：每个 16-rank LoRA 约 20~80MB，64-rank 约 80~320MB；若频繁保存 checkpoint 需要预留更多空间。"
+  },
+  "relatedConfigs": [
+    "output_name",
+    "save_every_n_steps"
+  ]
+}

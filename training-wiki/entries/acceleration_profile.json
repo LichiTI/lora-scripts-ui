@@ -1,0 +1,21 @@
+{
+  "key": "acceleration_profile",
+  "title": "加速预设",
+  "category": "性能 / 加速",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["性能层"],
+  "standard": {
+    "summary": "acceleration_profile 是一键加速预设，自动组合 torch.compile、attention 后端、缓存策略等优化。提供 off/safe/balanced/aggressive/low_vram 五档。",
+    "effect": "safe 只启用最安全的优化（如 SDPA）；balanced 加入 torch.compile + cache；aggressive 开启所有优化（可能影响兼容性）；low_vram 优先节省显存。",
+    "whenToUse": "不想手动配置各种性能选项时。balanced 是推荐的默认选择。",
+    "avoidWhen": "需要精确控制每个优化选项时不要使用预设。调试性能问题时关闭预设逐项测试。"
+  },
+  "advanced": {
+    "principle": "acceleration_profile 会批量设置多个底层参数：attention_backend（auto→flash2/sdpa）、torch_compile（True/False + mode）、compile_runtime（off→compile/cudagraph）、native_cache_mode（cache_first）、weight_compression（off→fp8）、以及各 swap/offload 选项。aggressive 模式下 compile_fullgraph=True + cudagraph 组合可能获得最大加速但兼容性风险最高。",
+    "intervention": "config validator 阶段根据预设自动设置底层参数。",
+    "expectedImpact": "balanced 通常提速 30-50%。aggressive 可达 2-3 倍。low_vram 在显存受限时提速 20-40%。",
+    "tradeoffs": "预设可能与特定模型/硬件不兼容。建议先用 balanced，稳定后再尝试 aggressive。",
+    "codePath": "core/model_acceleration_policy.py → profile dispatch → set attention/compile/cache/compression params"
+  },
+  "relatedConfigs": ["torch_compile", "compile_runtime", "attention_backend", "native_cache_mode", "weight_compression_enabled"]
+}

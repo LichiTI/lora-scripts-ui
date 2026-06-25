@@ -1,0 +1,24 @@
+{
+  "key": "ac_enable_smart_lr_decay",
+  "title": "智能学习率衰减",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "检测到 loss 进入平台期时自动降低学习率，尝试突破平台继续收敛。",
+    "effect": "触发时将学习率乘以 ac_lr_decay_factor，最多触发 ac_max_decays 次。",
+    "whenToUse": "长训练中 loss 反复出现平台期时开启，让训练器自动微调 LR 突破瓶颈。",
+    "avoidWhen": "配合 cosine/rex 等本身带衰减的 scheduler 时意义不大，可能造成 LR 双重衰减。"
+  },
+  "advanced": {
+    "principle": "评估 loss 平台（基于 loss_plateau_window 窗口），若确认平台则触发 lr *= ac_lr_decay_factor，并记录衰减次数（最多 max_decays 次）。",
+    "tradeoffs": "LR 衰减不可逆，多次触发后可能导致 LR 过低而训练停滞。建议 max_decays 不超过 3~5。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_lr_decay_factor",
+    "ac_max_decays",
+    "ac_loss_plateau_window"
+  ]
+}

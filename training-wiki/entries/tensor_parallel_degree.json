@@ -1,0 +1,21 @@
+{
+  "key": "tensor_parallel_degree",
+  "title": "Tensor/Sequence Parallel (张量/序列并行)",
+  "category": "性能 / 分布式",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["性能层", "模型层"],
+  "standard": {
+    "summary": "将单个 Transformer 层的计算切分到多个 GPU 上（Tensor Parallelism），或将序列维度切分到多个 GPU 上（Sequence Parallelism），支持超大模型单步训练。",
+    "effect": "tensor_parallel_degree 控制 TP 并行度（默认 1，即不切分）。sequence_parallel=True 启用序列并行。parallel_backend 选择通信后端（nccl/cuda_direct）。需要 torchrun 启动。",
+    "whenToUse": "模型太大单卡放不下时（如 FLUX 全参微调）。与 DDP (multi_gpu) 不同——DDP 是数据并行，TP/SP 是模型并行。",
+    "avoidWhen": "单卡能跑时不需要。TP/SP 通信开销大，需要高速 GPU 互联（NVLink）。"
+  },
+  "advanced": {
+    "principle": "Tensor Parallelism: 将每个 Linear 层的权重矩阵按列或行切分到多个 GPU 上，每个 GPU 只计算部分列/行，然后通过 all-reduce/all-gather 合并结果。Sequence Parallelism: 将序列维度切分，每个 GPU 处理部分 token，attention 需要 all-to-all 通信。parallel_backend='nccl' 使用 NCCL 通信库，'cuda_direct' 使用 CUDA 直接通信（更快但需要 NVLink）。tensor_parallel_degree > 1 需要 torchrun 启动多进程。",
+    "intervention": "模型构建时将 Linear/Attention 层包装为 TP/SP 版本。",
+    "expectedImpact": "支持超大模型训练。通信效率取决于 GPU 互联带宽。",
+    "tradeoffs": "TP 和 DDP 可以组合使用。SP 对 attention 有额外通信开销。",
+    "codePath": "core/parallel/ → tensor parallel + sequence parallel layer wrapping"
+  },
+  "relatedConfigs": ["sequence_parallel", "parallel_backend", "multi_gpu", "num_processes"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "ema_enabled",
+  "title": "EMA（指数滑动平均）",
+  "category": "训练 / 平滑",
+  "appliesTo": ["anima-lora", "sdxl-lora", "sd-lora", "newbie-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "训练过程中维护一份模型参数的指数滑动平均副本。保存时额外写出 EMA 权重，推理效果通常比最后一步权重更稳定。",
+    "effect": "减少训练末期随机波动对最终权重的影响。ema_decay=0.999 时相当于对最近约 1000 步取加权平均。loss 曲线不变，但保存的权重更平滑。",
+    "whenToUse": "大多数 LoRA 训练推荐开启，尤其是步数较多或 loss 末期仍有抖动时。",
+    "avoidWhen": "极短训练（<100 步）时 EMA 累积不足，意义不大。显存极度紧张时会多占一份参数副本（与主权重等量）。"
+  },
+  "advanced": {
+    "principle": "每个优化步后执行 θ_ema = decay × θ_ema + (1-decay) × θ_t。ema_update_after_step 控制从第几步才开始累积，避免早期不稳定权重污染 EMA。",
+    "intervention": "对所有可训练参数维护影子副本，不参与梯度计算。保存时将 ema 副本以 _ema 后缀或单独文件写出。",
+    "expectedImpact": "推理质量更稳定；不影响训练速度，显存增加约等于一份参数大小。",
+    "tradeoffs": "EMA 权重滞后于真实权重，若训练末期需要快速适应某方向，EMA 可能不如最后一步权重激进。",
+    "codePath": "core/lulynx_trainer/training_loop.py → EMA 更新 hook → 保存时写出 ema state"
+  },
+  "relatedConfigs": ["ema_decay", "ema_update_every", "ema_update_after_step"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "flip_aug",
+  "title": "数据增强 (翻转/色彩/裁切)",
+  "category": "数据集 / 增强",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["数据层"],
+  "standard": {
+    "summary": "训练时对图片施加随机变换：flip_aug 水平翻转，color_aug 随机色彩抖动，random_crop 随机裁切。增加数据多样性，减少过拟合。",
+    "effect": "flip_aug 将数据量有效翻倍（每张图有原图和镜像两个版本）。color_aug 增加色彩泛化。random_crop 增加构图多样性。",
+    "whenToUse": "数据量少（<100 张）时强烈推荐 flip_aug。数据量充足时可选。",
+    "avoidWhen": "左右不对称的概念（如文字、特定手势、左右手特征）不要用 flip_aug。color_aug 在写实风格训练中可能引入不自然的色彩。"
+  },
+  "advanced": {
+    "principle": "flip_aug: 50% 概率水平翻转图像（和对应的 loss mask）。color_aug: 随机调整亮度、对比度、饱和度（±10-20%）。random_crop: 在 bucket resize 后进行随机偏移裁切而非中心裁切。albumentations_enabled 提供更强大的增强管线（GaussianBlur、ElasticTransform 等）。",
+    "intervention": "DataLoader __getitem__ 时在 PIL image 上施加 torchvision transforms。",
+    "expectedImpact": "flip_aug 在 < 50 张数据时可减少 10-20% 过拟合。color_aug 对风格学习帮助大。",
+    "tradeoffs": "albumentations_mask_replay 确保同一张图的 mask 和 image 受到相同的空间变换。",
+    "codePath": "dataset/image_preprocess.py:augmentation pipeline → PIL transforms → tensor"
+  },
+  "relatedConfigs": ["flip_aug", "color_aug", "random_crop", "albumentations_enabled"]
+}

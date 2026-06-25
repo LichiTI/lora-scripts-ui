@@ -1,0 +1,25 @@
+{
+  "key": "dynamo_recompile_limit",
+  "title": "Dynamo 重编译次数上限",
+  "category": "速度 / 编译",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "限制 torch.compile 因动态形状变化触发重编译的最大次数。超过后退回 eager 模式。",
+    "effect": "限制过小 → 频繁形状变化时很快退回 eager；限制过大 → 编译时间长，内存占用高。",
+    "whenToUse": "训练使用动态形状（如变长 caption、bucket 训练）时调整。默认值通常足够。",
+    "avoidWhen": "固定形状训练（fixed_visual=1）时几乎不会触发重编译，此参数无意义。"
+  },
+  "advanced": {
+    "principle": "TorchDynamo 对不同输入形状会触发不同的编译路径（guard 机制）。超过 recompile_limit 后转为不编译（interpret mode）。",
+    "tradeoffs": "提高限制允许更多形状各自获得编译加速，但总编译时间和内存成比例增加。"
+  },
+  "relatedConfigs": [
+    "torch_compile",
+    "dynamo_backend",
+    "compile_shape_strategy"
+  ]
+}

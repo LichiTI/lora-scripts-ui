@@ -1,0 +1,21 @@
+{
+  "key": "flux_paths",
+  "title": "FLUX 模型路径配置",
+  "category": "FLUX / 路径",
+  "appliesTo": ["flux-lora"],
+  "layers": ["数据层"],
+  "standard": {
+    "summary": "FLUX 模型由多个组件组成：Transformer（主模型）、AE（autoencoder）、T5-XXL（大语言模型编码器）、CLIP-L（视觉语言编码器）。每个组件需要单独指定路径。",
+    "effect": "ae_path 指定 autoencoder；t5xxl_path 指定 T5 文本编码器；clip_l_path 指定 CLIP-L。t5_max_token_length 控制 T5 的最大 token 数（默认 512）。",
+    "whenToUse": "FLUX LoRA 训练时必须指定这些路径。可以使用本地路径或 HuggingFace repo ID。",
+    "avoidWhen": "FLUX.1-dev 的 T5-XXL 约 10GB，确保磁盘空间足够。t5_max_token_length 不要设太大（T5 推理开销随 token 数平方增长）。"
+  },
+  "advanced": {
+    "principle": "FLUX 使用三重文本编码：CLIP-L 编码短 prompt（77 token），T5-XXL 编码长 prompt（512 token），两者拼接后传入 Transformer。AE 负责图像↔latent 转换。flux_transformer_path 可以单独指定 Transformer 权重（与底模路径分开）。flux_transformer_offload 控制 Transformer 的 CPU offload 策略。",
+    "intervention": "trainer.py 加载各组件并构建 FLUX pipeline。",
+    "expectedImpact": "路径配置不影响训练质量，但缺失或错误的路径会导致训练失败。",
+    "tradeoffs": "flux_requested_network_module 控制 FLUX 使用哪种 LoRA 模块格式。",
+    "codePath": "trainer.py:FLUX pipeline → load AE + T5-XXL + CLIP-L + Transformer"
+  },
+  "relatedConfigs": ["ae_path", "t5xxl_path", "clip_l_path", "t5_max_token_length", "flux_transformer_offload"]
+}

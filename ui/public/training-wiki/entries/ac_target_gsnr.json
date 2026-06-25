@@ -1,0 +1,23 @@
+{
+  "key": "ac_target_gsnr",
+  "title": "目标 GSNR",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "期望的梯度信噪比（Gradient Signal-to-Noise Ratio）目标值。默认 5.0。",
+    "effect": "GSNR 高于目标 → 可适当提高 LR；GSNR 低于目标 → 降低 LR。",
+    "whenToUse": "开启 ac_enable_auto_lr_adjustment 后设置。5.0 是 LoRA 训练的经验合理范围。",
+    "avoidWhen": "没有 GSNR 监控经验时不建议调整，保持默认。"
+  },
+  "advanced": {
+    "principle": "GSNR = E[‖g‖²] / Var[g]，刻画梯度的信号质量。工业训练常见范围 1~20。LoRA 由于参数少，GSNR 通常比全量微调高。",
+    "tradeoffs": "目标值需要根据实际训练 GSNR 曲线校准，初始建议先观察几次训练的 GSNR 范围再设定目标。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_enable_auto_lr_adjustment",
+    "ac_target_loss"
+  ]
+}

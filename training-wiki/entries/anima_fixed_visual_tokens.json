@@ -1,0 +1,26 @@
+{
+  "key": "anima_fixed_visual_tokens",
+  "title": "Anima 固定视觉 Token 数",
+  "category": "训练 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "anima_fixed_text_tokens"
+  ],
+  "standard": {
+    "summary": "将训练的视觉 token（图像 patch 序列）长度固定为指定值，避免因批内图像尺寸不同导致的变长序列重编译开销。",
+    "effect": "固定后所有 batch 使用相同序列长度（不足的填 padding），torch.compile 可以稳定工作而不频繁重编译。",
+    "whenToUse": "开启 torch.compile 时推荐同时固定 token 数以获得稳定的编译加速。",
+    "avoidWhen": "数据集图像尺寸差异极大时，固定 token 数会浪费 padding 显存（对最大图像外的其他图像）。"
+  },
+  "advanced": {
+    "principle": "Anima DiT 的 forward 接受变长 token 序列；固定后统一填充到 max_len，Dynamo 可以编译固定形状的计算图，避免每个新形状触发重编译（graph break）。",
+    "tradeoffs": "固定到最大尺寸会浪费小图的计算（padding 位置的计算是无效的），但配合 attention mask 可以避免 padding 影响结果。"
+  },
+  "relatedConfigs": [
+    "torch_compile",
+    "compile_runtime",
+    "anima_block_checkpointing"
+  ]
+}

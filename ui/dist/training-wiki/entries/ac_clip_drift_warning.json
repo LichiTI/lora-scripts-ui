@@ -1,0 +1,23 @@
+{
+  "key": "ac_clip_drift_warning",
+  "title": "CLIP 漂移警告阈值",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "CLIP 分数漂移超过此值时发出警告（不干预）。默认 0.03。",
+    "effect": "警告级别仅记录日志，不触发 LR 调整或训练停止，用于提醒用户注意。",
+    "whenToUse": "监控训练过程中图像-文本对齐是否出现偏移，可作为过拟合的早期信号。",
+    "avoidWhen": "不使用 CLIP 评分评估的训练场景可忽略此参数。"
+  },
+  "advanced": {
+    "principle": "CLIP 漂移 = |CLIP_score_step_n - CLIP_score_baseline| / CLIP_score_baseline，反映当前生成与训练早期的文本对齐偏差。",
+    "tradeoffs": "CLIP 评估本身有计算开销，频繁评估会影响训练速度。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_clip_drift_danger",
+    "ac_clip_drift_consecutive"
+  ]
+}

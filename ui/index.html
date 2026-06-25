@@ -4,8 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LoRA v1.6.0 | RE-SCRIPTS</title>
+    <title>Lulynx Trainer</title>
     <link rel="stylesheet" href="/src/style.css">
+    <link rel="stylesheet" href="/src/features/modelArchDetection.css">
 </head>
 
 <body class="dark-theme">
@@ -13,8 +14,8 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="logo">
-                <div class="logo-text">LORA<span>RESCRIPTS</span></div>
-                <div class="logo-version">v1.6.0</div>
+                <div class="logo-text">LULYNX<span>TRAINER</span></div>
+                <div class="logo-version" id="app-version-display">...</div>
             </div>
             <nav class="nav-links">
                 <div class="expand-toggle-btn" id="navigator-expand-btn">
@@ -62,19 +63,19 @@
                     <svg class="icon">
                         <use href="#icon-rocket"></use>
                     </svg>
-                    <span>快速训练流程</span>
+                    <span>向导</span>
                 </a>
                 <a href="#" class="nav-item" data-module="guide" title="Guide">
                     <svg class="icon">
                         <use href="#icon-book-open"></use>
                     </svg>
-                    <span>简易教程</span>
+                    <span>教程</span>
                 </a>
                 <a href="#" class="nav-item" data-module="plugins" title="Plugins">
                     <svg class="icon">
                         <use href="#icon-package"></use>
                     </svg>
-                    <span>插件中心</span>
+                    <span>插件</span>
                 </a>
                 <a href="#" class="nav-item developer-only hidden" data-module="turbocore" title="TurboCore">
                     <svg class="icon">
@@ -124,7 +125,9 @@
                         <ul class="group-list">
                             <li class="active">SDXL</li>
                             <li>FLUX</li>
-                            <li>SD3.5</li>
+                            <li>Lumina</li>
+                            <li>Qwen Image</li>
+                            <li>HunyuanDiT</li>
                             <li>SD1.5</li>
                             <li>ANIME</li>
                             <li>NEWBIE</li>
@@ -150,6 +153,24 @@
                     <a href="#" class="top-nav-item" data-i18n="topbar.tools">Tools</a>
                     <a href="#" class="top-nav-item" data-i18n="topbar.help">Help</a>
                 </nav>
+                <div class="topbar-mode-toggle" id="topbar-mode-toggle">
+                    <button class="mode-btn active" data-mode="standard">标准</button>
+                    <button class="mode-btn" data-mode="advanced">高级</button>
+                </div>
+                <div class="topbar-perf-toggle" id="topbar-perf-toggle">
+                    <button class="perf-btn active" data-perf="lulynx">
+                        <svg class="icon" style="width:14px;height:14px;"><use href="#icon-zap"></use></svg>
+                        <span>Lulynx优化</span>
+                    </button>
+                    <button class="perf-btn" data-perf="classic">
+                        <svg class="icon" style="width:14px;height:14px;"><use href="#icon-tool"></use></svg>
+                        <span>经典兼容</span>
+                    </button>
+                </div>
+                <div class="topbar-optimizer-toggle" id="topbar-optimizer-toggle">
+                    <button class="optimizer-btn" data-optimizer="pytorch">PyTorch</button>
+                    <button class="optimizer-btn active" data-optimizer="turbocore">TurboCore</button>
+                </div>
                 <div class="topbar-search" id="topbar-search">
                     <div class="topbar-search-input-wrap">
                         <svg class="icon" style="width:14px;height:14px;opacity:0.5;flex-shrink:0;"><use href="#icon-search"></use></svg>

@@ -1,0 +1,22 @@
+{
+  "key": "distillation_enabled",
+  "title": "知识蒸馏",
+  "category": "前沿储备 / 训练",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "distillation_mode"
+  ],
+  "standard": {
+    "summary": "（实验性）知识蒸馏：使用大型教师模型的输出来指导 LoRA 训练，替代或补充标准扩散 loss，提升学习效率。",
+    "effect": "distillation_mode 控制蒸馏策略（feature / logit / score）：feature = 中间特征对齐；logit = 最终预测对齐；score = 分数函数对齐（Consistency Distillation 等）。",
+    "whenToUse": "实验性功能。有更大基础模型可作为教师时可以尝试提升 LoRA 训练效率。",
+    "avoidWhen": "默认关闭。蒸馏需要同时运行教师模型（显存约翻倍），大多数 LoRA 训练不适用。"
+  },
+  "relatedConfigs": [
+    "anima_ema_feat_align_enabled",
+    "perceptual_anchor_loss_enabled"
+  ]
+}

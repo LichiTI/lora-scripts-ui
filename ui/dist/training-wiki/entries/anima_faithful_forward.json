@@ -1,0 +1,21 @@
+{
+  "key": "anima_faithful_forward",
+  "title": "Anima 高级特性集合",
+  "category": "Anima / 高级",
+  "appliesTo": ["anima-lora"],
+  "layers": ["模型层", "训练控制层"],
+  "standard": {
+    "summary": "Anima 模型的高级实验特性集合：faithful forward（忠实原生前向传播）、EMA 特征自蒸馏对齐、权重噪声正则化、latent 感知锚点和频率纹理 loss。",
+    "effect": "anima_faithful_forward 使用 sigma∈[0,1] 作为时间步（而非 sigma×1000），运行冻结 LLM adapter 构建 cross-attn context，启用 3D-RoPE 自注意力。其他特性均为 default-off 技术储备。",
+    "whenToUse": "Anima LoRA 高级调优时。大多数特性标记为 TECHNICAL RESERVE，需要 A/B 验证。",
+    "avoidWhen": "日常训练不需要。这些特性有额外计算开销且效果未经验证。"
+  },
+  "advanced": {
+    "principle": "anima_faithful_forward: 使用原始 sigma 范围 [0,1]、运行冻结 LLM adapter 的 cross-attention、启用 3D-RoPE 旋转位置编码。anima_ema_feat_align: JLT 风格的 EMA 特征自蒸馏——teacher 用 EMA shadow 在更小（更干净）的 timestep 评估，student 对齐 teacher 特征。lulynx_weight_noise: 在 optimizer step 后对 LoRA 参数值添加零均值高斯噪声（平坦极小值偏置，Camuto NeurIPS 2020）。lulynx_latent_anchor: 在 latent 域用多尺度梯度匹配做结构锚定（无需 VAE decode）。lulynx_freq_texture: 比较高通频段的 log 功率谱，保持纹理统计。flow_uncertainty_weighting: EDM2 风格的 learned per-sigma loss 平衡。",
+    "intervention": "各特性在训练循环的不同阶段注入。",
+    "expectedImpact": "各特性效果需实验验证。均为 TECHNICAL RESERVE 状态。",
+    "tradeoffs": "anima_faithful_forward 需要 block-checkpoint/cache/reducer 关闭。weight_noise 有 bound_norm 选项限制漂移。",
+    "codePath": "core/lulynx/ → faithful forward + EMA align + weight noise + latent anchor + freq texture"
+  },
+  "relatedConfigs": ["anima_ema_feat_align_enabled", "lulynx_weight_noise_enabled", "lulynx_latent_anchor_enabled", "lulynx_freq_texture_enabled", "flow_uncertainty_weighting_enabled"]
+}

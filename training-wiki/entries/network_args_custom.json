@@ -1,0 +1,29 @@
+{
+  "key": "network_args_custom",
+  "title": "LoRA 网络自定义参数",
+  "category": "LoRA / 网络结构",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "network_weights",
+    "network_train_unet_only",
+    "network_train_text_encoder_only"
+  ],
+  "standard": {
+    "summary": "向 LoRA 网络模块传递额外参数（key=value 格式），用于启用特定网络的高级功能（如 LyCORIS 的 conv_dim / dropout 等）。",
+    "effect": "network_weights = 从已有 LoRA 文件继续训练（预加载权重）；train_unet_only = 只训练 UNet 不训练 TE；train_text_encoder_only = 只训练 TE 不训练 UNet；network_args_custom 传额外参数给 network_module。",
+    "whenToUse": "network_weights 用于接续训练（从 checkpoint 继续）；train_unet_only 用于不需要 TE 训练的场景（节省显存和时间）。",
+    "avoidWhen": "network_args_custom 中的参数名必须与具体 network_module 的接口匹配，否则会导致初始化失败。"
+  },
+  "advanced": {
+    "principle": "network_weights 加载已有 LoRA 的 state_dict 作为训练起点（warm start），可以在已收敛 LoRA 基础上继续微调。train_unet_only/text_encoder_only 通过 param_groups 控制哪组参数参与优化。",
+    "tradeoffs": "从已有 LoRA warm start（network_weights）时，预加载权重的 LR 应适当降低（避免覆盖已学到的内容）；从随机初始化时 LR 可以更高。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "network_module",
+    "train_text_encoder"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "key": "ac_loss_plateau_window",
+  "title": "损失平台检测窗口",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "判断 loss 是否进入平台期的滑动窗口大小（步数）。默认 50。",
+    "effect": "窗口越大，平台期判断越稳定，不易被短暂波动影响；越小，响应更快但容易误判。",
+    "whenToUse": "默认 50 适合大多数 LoRA 训练。总步数较短时可减小到 20；长训练可增大到 100。",
+    "avoidWhen": "不建议设为 <10（统计意义太弱）或 >总步数的 20%（永远检测不到平台期）。"
+  },
+  "advanced": {
+    "principle": "维护一个长度为 plateau_window 的 loss 队列，计算趋势斜率，斜率接近 0 则判定为平台期。",
+    "tradeoffs": "与 ac_early_stopping_patience 组合决定总容忍步数：window=50, patience=5 → 250 步无改善才早停。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_enable_smart_early_stopping",
+    "ac_enable_smart_lr_decay",
+    "ac_early_stopping_patience"
+  ]
+}

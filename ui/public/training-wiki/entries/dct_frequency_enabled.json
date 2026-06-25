@@ -1,0 +1,30 @@
+{
+  "key": "dct_frequency_enabled",
+  "title": "DCT 频域 Loss",
+  "category": "前沿储备 / 质量",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "dct_frequency_high_weight",
+    "dct_frequency_low_cutoff",
+    "dct_frequency_max_t",
+    "dct_frequency_min_t",
+    "dct_frequency_weight"
+  ],
+  "standard": {
+    "summary": "（实验性）DCT 频域损失：对训练预测结果进行 DCT 变换，在频域空间计算高低频分量的 loss，以约束特定频段的重建质量。",
+    "effect": "高 high_weight = 加强高频（纹理/细节）的重建约束；low_cutoff 控制低/高频分界点。在某些噪声级别范围（min_t~max_t）内才激活。",
+    "whenToUse": "实验性功能。对纹理细节要求高的 LoRA 训练（如皮肤纹理、布料质感）可以尝试。",
+    "avoidWhen": "默认关闭。DCT 计算开销极小，但效果需要通过 A/B 对比验证。"
+  },
+  "advanced": {
+    "principle": "DCT loss = ||DCT(x_pred) - DCT(x_target)||² × W（频率加权矩阵），W 对高频系数放大 high_weight 倍。只在 sigma ∈ [min_t, max_t] 的步骤计算（避免对全噪声步骤无效约束）。",
+    "tradeoffs": "DCT loss 与标准 MSE loss 不完全正交（低频 DCT ≈ MSE 的低频版本），需要确保 weight 不过大导致 loss 被 DCT 主导。"
+  },
+  "relatedConfigs": [
+    "lineart_loss_enabled",
+    "gram_matrix_loss_enabled",
+    "perceptual_anchor_loss_enabled"
+  ]
+}

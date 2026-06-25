@@ -1,0 +1,119 @@
+/* ==================== 训练助手配置面板 ==================== */
+
+.assistant-config-panel {
+  padding: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.assistant-config-section {
+  margin-bottom: 1.5rem;
+}
+
+.assistant-config-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary, #1a1a1a);
+}
+
+.assistant-provider-list,
+.assistant-model-list,
+.assistant-preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.assistant-provider-option,
+.assistant-model-option,
+.assistant-preset-option,
+.assistant-mode-option {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 0.375rem;
+  background: var(--bg-secondary, #f9f9f9);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.assistant-provider-option:hover,
+.assistant-model-option:hover,
+.assistant-preset-option:hover,
+.assistant-mode-option:hover {
+  background: var(--bg-tertiary, #f0f0f0);
+  border-color: var(--border-hover, #d0d0d0);
+}
+
+.assistant-provider-option.active,
+.assistant-model-option.active,
+.assistant-preset-option.active,
+.assistant-mode-option.active {
+  background: var(--primary-color, #3b82f6);
+  color: white;
+  border-color: var(--primary-color, #3b82f6);
+}
+
+.assistant-api-key-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.assistant-api-key-input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.assistant-config-save-btn {
+  padding: 0.5rem 1rem;
+  background: var(--primary-color, #3b82f6);
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.assistant-config-save-btn:hover {
+  background: var(--primary-hover, #2563eb);
+}
+
+.assistant-config-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #666);
+  margin-top: 0.5rem;
+}
+
+.assistant-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.assistant-preset-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.preset-icon {
+  font-size: 1.125rem;
+}
+
+.chat-config-btn {
+  margin-left: auto;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 0.25rem;
+  background: var(--bg-secondary, #f9f9f9);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chat-config-btn:hover {
+  background: var(--bg-tertiary, #f0f0f0);
+}

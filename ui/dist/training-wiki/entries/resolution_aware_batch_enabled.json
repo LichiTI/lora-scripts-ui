@@ -1,0 +1,21 @@
+{
+  "key": "resolution_aware_batch_enabled",
+  "title": "分辨率感知 Batch",
+  "category": "性能 / 自适应",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["性能层", "数据层"],
+  "standard": {
+    "summary": "根据输入分辨率自动调整 batch size，保持显存使用恒定。高分辨率时自动降低 batch，低分辨率时允许更大 batch。",
+    "effect": "resolution_aware_batch_base_resolution 指定参考分辨率（如 1024）。resolution_aware_batch_max_factor 控制最大 batch 放大倍数。resolution_aware_batch_min_factor 控制最小 batch 缩小倍数。",
+    "whenToUse": "多分辨率训练时。不想手动调整 batch size 时。",
+    "avoidWhen": "固定分辨率训练时不需要。"
+  },
+  "advanced": {
+    "principle": "监控当前 batch 的平均分辨率，与 base_resolution 比较。如果当前分辨率 > base，则降低 batch size 以保持显存恒定。如果当前分辨率 < base，则增加 batch size 以充分利用显存。max_factor 和 min_factor 控制调整范围。",
+    "intervention": "training_step 开始时计算分辨率比例 → 调整 batch size → 执行训练。",
+    "expectedImpact": "显存使用更稳定。避免因分辨率变化导致 OOM。",
+    "tradeoffs": "batch size 变化可能影响收敛速度。需要配合 learning rate 调整。",
+    "codePath": "core/lulynx/ → resolution_aware_batch → adaptive batch size adjustment"
+  },
+  "relatedConfigs": ["resolution_aware_batch_base_resolution", "resolution_aware_batch_max_factor", "resolution_aware_batch_min_factor"]
+}

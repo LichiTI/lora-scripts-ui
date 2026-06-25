@@ -13,7 +13,7 @@ export function createSysMonitorRenderer({ state }) {
     if (d.gpu && d.gpu.available && d.gpu.gpus && d.gpu.gpus.length > 0) {
       d.gpu.gpus.forEach(function(g) {
         var pct = Number(g.utilization_pct || 0);
-        var barColor = pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : 'var(--accent)';
+        var barColor = pct > 90 ? 'var(--danger)' : pct > 70 ? 'var(--warning)' : 'var(--accent)';
         var usedMB = Number(g.used_mb || g.allocated_mb || (g.used_gb ? g.used_gb * 1024 : 0) || 0);
         var totalMB = Number(g.total_mb || (g.total_gb ? g.total_gb * 1024 : 0) || 0);
         var gpuName = g.name ? String(g.name) : ('GPU ' + (g.index ?? ''));
@@ -45,7 +45,7 @@ export function createSysMonitorRenderer({ state }) {
     // CPU
     if (d.cpu && d.cpu.percent !== undefined) {
       var cpuPct = d.cpu.percent;
-      var cpuColor = cpuPct > 90 ? '#ef4444' : cpuPct > 70 ? '#f59e0b' : '#3b82f6';
+      var cpuColor = cpuPct > 90 ? 'var(--danger)' : cpuPct > 70 ? 'var(--warning)' : 'var(--info)';
       html += '<div class="sysmon-row">'
         + '<div class="sysmon-label">' + _ico('activity', 12) + ' CPU</div>'
         + '<div class="sysmon-bar-wrap">'
@@ -58,7 +58,7 @@ export function createSysMonitorRenderer({ state }) {
     // RAM
     if (d.ram && (d.ram.total_mb || d.ram.total_gb)) {
       var ramPct = d.ram.percent || 0;
-      var ramColor = ramPct > 90 ? '#ef4444' : ramPct > 70 ? '#f59e0b' : '#8b5cf6';
+      var ramColor = ramPct > 90 ? 'var(--danger)' : ramPct > 70 ? 'var(--warning)' : 'var(--tertiary)';
       var ramUsedGB = Number(d.ram.used_gb != null ? d.ram.used_gb : (d.ram.used_mb / 1024)).toFixed(1);
       var ramTotalGB = Number(d.ram.total_gb != null ? d.ram.total_gb : (d.ram.total_mb / 1024)).toFixed(1);
       html += '<div class="sysmon-row">'

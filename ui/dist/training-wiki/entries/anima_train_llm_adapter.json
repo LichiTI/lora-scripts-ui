@@ -1,0 +1,28 @@
+{
+  "key": "anima_train_llm_adapter",
+  "title": "训练 LLM Adapter",
+  "category": "训练 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "anima_llm_adapter_lr",
+    "anima_cache_llm_adapter_outputs"
+  ],
+  "standard": {
+    "summary": "是否训练 Anima 中 LLM（大语言模型）部分的 Adapter 层，以增强文本理解和图文对齐能力。",
+    "effect": "开启后 LLM Adapter 参与 LoRA 训练，可以更好地让 LLM 理解特定触发词或描述风格。显存增加约 10%~20%。",
+    "whenToUse": "训练需要精确文本响应（如特定触发词绑定、复杂描述）时开启。",
+    "avoidWhen": "数据集主要是风格/画风（对文本响应要求不高）时可关闭，节省显存和训练时间。"
+  },
+  "advanced": {
+    "principle": "Anima 的 LLM（如 T5/LLaMA）处理文本描述后输出 text embedding，LLM Adapter 是连接 LLM 输出与 DiT 条件输入的轻量模块。训练 Adapter 可以调整 LLM 的文本表征以更好地适配目标概念。",
+    "tradeoffs": "LLM Adapter 训练会改变 Anima 对所有 LLM 生成文本 embedding 的解读，若训练数据覆盖面窄（<50张），可能引入泛化性问题。"
+  },
+  "relatedConfigs": [
+    "anima_cross_attn_lr",
+    "anima_mlp_lr",
+    "anima_self_attn_lr",
+    "anima_mod_lr"
+  ]
+}

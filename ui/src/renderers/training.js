@@ -15,7 +15,31 @@
 
 import { escapeHtml, _ico } from '../utils/dom.js';
 import { schedulerOption } from '../features/settingsOptions.js';
-import { formatDuration, getSmartSensingRecommendationItems, renderSummaryCard } from '../utils/trainingMetrics.js';
+import { formatDuration, renderBubbleAdvisorAbEvidenceBadge, renderSummaryCard } from '../utils/trainingMetrics.js';
+import { getBubbleClosedLoopHistoryBucket, renderBubbleClosedLoopBadge } from '../utils/bubbleClosedLoopEvidence.js';
+import { getMultiBatchEvidenceFromTask, renderMultiBatchEvidenceBadge } from '../utils/multiBatchEvidence.js';
+import { getTrainingRuntimeSummaryFromTask } from '../utils/trainingRuntimeSummary.js';
+import { canDeleteTask, getQueueMetaText, getQueuedTasks, getRunningTasks, getTaskId, isTaskQueued } from '../utils/taskStatus.js';
+import { tweenNumber, clearNumberCache } from '../utils/numberTween.js';
+import {
+  renderCompileRuntimeCard,
+  renderNativeUnetRuntimeCard,
+  renderPcieCacheV0RecommendationRuntimeCard,
+  renderPcieCacheV0RuntimeCard,
+  renderPcieDeltaCacheRuntimeCard,
+  renderPeakVramDiagnosticsCard,
+  renderPrecisionSwapRuntimeCard,
+  renderSmartSensingRuntimeCard,
+} from './trainingRuntimeCards.js';
+
+const BUBBLE_CLOSED_LOOP_FILTERS = [
+  { id: 'all', label: '全部' },
+  { id: 'kept', label: '已保留' },
+  { id: 'rollback', label: '已回滚' },
+  { id: 'blocked', label: '阻断/待证据' },
+  { id: 'active', label: '进行中' },
+  { id: 'none', label: '无 Bubble Auto' },
+];
 
 export function createTrainingRenderer({ state, renderSlot, deps }) {
   function _renderPreflightPanel() {
@@ -57,245 +81,126 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       + '</section>';
   }
 
-  function renderPrecisionSwapRuntimeCard(profile) {
-    if (!profile || typeof profile !== 'object') return '';
-    var selected = Array.isArray(profile.selected_names) ? profile.selected_names : [];
-    var selectedText = selected.length ? selected.join(', ') : '未选择';
-    var hint = Number(profile.selected_activation_hint_mb || 0);
-    var params = Number(profile.selected_parameter_mb || 0);
-    var source = profile.profile_source || 'static';
-    var obs = (profile.runtime_observations && typeof profile.runtime_observations === 'object') ? profile.runtime_observations : {};
-    var avgStep = Number(obs.avg_step_wall_seconds || 0);
-    var lastStep = Number(obs.last_step_wall_seconds || 0);
-    var swapCount = Number(obs.swap_count || 0);
-    var waitCount = Number(obs.wait_count || 0);
-    var swapMs = Number(obs.total_swap_ms || 0);
-    var prepareCount = Number(obs.prepare_count || 0);
-    var prepareMs = Number(obs.total_prepare_ms || 0);
-    var peak = (obs.peak_vram_stages && typeof obs.peak_vram_stages === 'object') ? obs.peak_vram_stages : null;
-    var peakText = peak
-      ? ['forward_mb', 'backward_mb', 'optimizer_mb'].map(function(k) {
-          return peak[k] != null ? String(peak[k]) + ' MB' : null;
-        }).filter(Boolean).join(' / ')
-      : '';
-    return '<div class="train-side-section" id="train-precision-swap-card">'
-      + '<div class="train-panel-title">Lulynx Precision Swap</div>'
-      + '<div class="train-hw-card">'
-      +   '<div class="train-hw-row"><span class="hw-label">策略</span><span class="hw-value">' + escapeHtml(String(profile.strategy || 'balanced')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">后端</span><span class="hw-value">' + escapeHtml(String(profile.backend || 'suffix_block_swap')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">选中单元</span><span class="hw-value-accent">' + escapeHtml(String(profile.selected_count || selected.length || 0) + ' / ' + String(profile.units_total || 0)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">BlockSwap</span><span class="hw-value">' + escapeHtml(String(profile.compatible_blocks_to_swap || 0)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">参数量</span><span class="hw-value">' + (params > 0 ? params.toFixed(1) + ' MB' : '—') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">激活 Hint</span><span class="hw-value">' + (hint > 0 ? hint.toFixed(1) + ' MB' : '—') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">观测步数</span><span class="hw-value">' + escapeHtml(String(obs.steps_observed || 0)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">步耗时</span><span class="hw-value">' + (avgStep > 0 ? escapeHtml(avgStep.toFixed(2) + 's avg / ' + lastStep.toFixed(2) + 's last') : '—') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">Swap / Wait</span><span class="hw-value">' + escapeHtml(String(swapCount) + ' / ' + String(waitCount)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">Swap 耗时</span><span class="hw-value">' + (swapMs > 0 ? escapeHtml(swapMs.toFixed(1) + ' ms') : '—') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">Prepare</span><span class="hw-value">' + (prepareCount > 0 ? escapeHtml(String(prepareCount) + ' / ' + prepareMs.toFixed(1) + ' ms') : '—') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">峰值阶段</span><span class="hw-value">' + (peakText ? escapeHtml(peakText) : '—') + '</span></div>'
-      + '</div>'
-      + '<div style="margin-top:8px;font-size:0.68rem;color:var(--text-muted);line-height:1.45;">'
-      +   '<div>Profile: ' + escapeHtml(String(source)) + '</div>'
-      +   '<div>选中: ' + escapeHtml(selectedText) + '</div>'
-      + '</div>'
-      + '</div>';
+  function getPluginSdkSummary(task) {
+    var metadata = task && task.metadata && typeof task.metadata === 'object' ? task.metadata : {};
+    var summary = metadata.sdk_summary || task.sdk_summary || null;
+    return summary && typeof summary === 'object' ? summary : null;
   }
 
-  function renderNativeUnetRuntimeCard(profile) {
-    if (!profile || typeof profile !== 'object') return '';
-    var coverage = (profile.native_coverage && typeof profile.native_coverage === 'object') ? profile.native_coverage : {};
-    var probe = (profile.native_forward_probe && typeof profile.native_forward_probe === 'object')
-      ? profile.native_forward_probe
-      : ((coverage.native_forward_probe && typeof coverage.native_forward_probe === 'object') ? coverage.native_forward_probe : {});
-    var probeOk = !!(profile.native_forward_probe_ok || coverage.native_forward_probe_ok || probe.ok);
-    var ready = !!(profile.available || coverage.skeleton_ready);
-    var blocks = profile.blocks_total || profile.native_ready_blocks || coverage.implemented_top_blocks || 0;
-    var active = !!profile.active;
-    var residency = (profile.weight_residency && typeof profile.weight_residency === 'object') ? profile.weight_residency : null;
-    return '<div class="train-side-section" id="train-native-unet-card">'
-      + '<div class="train-panel-title">Native SDXL U-Net</div>'
-      + '<div class="train-hw-card">'
-      +   '<div class="train-hw-row"><span class="hw-label">后端</span><span class="hw-value">' + escapeHtml(String(profile.backend || 'diffusers')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">模式</span><span class="hw-value">' + escapeHtml(String(profile.mode || 'shadow')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">Skeleton</span><span class="hw-value" style="color:' + (ready ? '#22c55e' : '#f59e0b') + ';">' + (ready ? '可用' : '不可用') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">Forward Probe</span><span class="hw-value" style="color:' + (probeOk ? '#22c55e' : '#f59e0b') + ';">' + (probeOk ? '通过' : '未通过') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">Top Blocks</span><span class="hw-value-accent">' + escapeHtml(String(blocks || '—')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">训练接管</span><span class="hw-value">' + (active ? '代理接管' : '未接管') + '</span></div>'
-      +   (residency ? '<div class="train-hw-row"><span class="hw-label">权重驻留</span><span class="hw-value">' + escapeHtml(String(residency.mode || 'resident')) + '</span></div>' : '')
-      +   (residency ? '<div class="train-hw-row"><span class="hw-label">CPU Linear</span><span class="hw-value">' + escapeHtml(String(residency.active_linear_count || 0) + ' / ' + String(residency.managed_linear_count || 0)) + '</span></div>' : '')
-      +   (residency ? '<div class="train-hw-row"><span class="hw-label">CPU Conv2d</span><span class="hw-value">' + escapeHtml(String(residency.active_conv2d_count || 0) + ' / ' + String(residency.managed_conv2d_count || 0)) + '</span></div>' : '')
-      + '</div>'
-      + '<div style="margin-top:8px;font-size:0.68rem;color:var(--text-muted);line-height:1.45;">'
-      +   '<div>Forward: ' + escapeHtml(profile.native_forward_integrated ? 'integrated' : 'diagnostic') + '</div>'
-      +   (probe.output_shape ? '<div>Probe 输出: ' + escapeHtml(String(probe.output_shape.join ? probe.output_shape.join('x') : probe.output_shape)) + '</div>' : '')
-      + '</div>'
-      + '</div>';
+  function getBubbleAdvisorAbEvidence(task) {
+    var metadata = task && task.metadata && typeof task.metadata === 'object' ? task.metadata : {};
+    var taskId = getTaskId(task);
+    var summary = taskId && state.taskSummaries ? state.taskSummaries[taskId] : null;
+    summary = summary && typeof summary === 'object' ? summary : {};
+    var embeddedSummary = task && task._summary && typeof task._summary === 'object' ? task._summary : {};
+    var evidence = metadata.bubble_advisor_ab_evidence
+      || task.bubble_advisor_ab_evidence
+      || summary.bubbleAdvisorAbEvidence
+      || summary.bubble_advisor_ab_evidence
+      || embeddedSummary.bubbleAdvisorAbEvidence
+      || embeddedSummary.bubble_advisor_ab_evidence
+      || null;
+    return evidence && typeof evidence === 'object' ? evidence : null;
   }
 
-  function renderPeakVramDiagnosticsCard(diagnostics, cacheRelease) {
-    if (!diagnostics || typeof diagnostics !== 'object') return '';
-    var stages = (diagnostics.stages && typeof diagnostics.stages === 'object') ? diagnostics.stages : {};
-    var release = (cacheRelease && typeof cacheRelease === 'object') ? cacheRelease : null;
-    function _fmt(value) {
-      var n = Number(value || 0);
-      return n > 0 ? n.toFixed(1) + ' MB' : '—';
+  function getBubbleClosedLoopState(task) {
+    var metadata = task && task.metadata && typeof task.metadata === 'object' ? task.metadata : {};
+    var taskId = getTaskId(task);
+    var summary = taskId && state.taskSummaries ? state.taskSummaries[taskId] : null;
+    summary = summary && typeof summary === 'object' ? summary : {};
+    var embeddedSummary = task && task._summary && typeof task._summary === 'object' ? task._summary : {};
+    var closedLoop = metadata.bubble_closed_loop_state
+      || task.bubble_closed_loop_state
+      || summary.bubbleClosedLoopState
+      || summary.bubble_closed_loop_state
+      || embeddedSummary.bubbleClosedLoopState
+      || embeddedSummary.bubble_closed_loop_state
+      || null;
+    return closedLoop && typeof closedLoop === 'object' ? closedLoop : null;
+  }
+
+  function getMultiBatchEvidence(task) {
+    return getMultiBatchEvidenceFromTask(task, state.taskSummaries);
+  }
+
+  function getTrainingRuntimeSummary(task) {
+    return getTrainingRuntimeSummaryFromTask(task, state.taskSummaries);
+  }
+
+  function getTaskBubbleClosedLoopBucket(task) {
+    return getBubbleClosedLoopHistoryBucket(getBubbleClosedLoopState(task));
+  }
+
+  function matchesBubbleClosedLoopHistoryFilter(task, filter) {
+    var normalized = BUBBLE_CLOSED_LOOP_FILTERS.some(function(item) { return item.id === filter; }) ? filter : 'all';
+    if (normalized === 'all') return true;
+    return getTaskBubbleClosedLoopBucket(task) === normalized;
+  }
+
+  function renderBubbleClosedLoopHistoryFilterBar(tasks) {
+    if (!tasks.length) return '';
+    var activeFilter = BUBBLE_CLOSED_LOOP_FILTERS.some(function(item) { return item.id === state.bubbleClosedLoopHistoryFilter; })
+      ? state.bubbleClosedLoopHistoryFilter
+      : 'all';
+    var counts = { all: tasks.length, kept: 0, rollback: 0, blocked: 0, active: 0, none: 0 };
+    for (var i = 0; i < tasks.length; i++) {
+      var bucket = getTaskBubbleClosedLoopBucket(tasks[i]);
+      if (counts[bucket] !== undefined) counts[bucket] += 1;
     }
-    function _stageRow(label, key) {
-      var item = stages[key] && typeof stages[key] === 'object' ? stages[key] : null;
-      if (!item) return '';
-      return '<div class="train-hw-row"><span class="hw-label">' + escapeHtml(label) + '</span><span class="hw-value">'
-        + escapeHtml(_fmt(item.peak_allocated_mb) + ' alloc / ' + _fmt(item.peak_reserved_mb) + ' reserved')
-        + '</span></div>';
-    }
-    return '<div class="train-side-section" id="train-vram-diagnostics-card">'
-      + '<div class="train-panel-title">VRAM Diagnostics</div>'
-      + '<div class="train-hw-card">'
-      +   '<div class="train-hw-row"><span class="hw-label">Reserved 峰值</span><span class="hw-value-accent">' + escapeHtml(_fmt(diagnostics.max_reserved_mb)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">Reserved 阶段</span><span class="hw-value">' + escapeHtml(String(diagnostics.max_reserved_stage || '—')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">Allocated 峰值</span><span class="hw-value">' + escapeHtml(_fmt(diagnostics.max_allocated_mb)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">Allocated 阶段</span><span class="hw-value">' + escapeHtml(String(diagnostics.max_allocated_stage || '—')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">缓存差距</span><span class="hw-value">' + escapeHtml(_fmt(diagnostics.allocator_cache_gap_mb)) + '</span></div>'
-      +   _stageRow('Forward', 'forward')
-      +   _stageRow('Backward', 'backward')
-      +   _stageRow('Optimizer', 'optimizer')
-      +   (release ? '<div class="train-hw-row"><span class="hw-label">清缓存策略</span><span class="hw-value">' + escapeHtml(String(release.strategy || 'off')) + '</span></div>' : '')
-      +   (release ? '<div class="train-hw-row"><span class="hw-label">释放 Reserved</span><span class="hw-value">' + escapeHtml(_fmt(release.released_reserved_mb)) + '</span></div>' : '')
-      +   (release ? '<div class="train-hw-row"><span class="hw-label">清缓存耗时</span><span class="hw-value">' + escapeHtml(Number(release.elapsed_ms || 0).toFixed(1) + ' ms') + '</span></div>' : '')
-      + '</div>'
+    return '<div class="bubble-history-filter-bar" role="group" aria-label="Bubble Auto history filter">'
+      + BUBBLE_CLOSED_LOOP_FILTERS.map(function(item) {
+        var isActive = activeFilter === item.id;
+        var count = counts[item.id] || 0;
+        return '<button type="button" class="bubble-history-filter' + (isActive ? ' active' : '') + '" onclick="setBubbleClosedLoopHistoryFilter(\'' + item.id + '\')">'
+          + escapeHtml(item.label) + '<span>' + String(count) + '</span>'
+          + '</button>';
+      }).join('')
       + '</div>';
   }
 
-  function renderPcieDeltaCacheRuntimeCard(profile) {
-    if (!profile || typeof profile !== 'object') return '';
-    var errors = Number(profile.errors || 0);
-    var nextMap = {
-      cache_v0_manual_candidate: '可手动试验 Cache v0（prefetch 覆盖差时优先）',
-      observe_more_steps: '建议继续观察更多 step',
-      keep_observing: '继续观察',
-      no_cache_candidate: '暂无缓存候选',
-      fix_transfer_errors_before_cache: '先处理传输错误',
-      disabled: '未启用',
-    };
-    var next = nextMap[profile.next] || profile.next || '观察中';
-    return '<div class="train-side-section" id="train-pcie-delta-cache-card">'
-      + '<div class="train-panel-title">PCIe Delta/Cache 候选</div>'
-      + '<div class="train-hw-card">'
-      +   '<div class="train-hw-row"><span class="hw-label">路线</span><span class="hw-value">' + escapeHtml(String(profile.label || profile.family || '—')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">模式</span><span class="hw-value">' + escapeHtml(String(profile.mode || 'observe')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">候选 / 高价值</span><span class="hw-value-accent">' + escapeHtml(String(profile.candidates || 0) + ' / ' + String(profile.high || 0)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">中等候选</span><span class="hw-value">' + escapeHtml(String(profile.medium || 0)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">传输量</span><span class="hw-value">' + escapeHtml(Number(profile.transfer || 0).toFixed(1) + ' MB') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">估算缓存</span><span class="hw-value">' + escapeHtml(Number(profile.estimated_cache || 0).toFixed(1) + ' MB') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">Miss / 错误</span><span class="hw-value" style="color:' + (errors > 0 ? '#ef4444' : 'var(--text)') + ';">' + escapeHtml(String(profile.prefetch_missed || 0) + ' / ' + String(errors)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">建议</span><span class="hw-value">' + escapeHtml(next) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">提示</span><span class="hw-value">prefetch 已完整覆盖时通常不需要 Cache v0</span></div>'
-      + '</div>'
-      + '</div>';
-  }
+  function renderPluginSdkTaskSummary(task) {
+    var summary = getPluginSdkSummary(task);
+    if (!summary) return '';
+    var lastProgress = summary.last_progress && typeof summary.last_progress === 'object' ? summary.last_progress : {};
+    var percent = Number(lastProgress.percent);
+    var progressText = Number.isFinite(percent) ? percent.toFixed(0) + '%' : '';
+    var progressMessage = String(lastProgress.message || '').trim();
+    var logs = Array.isArray(summary.logs_tail) ? summary.logs_tail : [];
+    var logText = logs.slice(-2).map(function(item) {
+      if (!item || typeof item !== 'object') return '';
+      return String(item.message || '').trim();
+    }).filter(Boolean).join(' · ');
+    var detailParts = [
+      summary.execution_mode ? ('执行 ' + summary.execution_mode) : '',
+      summary.permission_source ? ('权限 ' + summary.permission_source) : '',
+      summary.artifact_count != null ? ('产物 ' + summary.artifact_count) : '',
+      summary.issue_count ? ('问题 ' + summary.issue_count) : '',
+    ].filter(Boolean);
 
-  function renderPcieCacheV0RuntimeCard(profile) {
-    if (!profile || typeof profile !== 'object') return '';
-    var enabled = !!profile.enabled;
-    var errors = Number(profile.errors || 0);
-    return '<div class="train-side-section" id="train-pcie-cache-v0-card">'
-      + '<div class="train-panel-title">PCIe Cache v0</div>'
-      + '<div class="train-hw-card">'
-      +   '<div class="train-hw-row"><span class="hw-label">状态</span><span class="hw-value" style="color:' + (errors > 0 ? '#ef4444' : (enabled ? '#22c55e' : 'var(--text-dim)')) + ';">' + (enabled ? '已启用' : '未启用') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">选中层</span><span class="hw-value-accent">' + escapeHtml(String(profile.selected || 0)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">缓存 / 预算</span><span class="hw-value">' + escapeHtml(Number(profile.cache || 0).toFixed(1) + ' / ' + Number(profile.budget || 0).toFixed(1) + ' MB') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">Hit / Miss</span><span class="hw-value">' + escapeHtml(String(profile.hits || 0) + ' / ' + String(profile.misses || 0)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">错误</span><span class="hw-value">' + escapeHtml(String(errors)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">原因</span><span class="hw-value">' + escapeHtml(String(profile.reason || '—')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">使用建议</span><span class="hw-value">适合 prefetch miss 高或关闭时对比</span></div>'
+    return '<div style="margin-top:4px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-hover);font-size:0.68rem;color:var(--text-muted);">'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      + '<span style="font-weight:700;color:var(--accent);">SDK Runner</span>'
+      + (progressText ? '<span>' + escapeHtml(progressText) + '</span>' : '')
+      + (progressMessage ? '<span>' + escapeHtml(progressMessage) + '</span>' : '')
+      + (detailParts.length ? '<span>' + escapeHtml(detailParts.join(' · ')) + '</span>' : '')
       + '</div>'
-      + '</div>';
-  }
-
-  function renderPcieCacheV0RecommendationRuntimeCard(profile, cacheProfile) {
-    if (!profile || typeof profile !== 'object') return '';
-    var decisionMap = {
-      try_manually: '建议手动试验',
-      keep_observing: '继续观察',
-      not_recommended: '暂不推荐',
-      do_not_try_yet: '暂勿尝试',
-      recommend_only: '仅推荐',
-    };
-    var decision = decisionMap[profile.decision] || profile.decision || '观察中';
-    var color = profile.decision === 'try_manually' ? '#38bdf8' : (profile.decision === 'do_not_try_yet' ? '#ef4444' : 'var(--text)');
-    var actualEnabled = cacheProfile && typeof cacheProfile === 'object' ? !!cacheProfile.enabled : false;
-    return '<div class="train-side-section" id="train-pcie-cache-v0-recommendation-card">'
-      + '<div class="train-panel-title">PCIe Cache v0 推荐</div>'
-      + '<div class="train-hw-card">'
-      +   '<div class="train-hw-row"><span class="hw-label">路线</span><span class="hw-value">' + escapeHtml(String(profile.label || profile.family || '—')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">决策</span><span class="hw-value" style="color:' + color + ';">' + escapeHtml(decision) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">原因</span><span class="hw-value">' + escapeHtml(String(profile.reason || '—')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">建议预算</span><span class="hw-value-accent">' + escapeHtml(Number(profile.suggested_budget_mb || 0).toFixed(1) + ' MB') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">自动启用</span><span class="hw-value">' + (profile.will_auto_enable ? '是' : '否') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">实际状态</span><span class="hw-value">' + (actualEnabled ? 'PCIe Cache v0 已启用' : 'PCIe Cache v0 未启用') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">候选 / 高价值</span><span class="hw-value">' + escapeHtml(String(profile.candidate_count || 0) + ' / ' + String(profile.high_value_count || 0)) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">当前模式</span><span class="hw-value">' + escapeHtml(String(profile.current_mode || 'observe')) + '</span></div>'
-      + '</div>'
-      + '<div style="margin-top:8px;font-size:0.68rem;color:var(--text-muted);line-height:1.45;">推荐只用于下次或手动对比，不会在本次训练中自动切换 Cache v0。</div>'
-      + '</div>';
-  }
-
-  function renderSmartSensingRuntimeCard(profile) {
-    if (!profile || typeof profile !== 'object') return '';
-    var slowdown = profile.phase === 'runtime_slowdown';
-    var recommendationItems = getSmartSensingRecommendationItems(profile);
-    var recommendationHtml = slowdown && recommendationItems.length
-      ? '<div class="train-hw-row"><span class="hw-label">下次推荐配置</span><span class="hw-value">' + escapeHtml(recommendationItems.join('；')) + '</span></div>'
-      : '';
-    return '<div class="train-side-section" id="train-vram-smart-sensing-card">'
-      + '<div class="train-panel-title">显存智能感知</div>'
-      + '<div class="train-hw-card">'
-      +   '<div class="train-hw-row"><span class="hw-label">阶段</span><span class="hw-value">' + escapeHtml(String(profile.phase || 'observe')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">动作</span><span class="hw-value">' + escapeHtml(String(profile.action || 'observe')) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">基线 / 窗口</span><span class="hw-value">' + escapeHtml(Number(profile.baseline_avg_step_seconds || 0).toFixed(3) + ' / ' + Number(profile.window_avg_step_seconds || 0).toFixed(3) + ' s') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">变慢倍率</span><span class="hw-value" style="color:' + (slowdown ? '#f59e0b' : 'var(--text)') + ';">' + escapeHtml(Number(profile.slowdown_ratio || 0).toFixed(2) + 'x') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">显存压力</span><span class="hw-value">' + (profile.shared_vram_suspected ? '疑似' : '未触发') + '</span></div>'
-      +   recommendationHtml
-      +   '<div class="train-hw-row"><span class="hw-label">说明</span><span class="hw-value">本次不会自动改策略；建议用于下次启动训练前手动配置</span></div>'
-      + '</div>'
-      + '</div>';
-  }
-
-  function renderCompileRuntimeCard(profile) {
-    if (!profile || typeof profile !== 'object') return '';
-    var route = String(profile.route || 'unknown');
-    var resolved = String(profile.resolved || 'eager');
-    var compileEnabled = !!profile.torch_compile;
-    var scope = String(profile.torch_compile_scope || 'off');
-    var shape = String(profile.compile_shape_strategy || 'auto');
-    var target = String(profile.compile_target_strategy || 'auto');
-    var shapeSource = String(profile.effective_static_shape_source || 'unknown');
-    var warningCount = Number(profile.warning_count || 0);
-    var compiledTargets = Number(profile.compiled_target_messages || 0);
-    return '<div class="train-side-section" id="train-compile-runtime-card">'
-      + '<div class="train-panel-title">Compile Runtime</div>'
-      + '<div class="train-hw-card">'
-      +   '<div class="train-hw-row"><span class="hw-label">路由</span><span class="hw-value">' + escapeHtml(route) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">解析结果</span><span class="hw-value">' + escapeHtml(resolved) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">torch.compile</span><span class="hw-value">' + (compileEnabled ? '开启' : '关闭') + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">scope</span><span class="hw-value">' + escapeHtml(scope) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">shape/target</span><span class="hw-value">' + escapeHtml(shape + ' / ' + target) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">静态 shape 来源</span><span class="hw-value">' + escapeHtml(shapeSource) + '</span></div>'
-      +   '<div class="train-hw-row"><span class="hw-label">告警 / 命中</span><span class="hw-value">' + escapeHtml(String(warningCount) + ' / ' + String(compiledTargets)) + '</span></div>'
-      + '</div>'
-      + '<div style="margin-top:8px;font-size:0.68rem;color:var(--text-muted);line-height:1.45;">启动参数或显式配置优先，shape/target 策略只用于解析与回退。</div>'
+      + (logText ? '<div style="margin-top:3px;color:var(--text-dim);">' + escapeHtml(logText) + '</div>' : '')
       + '</div>';
   }
 
   function renderTraining(container) {
-    var running = state.tasks.filter(function(t) { return t.status === 'RUNNING'; });
+    var running = getRunningTasks(state.tasks);
+    var queued = getQueuedTasks(state.tasks);
     var finished = state.tasks.filter(function(t) { return ['FINISHED', 'COMPLETED'].includes(String(t.status || '').toUpperCase()); });
     var terminated = state.tasks.filter(function(t) { return ['TERMINATED', 'FAILED', 'CANCELLED'].includes(String(t.status || '').toUpperCase()); });
     var lastTask = state.tasks[state.tasks.length - 1];
     var logSnapshot = state.trainingLogSnapshot || {};
     var hasRunning = running.length > 0;
+    var hasQueued = queued.length > 0;
     var m = state.trainingMetrics;
-    var curTask = running[0] || lastTask;
-    var taskIdShort = curTask ? curTask.id.slice(0, 8).toUpperCase() : '--------';
+    var curTask = running[0] || queued[0] || lastTask;
+    var taskId = getTaskId(curTask);
+    var taskIdShort = taskId ? taskId.slice(0, 8).toUpperCase() : '--------';
 
     // Compute live metrics for header
     var curStep = m.lastStep || 0;
@@ -309,7 +214,7 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
     var prevLoss = m.losses.length > 1 ? m.losses[m.losses.length - 2].loss : curLoss;
     var lossDeltaPct =prevLoss > 0 ? ((curLoss - prevLoss) / prevLoss * 100) : 0;
     var lossArrow = lossDeltaPct < 0 ? _ico('trending-down', 12) : (lossDeltaPct > 0 ? _ico('trending-up', 12) : '');
-    var lossArrowColor = lossDeltaPct < 0 ? '#22c55e' : (lossDeltaPct > 0 ? '#ef4444' : 'var(--text-dim)');
+    var lossArrowColor = lossDeltaPct < 0 ? 'var(--success)' : (lossDeltaPct > 0 ? 'var(--danger)' : 'var(--text-dim)');
     var ghost = m.ghostReplay || (m.bTier && m.bTier.ghost_replay) || null;
     var precisionSwapProfile = m.precisionSwapProfile
       || (m.memoryOptimization && m.memoryOptimization.precision_swap_profile)
@@ -340,9 +245,9 @@ export function createTrainingRenderer({ state, renderSlot, deps }) {
       non_finite: '\u975e\u6709\u9650\u503c',
     };
     var ghostStatusColor = (
-      ghostStatus === 'matched' || ghostStatus === 'matched_zero_loss' ? '#22c55e' :
-      ghostStatus === 'compute_error' || ghostStatus === 'non_finite' ? '#ef4444' :
-      ghostStatus === 'no_match' ? '#f59e0b' :
+      ghostStatus === 'matched' || ghostStatus === 'matched_zero_loss' ? 'var(--success)' :
+      ghostStatus === 'compute_error' || ghostStatus === 'non_finite' ? 'var(--danger)' :
+      ghostStatus === 'no_match' ? 'var(--warning)' :
       'var(--text-dim)'
     );
     var ghostStatusLabel = ghostStatusMap[ghostStatus] || ghostStatus;
@@ -373,12 +278,15 @@ var statusDot = '', statusText = '';
     if (hasRunning) {
       statusDot = '<span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;animation:pulse-dot 1.5s ease-in-out infinite;"></span>';
       statusText = '<span style="font-family:monospace;font-size:0.82rem;font-weight:700;color:var(--accent);">SESSION_' + taskIdShort + '</span>';
+    } else if (hasQueued) {
+      statusDot = '<span style="width:8px;height:8px;border-radius:50%;background:var(--info);display:inline-block;animation:pulse-dot 1.8s ease-in-out infinite;"></span>';
+      statusText = '<span style="font-family:monospace;font-size:0.82rem;font-weight:700;color:var(--info);">QUEUED_' + taskIdShort + '</span>';
     } else if (state.trainingFailed) {
-      statusDot ='<span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;"></span>';
-      statusText = '<span style="font-family:monospace;font-size:0.82rem;font-weight:700;color:#ef4444;">FAILED</span>';
+      statusDot ='<span style="width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block;"></span>';
+      statusText = '<span style="font-family:monospace;font-size:0.82rem;font-weight:700;color:var(--danger);">FAILED</span>';
     } else if (finished.length > 0) {
-      statusDot = '<span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;"></span>';
-      statusText = '<span style="font-family:monospace;font-size:0.82rem;font-weight:700;color:#22c55e;">COMPLETED</span>';
+      statusDot = '<span style="width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;"></span>';
+      statusText = '<span style="font-family:monospace;font-size:0.82rem;font-weight:700;color:var(--success);">COMPLETED</span>';
     } else {
       statusDot = '<span style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);display:inline-block;"></span>';
       statusText = '<span style="font-family:monospace;font-size:0.82rem;color:var(--text-muted);">IDLE</span>';
@@ -434,9 +342,9 @@ var statusDot = '', statusText = '';
     else if (networkAlgo === 'networks.oft_flux') { networkAlgo = 'OFT (FLUX)'; }
     else if (networkAlgo === 'networks.lora_anima') { networkAlgo = 'LoRA (Anima)'; }
     else if (networkAlgo === 'networks.tlora_anima') { networkAlgo = 'T-LoRA (Anima)'; }
-    else if (networkAlgo === 'networks.lora_sd3') { networkAlgo = 'LoRA (SD3)'; }
     else if (networkAlgo === 'networks.lora_lumina') { networkAlgo = 'LoRA (Lumina)'; }
-    else if (networkAlgo === 'networks.lora_hunyuan_image') { networkAlgo = 'LoRA (HunyuanImage)'; }
+    else if (networkAlgo === 'networks.lora_qwen_image') { networkAlgo = 'LoRA (Qwen Image)'; }
+    else if (networkAlgo === 'networks.lora_hunyuan_dit' || networkAlgo === 'networks.lora_hunyuan_image') { networkAlgo = 'LoRA (HunyuanDiT)'; }
     else if (networkAlgo === 'networks.dylora') { networkAlgo = 'DyLoRA'; }
   // Newbie 使用 adapter_type 字段
     if (!networkAlgo && state.config.adapter_type && state.config.model_train_type === 'newbie-lora') {
@@ -468,6 +376,13 @@ var statusDot = '', statusText = '';
         + '<span class="train-param-val">'+ escapeHtml(String(p[1])) + '</span>'
         + '</div>';
     }).join('');
+    var historyTasks = state.tasks.slice().reverse();
+    var bubbleHistoryFilter = BUBBLE_CLOSED_LOOP_FILTERS.some(function(item) { return item.id === state.bubbleClosedLoopHistoryFilter; })
+      ? state.bubbleClosedLoopHistoryFilter
+      : 'all';
+    var visibleHistoryTasks = historyTasks.filter(function(task) {
+      return matchesBubbleClosedLoopHistoryFilter(task, bubbleHistoryFilter);
+    });
 
     container.innerHTML = ''
     + '<div class="train-dashboard">'
@@ -481,7 +396,7 @@ var statusDot = '', statusText = '';
     +   '</div>'
     +   '<div style="display:flex;align-items:center;gap:8px;">'
     +     '<span class="train-tag train-tag-accent">' + precisionTag + '</span>'
-    +     (hasRunning && curTask ? '<span class="train-tag">PID: ' +escapeHtml(curTask.id.slice(0, 8)) + '</span>' : '')
+    +     ((hasRunning || hasQueued) && curTask ? '<span class="train-tag">PID: ' +escapeHtml(taskId.slice(0, 8)) + '</span>' : '')
     +   '</div>'
     + '</div>'
 
@@ -510,12 +425,18 @@ var statusDot = '', statusText = '';
     +     '</div>'
     +     '<div id="training-log-container" class="train-terminal">'
    +       (hasRunning
-        ? (logSnapshot.html && logSnapshot.taskId === curTask.id
+        ? (logSnapshot.html && logSnapshot.taskId === taskId
                   ? logSnapshot.html
                   : '<span style="color:var(--text-muted);">' + _ico('loader', 14) + ' \u6b63\u5728\u52a0\u8f7d\u8bad\u7ec3\u8f93\u51fa...</span>')
-              : (logSnapshot.html
+              : (hasQueued
+                  ? '<span style="color:var(--info);">' + _ico('clock', 14) + ' 训练任务正在排队，开始运行后日志会自动接入。' + (getQueueMetaText(curTask) ? '<br><span style="color:var(--text-muted);">' + escapeHtml(getQueueMetaText(curTask)) + '</span>' : '') + '</span>'
+                  : (logSnapshot.html
                   ? logSnapshot.html
-                  : '<span style="color:var(--text-muted);">\u6682\u65e0\u8bad\u7ec3\u4efb\u52a1\u8fd0\u884c\u4e2d\u3002\u70b9\u51fb\u300c\u5f00\u59cb\u8bad\u7ec3\u300d\u542f\u52a8\u540e\uff0c\u8f93\u51fa\u5c06\u5728\u6b64\u5b9e\u65f6\u663e\u793a\u3002</span>'))
+                  : '<div class="train-terminal-empty">'
+                    + '<div class="train-terminal-empty-icon">' + _ico('terminal', 40) + '</div>'
+                    + '<div class="train-terminal-empty-title">\u6682\u65e0\u8bad\u7ec3\u4efb\u52a1\u8fd0\u884c\u4e2d</div>'
+                    + '<div class="train-terminal-empty-hint">\u914d\u7f6e\u597d\u53c2\u6570\u540e\uff0c\u70b9\u51fb\u300c\u5f00\u59cb\u8bad\u7ec3\u300d\u542f\u52a8<br>\u5b9e\u65f6\u65e5\u5fd7\u4e0e\u8fdb\u5ea6\u4f1a\u5728\u6b64\u663e\u793a</div>'
+                    + '</div>')))
     +     '</div>'
     +   '</div>'
 
@@ -526,7 +447,7 @@ var statusDot = '', statusText = '';
     +     '<div class="train-side-section">'
     +       '<div class="train-panel-title">\u5b9e\u65f6 Loss</div>'
     +       '<div style="display:flex;justify-content:space-between;align-items:flex-end;">'
-    +         '<span class="train-loss-big">' +(curLoss > 0 ? curLoss.toFixed(4) : '\u2014')+ '</span>'
+    +         '<span class="train-loss-big" data-tween-key="liveLoss" data-tween-value="' + (curLoss > 0 ? curLoss : '') + '">' +(curLoss > 0 ? curLoss.toFixed(4) : '\u2014')+ '</span>'
     +         '<span class="train-loss-delta" style="color:' + lossArrowColor + ';">' + lossArrow + ' ' + (lossDeltaPct !== 0 ? (lossDeltaPct > 0 ? '+' : '') + lossDeltaPct.toFixed(1) + '%' : '') + '</span>'
     +       '</div>'
     +       '<div class="train-chart-box">'
@@ -542,7 +463,7 @@ var statusDot = '', statusText = '';
     +       '<div class="train-panel-title">' + _ico('activity', 14) + ' \u786c\u4ef6 / \u8d44\u6e90\u76d1\u63a7</div>'
     +       '<div class="train-hw-card">'
     +         '<div class="train-hw-row"><span class="hw-label">\u663e\u5361</span><span class="hw-value">' + escapeHtml(gpuName) + '</span></div>'
-    +  '<div class="train-hw-row"><span class="hw-label">\u901f\u5ea6</span><span id="train-live-speed" class="hw-value-accent">' + (curSpeed >0 ? curSpeed.toFixed(2) + ' it/s' : '\u2014') + '</span></div>'
+    +  '<div class="train-hw-row"><span class="hw-label">\u901f\u5ea6</span><span id="train-live-speed" class="hw-value-accent" data-tween-key="liveSpeed" data-tween-value="' + (curSpeed > 0 ? curSpeed : '') + '">' + (curSpeed >0 ? curSpeed.toFixed(2) + ' it/s' : '\u2014') + '</span></div>'
     +         '<div class="train-hw-row"><span class="hw-label">\u8fd0\u884c\u73af\u5883</span><span class="hw-value">' + (state.runtime && state.runtime.runtime ? state.runtime.runtime.environment : 'standard') + '</span></div>'
     +         '<div class="train-hw-row"><span class="hw-label">\u7cbe\u5ea6</span><span class="hw-value">' + precisionTag + '</span></div>'
     +       '</div>'
@@ -583,19 +504,29 @@ var statusDot = '', statusText = '';
     +     '<div class="train-panel-title">' + _ico('clock', 14) + ' \u4efb\u52a1\u5386\u53f2</div>'
     +     (state.tasks.length > 0 ? '<button class="btn btn-outline btn-sm" style="font-size:0.7rem;padding:2px 8px;" type="button"onclick="clearAllTaskHistory()">' + _ico('trash-2', 12) + ' \u6e05\u7a7a\u5386\u53f2</button>' : '')
     +   '</div>'
+    +   renderBubbleClosedLoopHistoryFilterBar(historyTasks)
     +   (state.tasks.length === 0
         ? '<p style="color:var(--text-muted);font-size:0.78rem;">\u6682\u65e0\u4efb\u52a1\u8bb0\u5f55</p>'
-        : state.tasks.slice().reverse().map(function(task) {
-      var statusMap = { RUNNING: _ico('loader') + ' \u8fd0\u884c\u4e2d', FINISHED: _ico('check-circle')+ ' \u5df2\u5b8c\u6210', COMPLETED: _ico('check-circle') + ' \u5df2\u5b8c\u6210', TERMINATED: _ico('stop-circle') + ' \u5df2\u7ec8\u6b62', FAILED: _ico('x-circle') + ' \u5931\u8d25', CANCELLED: _ico('stop-circle') + ' \u5df2\u53d6\u6d88', CREATED: _ico('clock') + ' \u5df2\u521b\u5efa' };
-      var statusColor = { RUNNING: '#f59e0b', FINISHED: '#22c55e', COMPLETED: '#22c55e', TERMINATED: '#ef4444', FAILED: '#ef4444', CANCELLED: '#ef4444', CREATED: 'var(--text-dim)' };
+        : (visibleHistoryTasks.length === 0
+          ? '<p style="color:var(--text-muted);font-size:0.78rem;margin:8px 0 0;">当前筛选没有任务记录</p>'
+          : visibleHistoryTasks.map(function(task) {
+      var statusMap = { QUEUED: _ico('clock') + ' 排队中', RUNNING: _ico('loader') + ' \u8fd0\u884c\u4e2d', FINISHED: _ico('check-circle')+ ' \u5df2\u5b8c\u6210', COMPLETED: _ico('check-circle') + ' \u5df2\u5b8c\u6210', TERMINATED: _ico('stop-circle') + ' \u5df2\u7ec8\u6b62', FAILED: _ico('x-circle') + ' \u5931\u8d25', CANCELLED: _ico('stop-circle') + ' \u5df2\u53d6\u6d88', CANCELED: _ico('stop-circle') + ' 已取消', CREATED: _ico('clock') + ' \u5df2\u521b\u5efa' };
+      var statusColor = { QUEUED: 'var(--info)', RUNNING: 'var(--warning)', FINISHED: 'var(--success)', COMPLETED: 'var(--success)', TERMINATED: 'var(--danger)', FAILED: 'var(--danger)', CANCELLED: 'var(--danger)', CANCELED: 'var(--danger)', CREATED: 'var(--text-dim)' };
       var canScore = ['FINISHED', 'COMPLETED'].includes(String(task.status || '').toUpperCase());
-      var hasCached = canScore && !!(state.taskSummaries[task.id] && state.taskSummaries[task.id]._v >= 2);
-      var isNotRunning = String(task.status || '').toUpperCase() !== 'RUNNING';
+      var taskId = getTaskId(task);
+      var hasCached = canScore && !!(state.taskSummaries[taskId] && state.taskSummaries[taskId]._v >= 2);
+      var canDelete = canDeleteTask(task);
       var badge = hasCached ? _ico('bar-chart', 14) : (canScore && !task._recentlyFinished ? '\u70b9\u51fb\u8bc4\u5206' : '');
-      var taskLabel= task.output_name || task.id.substring(0, 8);
+      var sdkSummary = getPluginSdkSummary(task);
+      var bubbleEvidence = getBubbleAdvisorAbEvidence(task);
+      var bubbleClosedLoop = getBubbleClosedLoopState(task);
+      var multiBatchEvidence = getMultiBatchEvidence(task);
+      var trainingRuntimeSummary = getTrainingRuntimeSummary(task);
+      var taskLabel= task.output_name || task.name || (sdkSummary && sdkSummary.runner_id) || taskId.substring(0, 8);
       var timeStr = task.created_at || '';
-      var typeTag = task.training_type_label || task.model_train_type || '';
-   var metaParts = [timeStr, task.resolution ? ('\u5206\u8fa8\u7387 ' + task.resolution) : '', task.network_dim ? ('dim ' + task.network_dim) : ''].filter(Boolean);
+      var typeTag = sdkSummary ? 'Plugin SDK' : (task.training_type_label || task.model_train_type || '');
+   var queueMeta = getQueueMetaText(task);
+   var metaParts = [timeStr, task.resolution ? ('\u5206\u8fa8\u7387 ' + task.resolution) : '', task.network_dim ? ('dim ' + task.network_dim) : '', queueMeta].filter(Boolean);
       var metaStr = metaParts.join(' \u00b7 ');
       return '<div style="border-bottom:1px solid var(--border);padding:5px 0;" id="task-row-' + task.id + '">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;">'
@@ -603,24 +534,33 @@ var statusDot = '', statusText = '';
         + '<span style="font-size:0.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(taskLabel) + '</span>'
         + (typeTag ? '<span style="font-size:0.65rem;color:var(--text-muted);background:var(--bg-hover);padding:1px 5px;border-radius:3px;">' + escapeHtml(typeTag) + '</span>' : '')
         + (badge ? '<span style="font-size:0.68rem;color:var(--accent);opacity:0.7;">' + badge + '</span>' : '')
+        + (bubbleEvidence ? renderBubbleAdvisorAbEvidenceBadge(bubbleEvidence) : '')
+        + (bubbleClosedLoop ? renderBubbleClosedLoopBadge(bubbleClosedLoop) : '')
+        + (multiBatchEvidence ? renderMultiBatchEvidenceBadge(multiBatchEvidence) : '')
         + '</div>'
         + '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">'
         + '<span style="color:' + (statusColor[task.status] || 'var(--text-dim)') + ';font-weight:600;font-size:0.78rem;">' + (statusMap[task.status] || task.status) + '</span>'
-        + (isNotRunning ? '<button class="btn-icon" style="opacity:0.5;font-size:0.7rem;padding:2px;" type="button" onclick="event.stopPropagation();deleteTaskHistory(\'' + task.id + '\')" title="\u5220\u9664\u8bb0\u5f55">' + _ico('x', 12) + '</button>' : '')
+        + (isTaskQueued(task) ? '<button class="btn-icon" style="opacity:0.75;font-size:0.7rem;padding:2px;" type="button" onclick="event.stopPropagation();terminateTask(\'' + task.id + '\')" title="取消排队">' + _ico('square', 12) + '</button>' : '')
+        + (canDelete ? '<button class="btn-icon" style="opacity:0.5;font-size:0.7rem;padding:2px;" type="button" onclick="event.stopPropagation();deleteTaskHistory(\'' + task.id + '\')" title="\u5220\u9664\u8bb0\u5f55">' + _ico('x', 12) + '</button>' : '')
 
         + '</div>'
         + '</div>'
         + (metaStr ? '<div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px;">' + escapeHtml(metaStr) + '</div>' :'')
+        + renderPluginSdkTaskSummary(task)
         + '<div id="task-summary-' + task.id + '" style="display:none;" data-loaded="' + (hasCached ? 'true' : 'false') + '">'
         + (hasCached
-          ? renderSummaryCard(state.taskSummaries[task.id], {
+          ? renderSummaryCard(state.taskSummaries[taskId], {
             pcieTransferBenchmark: state.pcieTransferBenchmark,
             showCompileRuntime: true,
+            bubbleAdvisorAbEvidence: bubbleEvidence,
+            bubbleClosedLoopState: bubbleClosedLoop,
+            multiBatchEvidence,
+            trainingRuntimeSummary,
           })
           : '')
         + '</div>'
         + '</div>';
-    }).join(''))
+    }).join('')))
     + '</div>'
 
     + '</div>'
@@ -628,7 +568,24 @@ var statusDot = '', statusText = '';
     + '</div>'; // close train-dashboard
 
     _syncFooterAction();
-    if (hasRunning) {
+
+    // Live number tween — scan all data-tween-key nodes
+    try {
+      const tweenNodes = container.querySelectorAll('[data-tween-key]');
+      tweenNodes.forEach((node) => {
+        const key = node.getAttribute('data-tween-key');
+        const rawValue = node.getAttribute('data-tween-value');
+        const newValue = parseFloat(rawValue);
+        if (!key || !Number.isFinite(newValue)) return;
+        if (key === 'liveLoss') {
+          tweenNumber(key, node, newValue, (v) => v.toFixed(4), { threshold: 0.02, absoluteThreshold: 0.001 });
+        } else if (key === 'liveSpeed') {
+          tweenNumber(key, node, newValue, (v) => v.toFixed(2) + ' it/s', { threshold: 0.05, absoluteThreshold: 0.1 });
+        }
+      });
+    } catch (_e) { /* ignore */ }
+
+    if (hasRunning || hasQueued) {
       _startTrainingLogPolling();
       _startSysMonitorPolling();
     } else {

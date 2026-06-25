@@ -1,0 +1,23 @@
+{
+  "key": "caption_dropout_every_n_epochs",
+  "title": "无条件训练间隔",
+  "category": "数据集 / 图说",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "每 N 个 epoch 完全丢弃一次图说（图说变为空字符串），相当于训练 CFG（无条件生成）的能力。",
+    "effect": "开启无条件训练后，模型在 CFG=0 时也能生成合理图像，提升生成的 CFG guidance 效果。",
+    "whenToUse": "希望提高推理时 CFG guidance 效果时开启（设为 1~5）。对 CFG 要求高的概念 LoRA 有帮助。",
+    "avoidWhen": "数据集极小时，无条件训练会占用一部分训练资源学习\"无条件\"分布，可能影响概念学习效率。"
+  },
+  "advanced": {
+    "principle": "无条件训练是 CFG（Classifier-Free Guidance）的基础：模型同时学习条件生成（有 caption）和无条件生成（caption=空），推理时用两者差值作为引导方向。",
+    "tradeoffs": "过少的无条件训练（>5 epoch 才一次）导致 CFG 引导能力弱；过多（每 epoch 一次）占用太多资源。通常设为 1~3 即可。"
+  },
+  "relatedConfigs": [
+    "caption_tag_dropout_rate",
+    "caption_extension"
+  ]
+}

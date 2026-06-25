@@ -1,0 +1,21 @@
+{
+  "key": "soft_tokens_enabled",
+  "title": "Soft Tokens",
+  "category": "训练 / 文本条件",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["Text Conditioning"],
+  "standard": {
+    "summary": "Soft Tokens 是按 layer/timestep 插入的可学习文本 token。Lulynx 只保留当前 SoftREPA-style 路线，旧 AGSM/dispersive 方案不默认恢复。",
+    "effect": "token bank 会 prepend 到文本条件，并同步扩展 attention mask。",
+    "whenToUse": "后续需要轻量补强文本条件、风格提示或 layer-aware conditioning 时。",
+    "avoidWhen": "需要可静态合并到模型权重的 LoRA；Soft Tokens 是 live conditioning state。"
+  },
+  "advanced": {
+    "principle": "根据 layer 和 timestep 选择 token bank，将 learnable tokens 拼到文本 embedding 前面。",
+    "intervention": "Text conditioning path → attention mask expansion → future checkpoint metadata。",
+    "expectedImpact": "会增加文本 token 长度和少量 attention 成本；训练效果需要 A/B。",
+    "tradeoffs": "AGSM/dispersive 模式已明确拒绝，避免复活上游移除路径。",
+    "codePath": "backend/core/lulynx_trainer/soft_tokens.py"
+  },
+  "relatedConfigs": ["soft_tokens_enabled", "soft_tokens_count", "soft_tokens_schedule"]
+}

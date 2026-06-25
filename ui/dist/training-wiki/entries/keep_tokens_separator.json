@@ -1,0 +1,37 @@
+{
+  "key": "keep_tokens_separator",
+  "title": "触发词保护分隔符",
+  "category": "数据集 / 图说",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "shuffle_caption_tags_only",
+    "weighted_captions",
+    "token_string",
+    "init_word",
+    "use_object_template",
+    "use_style_template",
+    "positive_prompts",
+    "negative_prompts",
+    "prompt_file",
+    "randomly_choice_prompt",
+    "random_prompt_include_subdirs"
+  ],
+  "standard": {
+    "summary": "控制训练时图说处理的细节：keep_tokens_separator 指定触发词区域的分隔符（该分隔符前的 token 在 shuffle 时固定不变）；weighted_captions 支持带权重的图说格式（如 (tag:1.5)）。",
+    "effect": "keep_tokens_separator（如 \"|||\"）让分隔符前的 token 保持固定顺序（通常是触发词），分隔符后的 tag 可以 shuffle；weighted_captions 允许对特定 tag 设置权重影响其学习强度。",
+    "whenToUse": "触发词 + 描述性 tag 混合的图说格式时使用 keep_tokens_separator 保护触发词不被 shuffle 打乱；有权重图说时启用 weighted_captions。",
+    "avoidWhen": "纯自然语言图说（非 tag 格式）不适合 shuffle 相关设置；token_string 和 init_word 是 textual inversion 专用，LoRA 训练不需要。"
+  },
+  "advanced": {
+    "principle": "keep_tokens_separator 在 caption 按 \",\" 分割为 tag 列表时，标记固定区域（不参与 shuffle）和随机区域的边界。用于保证触发词始终在 caption 前部（CLIP 对早期 token 权重略高）。weighted_captions 解析 (word:weight) 格式，根据权重缩放对应 token 的 embedding。",
+    "tradeoffs": "使用分隔符保护触发词时，所有训练图的 caption 格式必须一致（都有分隔符且分隔符位置固定），否则部分图的触发词仍可能被 shuffle。"
+  },
+  "relatedConfigs": [
+    "caption_shuffle_strategy",
+    "caption_source_trigger_tokens",
+    "caption_tag_dropout_rate"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "key": "gradient_checkpointing",
+  "title": "梯度检查点",
+  "category": "显存 / 反向传播",
+  "appliesTo": ["sdxl-lora", "anima-lora", "newbie-lora", "finetune", "controlnet"],
+  "layers": ["内存层", "反向传播层"],
+  "standard": {
+    "summary": "梯度检查点会少保存一部分中间激活，反向传播时再重算它们。",
+    "effect": "通常能明显降低显存峰值，代价是训练速度下降。",
+    "whenToUse": "显存吃紧、batch 上不去、分辨率较高或经常 OOM 时优先开启。",
+    "avoidWhen": "显存充足且追求速度时可以关闭，尤其是短测和快速调参阶段。"
+  },
+  "advanced": {
+    "principle": "反向传播需要 forward 阶段保存 activation。Checkpointing 通过少存 activation、backward 时重算局部 forward 来交换显存和计算量。",
+    "intervention": "介入模型 forward/backward 的 activation 保存策略，不改变训练目标。",
+    "expectedImpact": "主要降低 activation 显存峰值；对 LoRA 权重显存帮助较小，对高分辨率和 DiT block 更明显。",
+    "tradeoffs": "会增加计算开销；与 offload、compile、CUDAGraph 等策略组合时需要短测确认。"
+  },
+  "relatedConfigs": ["cpu_offload_checkpointing", "checkpoint_policy", "anima_block_checkpointing", "newbie_block_checkpointing"]
+}

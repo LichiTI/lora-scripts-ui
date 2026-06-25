@@ -1,0 +1,29 @@
+{
+  "key": "gram_texture_enabled",
+  "title": "Gram 矩阵纹理 Loss",
+  "category": "前沿储备 / 质量",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "gram_texture_weight",
+    "gram_texture_min_t",
+    "gram_texture_max_t",
+    "gram_texture_normalize"
+  ],
+  "standard": {
+    "summary": "（实验性）Gram 矩阵风格 loss：通过计算特征图的 Gram 矩阵（通道间相关性），约束训练输出的纹理风格一致性。",
+    "effect": "Gram 矩阵捕捉特征的二阶统计量（等价于风格信息），此 loss 鼓励生成保持与目标相同的纹理/风格分布。",
+    "whenToUse": "实验性功能。风格 LoRA 训练（希望输出保持特定艺术风格纹理）时可以尝试。",
+    "avoidWhen": "默认关闭。Gram 矩阵计算需要完整的特征通道乘法（O(C²)），对大通道数（C>512）有一定计算开销。"
+  },
+  "advanced": {
+    "principle": "G = F × F^T，G_{ij} = <F_i, F_j>（特征图通道 i 和 j 的内积）。Gram 矩阵等价于特征空间的二阶矩，不保留空间位置信息（只捕捉风格而非内容）。normalize=True 对 Gram 矩阵按元素数归一化，防止深层特征因维度大而主导 loss。",
+    "tradeoffs": "Gram loss 单纯约束风格，可能弱化对内容/结构的约束。通常应与 MSE loss 一起使用（Gram 权重设较小）。"
+  },
+  "relatedConfigs": [
+    "dct_frequency_enabled",
+    "lineart_loss_enabled",
+    "perceptual_anchor_loss_enabled"
+  ]
+}

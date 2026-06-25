@@ -1,0 +1,23 @@
+{
+  "key": "ac_auto_lr_scale_factor",
+  "title": "自动学习率缩放因子",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "自动 LR 调整触发时的缩放系数。默认 1.0（不缩放）。",
+    "effect": ">1.0 = 提高 LR；<1.0 = 降低 LR。配合 GSNR 目标使用。",
+    "whenToUse": "配合 ac_enable_auto_lr_adjustment 使用，根据 GSNR 偏差方向调整。",
+    "avoidWhen": "不清楚 GSNR 目标时保持默认 1.0（相当于禁用缩放）。"
+  },
+  "advanced": {
+    "principle": "基于 GSNR 与目标的偏差比例，按 scale_factor 调整 LR，实现闭环控制。",
+    "tradeoffs": "scale_factor 过大会导致 LR 剧烈振荡。建议从 1.0 附近小步调整。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_enable_auto_lr_adjustment",
+    "ac_target_gsnr"
+  ]
+}

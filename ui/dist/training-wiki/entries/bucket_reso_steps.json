@@ -1,0 +1,25 @@
+{
+  "key": "bucket_reso_steps",
+  "title": "Bucket 分辨率步长",
+  "category": "数据集 / 预处理",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora",
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "Bucket 分辨率的枚举步长（像素）。决定生成多少个不同分辨率的桶，值越小桶越细，图像裁剪损失越少。",
+    "effect": "steps=64 = 分辨率以 64 像素为步长（256/320/384...）；steps=32 = 桶更密，图像更精准分组。",
+    "whenToUse": "默认 64 适合大多数场景。数据集比例差异大（如同时有 1:1 和 16:9 图）时可降低到 32。",
+    "avoidWhen": "steps 过小（<16）会生成大量极少用到的桶，内存开销增加且意义不大。"
+  },
+  "advanced": {
+    "principle": "桶生成算法：从最小分辨率到最大分辨率，以 steps 为间隔枚举所有面积接近 target_resolution² 的分辨率对。每张图像被分配到面积差异最小的桶。",
+    "tradeoffs": "步长越小 = 桶越多 = 图像裁剪损失越少，但相同桶内图像数量更少（batch 内相同分辨率的图更难凑齐）。"
+  },
+  "relatedConfigs": [
+    "enable_bucket",
+    "resolution",
+    "bucket_no_upscale"
+  ]
+}

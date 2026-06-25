@@ -1,0 +1,24 @@
+{
+  "key": "lulynx_ema_enabled",
+  "title": "EMA（SDXL/旧版路线）",
+  "category": "训练 / 平滑",
+  "appliesTo": [
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "lulynx_ema_decay",
+    "lulynx_auto_check_every",
+    "lulynx_auto_early_stop_patience"
+  ],
+  "standard": {
+    "summary": "SDXL/旧版路线下 Lulynx 管理的 EMA 开关和衰减率，以及 AutoController 的检查间隔和早停耐心值。",
+    "effect": "功能同 ema_enabled / ema_decay（标准版），通过 route_service.py 三归一路由到后端同一实现。lulynx_auto_check_every 等同于 ac_warmup_steps 中的\"检查频率\"含义。",
+    "whenToUse": "这些字段是 SDXL/旧版路线的 Lulynx 前缀变体，Anima 路线请使用无前缀版本（ema_enabled / ac_* 等）。",
+    "avoidWhen": "在 Anima 路线下不要使用这些字段，使用对应的标准版字段。"
+  },
+  "relatedConfigs": [
+    "ema_enabled",
+    "ema_decay",
+    "ac_enabled"
+  ]
+}

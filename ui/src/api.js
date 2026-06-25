@@ -1,97 +1,9 @@
-const JSON_HEADERS = {
-  'Content-Type': 'application/json',
-};
-
-function formatApiMessage(value) {
-  if (value == null) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value !== 'object') return String(value);
-
-  if (Array.isArray(value)) {
-    return value.map(formatApiMessage).filter(Boolean).join('; ');
-  }
-
-  for (const key of ['message', 'detail', 'error', 'reason']) {
-    const text = formatApiMessage(value[key]);
-    if (text) return text;
-  }
-
-  if (Array.isArray(value.errors) && value.errors.length) {
-    const text = value.errors.map(formatApiMessage).filter(Boolean).join('; ');
-    if (text) return text;
-  }
-  if (Array.isArray(value.issues) && value.issues.length) {
-    const text = value.issues.map(formatApiMessage).filter(Boolean).join('; ');
-    if (text) return text;
-  }
-
-  try {
-    return JSON.stringify(value);
-  } catch (_error) {
-    return String(value);
-  }
-}
-
-async function request(path, options = {}) {
-  let response;
-  try {
-    response = await fetch(path, {
-      headers: options.body ? JSON_HEADERS : undefined,
-      ...options,
-    });
-  } catch (networkError) {
-    throw new Error('无法连接到后端服务，请确认后端 (gui.py) 已启动。');
-  }
-
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch (error) {
-    if (response.status === 502) {
-      throw new Error('后端服务未启动 (127.0.0.1:28000)，请先通过启动脚本或 gui.py 启动后端。');
-    }
-    throw new Error(`接口返回的 JSON 无效：${path}`);
-  }
-
-  if (!response.ok) {
-    throw new Error(formatApiMessage(payload?.detail || payload?.message || payload) || `请求失败：${response.status}`);
-  }
-
-  return payload;
-}
-
-function postJson(path, data) {
-  return request(path, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-/**
- * 仅同步本地历史文件 (./task_history.json)。
- * 用于在调用后端真删除接口成功后，把本地缓存里同 ID 的条目一并清掉，
- * 避免下次启动时本地历史文件把已删任务又拉回来。
- * 失败不抛异常（本地缓存是兜底，后端才是权威）。
- */
-async function syncLocalTaskHistoryRemoval(taskId) {
-  const normalizedId = String(taskId || '');
-  if (!normalizedId) return;
-  try {
-    const history = await request('/api/local/task_history');
-    const tasks = Array.isArray(history?.data?.tasks) ? history.data.tasks : [];
-    const filtered = tasks.filter((task) => String(task?.id || task?.task_id || '') !== normalizedId);
-    if (filtered.length !== tasks.length) {
-      await postJson('/api/local/task_history', { tasks: filtered });
-    }
-  } catch (_e) { /* 本地缓存同步失败不影响主流程 */ }
-}
-
-/** 清空本地任务历史文件（与 DELETE /api/tasks 配合使用）。失败静默。 */
-async function clearLocalTaskHistoryFile() {
-  try {
-    await request('/api/local/task_history', { method: 'DELETE' });
-  } catch (_e) { /* ignore */ }
-}
+import {
+  clearLocalTaskHistoryFile,
+  postJson,
+  request,
+  syncLocalTaskHistoryRemoval,
+} from './apiTransport.js';
 
 export const api = {
   getGraphicCards() {
@@ -108,6 +20,10 @@ export const api = {
 
   getConfigOptions() {
     return request('/api/config/options');
+  },
+
+  getExecutionProfiles() {
+    return request('/api/train/execution-profiles');
   },
 
   getTasks() {
@@ -196,7 +112,20 @@ export const api = {
   },
 
   runPreflight(config) {
-    return postJson('/api/train/preflight', config);
+    return postJson('/api/train/preflight', {
+      allow_attention_fallback: true,
+      ...config,
+    });
+  },
+
+  applyBubbleAdvisorPatch(config, report, options = {}) {
+    return postJson('/api/train/bubble-advisor/apply', {
+      config: config || {},
+      report: report || {},
+      embed_ledger: true,
+      keep_bubble_controller_enabled: true,
+      ...options,
+    });
   },
 
   runPcieTransferBenchmark(params = {}) {
@@ -217,6 +146,26 @@ export const api = {
 
   runInterrogate(params) {
     return postJson('/api/interrogate', params);
+  },
+
+  checkInterrogateHealth(params) {
+    return postJson('/api/interrogate/health', params);
+  },
+
+  getLlmTaggerChannels() {
+    return request('/api/interrogate/llm_channels');
+  },
+
+  saveLlmTaggerChannel(params) {
+    return postJson('/api/interrogate/llm_channels', params);
+  },
+
+  deleteLlmTaggerChannel(channelId) {
+    return request(`/api/interrogate/llm_channels/${encodeURIComponent(channelId)}`, { method: 'DELETE' });
+  },
+
+  clearLlmTaggerChannelKeys(channelId) {
+    return postJson(`/api/interrogate/llm_channels/${encodeURIComponent(channelId)}/clear_keys`, {});
   },
 
   getDatasetTags(dir) {
@@ -253,8 +202,26 @@ export const api = {
     return postJson('/api/system/open_advanced_monitor', {});
   },
 
+  getWebuiErrors({ limit = 100, kind = '', q = '' } = {}) {
+    const params = [`limit=${encodeURIComponent(limit)}`];
+    if (kind && kind !== 'all') params.push(`kind=${encodeURIComponent(kind)}`);
+    if (q) params.push(`q=${encodeURIComponent(q)}`);
+    return request(`/api/system/webui_errors?${params.join('&')}`);
+  },
+
+  getFirstReleaseReadiness() {
+    return request('/api/system/first_release_readiness');
+  },
+
+  refreshFirstReleaseReadiness() {
+    return postJson('/api/system/first_release_readiness/refresh', {});
+  },
+
   runTraining(config) {
-    return postJson('/api/run', config);
+    return postJson('/api/run', {
+      allow_attention_fallback: true,
+      ...config,
+    });
   },
 
   startLabDistiller(config) {
@@ -307,6 +274,11 @@ export const api = {
     return request('/api/tageditor_status');
   },
 
+  getTagTranslationTemplates() { return request('/tags/translation/templates'); },
+  startTagTranslation(params = {}) { return postJson('/tags/translation/start', params || {}); },
+  stopTagTranslation() { return postJson('/tags/translation/stop', {}); },
+  getTagTranslationStatus() { return request('/tags/translation/status'); },
+
   /** 获取可用标注模型列表（WD14 / CL / LLM） */
   getInterrogators() {
     return request('/api/interrogators');
@@ -315,6 +287,52 @@ export const api = {
   /** 数据集分析 */
   analyzeDataset(params) {
     return postJson('/api/dataset/analyze', params);
+  },
+
+  /** FIM-LoRA 训练前逐层 rank 扫描（companion tool，提交异步 job） */
+  startFimScan(config) {
+    return postJson('/api/system/fim-scan', { config });
+  },
+
+  /** 只读达标预测（copilot 只读预测器）：按当前趋势能否在总步数内达标 */
+  getGoalForecast(runId, { lossTarget, validationLossTarget, l2Target, totalSteps } = {}) {
+    const params = new URLSearchParams();
+    if (lossTarget != null) params.set('loss_target', String(lossTarget));
+    if (validationLossTarget != null) params.set('validation_loss_target', String(validationLossTarget));
+    if (l2Target != null) params.set('l2_target', String(l2Target));
+    if (totalSteps != null) params.set('total_steps', String(totalSteps));
+    const qs = params.toString();
+    return request(`/api/system/goal-forecast/${encodeURIComponent(runId)}${qs ? `?${qs}` : ''}`);
+  },
+
+  /** 自动训练 Copilot：授权一次无人值守闭环训练会话（提交后台 job） */
+  startCopilot(payload) {
+    return postJson('/api/system/copilot/start', payload);
+  },
+
+  /** Copilot 会话状态（含持久化 SessionState + job 状态） */
+  getCopilotStatus(sessionId) {
+    return request(`/api/system/copilot/status/${encodeURIComponent(sessionId)}`);
+  },
+
+  /** 请求优雅停止一个 Copilot 会话 */
+  stopCopilot(sessionId) {
+    return postJson(`/api/system/copilot/stop/${encodeURIComponent(sessionId)}`, {});
+  },
+
+  /** Copilot 中间态快照列表 */
+  getCopilotSnapshots(sessionId) {
+    return request(`/api/system/copilot/snapshots/${encodeURIComponent(sessionId)}`);
+  },
+
+  /** Copilot 试验报告 URL */
+  getCopilotReportUrl(sessionId, trialIndex) {
+    return `/api/system/copilot/report/${encodeURIComponent(sessionId)}/${encodeURIComponent(trialIndex)}`;
+  },
+
+  /** 删除 Copilot 中间态快照 */
+  deleteCopilotSnapshot(sessionId, trialIndex) {
+    return request(`/api/system/copilot/snapshots/${encodeURIComponent(sessionId)}/${encodeURIComponent(trialIndex)}`, { method: 'DELETE' });
   },
 
   /** 分布式/异步任务列表 */
@@ -385,6 +403,113 @@ export const api = {
   /** 标签任务结果 */
   getTagJobResult(params) {
     return postJson('/api/tageditor/job_result', params);
+  },
+
+  // ===== 高级标签工具（P1/P2/P3，需 advanced_enabled） =====
+
+  /** P1.1 集成打标管线 - 预览 */
+  ensembleTagPreview(params) {
+    return postJson('/api/tageditor/ensemble/preview', params);
+  },
+
+  /** P1.1 集成打标管线 - 应用 */
+  ensembleTagApply(params) {
+    return postJson('/api/tageditor/ensemble/start', params);
+  },
+
+  /** P1.2 结构化 caption - 预览 */
+  structurePreview(params) {
+    return postJson('/api/tageditor/structure/preview', params);
+  },
+
+  /** P1.2 结构化 caption - 应用 */
+  structureApply(params) {
+    return postJson('/api/tageditor/structure/start', params);
+  },
+
+  /** P1.3 近重复聚类审查 */
+  nearDuplicatesReview(params) {
+    return postJson('/api/tageditor/near_duplicates', params);
+  },
+
+  /** P1.4 频率/类别批量 - 预览 */
+  frequencyBatchPreview(params) {
+    return postJson('/api/tageditor/frequency_batch/preview', params);
+  },
+
+  /** P1.4 频率/类别批量 - 应用 */
+  frequencyBatchApply(params) {
+    return postJson('/api/tageditor/frequency_batch/start', params);
+  },
+
+  /** P1.5 审查队列 */
+  reviewQueue(params) {
+    return postJson('/api/tageditor/review_queue', params);
+  },
+
+  /** P2.1 版本历史 */
+  versionHistory(params) {
+    return postJson('/api/tageditor/version/history', params);
+  },
+
+  /** P2.1 版本差异 */
+  versionDiff(params) {
+    return postJson('/api/tageditor/version/diff', params);
+  },
+
+  /** P2.1 版本回退（写） */
+  versionRevert(params) {
+    return postJson('/api/tageditor/version/revert', params);
+  },
+
+  /** P2.2 策略包 - 列表 */
+  policyPackList(params) {
+    return postJson('/api/tageditor/policy/list', params);
+  },
+
+  /** P2.2 策略包 - 预览 */
+  policyPackPreview(params) {
+    return postJson('/api/tageditor/policy/preview', params);
+  },
+
+  /** P2.2 策略包 - 应用（写） */
+  policyPackApply(params) {
+    return postJson('/api/tageditor/policy/apply', params);
+  },
+
+  /** P2.3 智能重标队列 - 构建 */
+  retagQueueBuild(params) {
+    return postJson('/api/tageditor/retag/queue', params);
+  },
+
+  /** P2.3 智能重标队列 - 标记（写） */
+  retagQueueMark(params) {
+    return postJson('/api/tageditor/retag/mark', params);
+  },
+
+  /** P2.3 智能重标队列 - 下一批 */
+  retagQueueNext(params) {
+    return postJson('/api/tageditor/retag/next', params);
+  },
+
+  /** P3.2 跨数据集标签情报 - 聚合 */
+  crossDatasetAggregate(params) {
+    return postJson('/api/tageditor/cross_dataset/aggregate', params);
+  },
+
+  /** P3.2 跨数据集标签情报 - 读取缓存 */
+  crossDatasetResult(params) {
+    return postJson('/api/tageditor/cross_dataset/result', params);
+  },
+
+  /** P3.3 闭环清洗管线 - 计划（只读） */
+  pipelinePlan(params) {
+    return postJson('/api/tageditor/pipeline/plan', params);
+  },
+
+  /** P3.3 闭环清洗管线 - 运行（写） */
+  pipelineRun(params) {
+    return postJson('/api/tageditor/pipeline/run', params);
   },
 
   /** Masked-loss 数据集审查 */
@@ -538,6 +663,15 @@ export const api = {
   /** 审批插件 */
   approvePlugin(pluginId, approvedBy) {
     return postJson('/api/plugins/approve', { plugin_id: pluginId, approved_by: approvedBy || 'ui_user' });
+  },
+
+  /** 审批单个 SDK Runner */
+  approvePluginRunner(pluginId, runnerId, approvedBy) {
+    return postJson('/api/plugins/sdk/approve_runner', {
+      plugin_id: pluginId,
+      runner_id: runnerId,
+      approved_by: approvedBy || 'ui_user',
+    });
   },
 
   /** 撤销插件审批 */

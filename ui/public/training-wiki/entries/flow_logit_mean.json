@@ -1,0 +1,28 @@
+{
+  "key": "flow_logit_mean",
+  "title": "Flow Matching 时间步均值",
+  "category": "训练 / Flow Matching",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "flow_logit_std",
+    "flow_uncertainty_weighting_enabled",
+    "flow_uncertainty_weighting_channels",
+    "flow_uncertainty_weighting_lr"
+  ],
+  "standard": {
+    "summary": "Flow Matching 训练的 logit-normal 时间步采样参数：mean 控制采样分布的均值（偏向哪个噪声级别），std 控制分布宽度。",
+    "effect": "mean=0 → 采样集中于中等噪声（σ≈0.5）；mean>0 → 偏向更高噪声（更粗粒度学习）；mean<0 → 偏向低噪声（更细节学习）。",
+    "whenToUse": "默认值（mean=0, std=1）是 Anima 官方推荐，通常无需修改。",
+    "avoidWhen": "不了解 Flow Matching 时间步分布时保持默认。"
+  },
+  "advanced": {
+    "principle": "logit-normal 采样：t ~ sigmoid(μ + σ × N(0,1))，μ=logit_mean，σ=logit_std。时间步 t 通过此分布映射到 [0,1] 区间，对应不同 sigma 噪声级别。flow_uncertainty_weighting 基于 EDM2 的不确定性加权思想，按每个 sigma bin 的历史 loss 统计动态调整采样权重。",
+    "tradeoffs": "logit_mean 调整影响整体训练偏好，与 anima_weighting_scheme / scale_guidance 存在部分功能重叠，避免同时使用多个时间步加权机制（相互影响难以预测）。"
+  },
+  "relatedConfigs": [
+    "anima_weighting_scheme",
+    "anima_sigmoid_scale"
+  ]
+}

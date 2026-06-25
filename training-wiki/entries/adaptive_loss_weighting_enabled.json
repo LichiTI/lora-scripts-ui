@@ -1,0 +1,21 @@
+{
+  "key": "adaptive_loss_weighting_enabled",
+  "title": "自适应 Loss 加权",
+  "category": "正则 / Loss",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["Loss 层"],
+  "standard": {
+    "summary": "min_snr_gamma 的可学习版本——训练一组参数（gamma/offset/scale）自适应调整每个 timestep 的 loss 权重，不需要手动选择 gamma 值。",
+    "effect": "自动学习最优的 timestep 加权曲线。比固定 min_snr_gamma 更灵活，但增加少量可训练参数。",
+    "whenToUse": "不确定最佳 gamma 值时。想自动适应不同数据集的 timestep 分布时。",
+    "avoidWhen": "与 min_snr_gamma 不应同时使用（选一个）。短训练（<200 步）时参数可能还没学好。"
+  },
+  "advanced": {
+    "principle": "训练一个小的参数集 {γ, offset, scale}，用于计算每个 timestep 的权重：w(t) = scale * clamp(SNR(t) + offset, max=γ) / SNR(t)。这些参数用 adaptive_loss_weighting_lr 的学习率独立优化。",
+    "intervention": "在 training_step 中用可学习权重替代固定的 min_snr_gamma 权重。",
+    "expectedImpact": "比固定 gamma 改善约 1-3% FID，但需要足够的训练步数来学习参数。",
+    "tradeoffs": "adaptive_loss_weighting_init_gamma 控制初始 gamma 值（默认 5.0）。",
+    "codePath": "core/lulynx_trainer/adaptive_loss_weighting.py:AdaptiveLossWeighter → learnable SNR weights"
+  },
+  "relatedConfigs": ["adaptive_loss_weighting_lr", "adaptive_loss_weighting_init_gamma", "min_snr_gamma"]
+}

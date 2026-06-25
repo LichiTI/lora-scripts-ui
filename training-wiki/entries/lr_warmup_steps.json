@@ -1,0 +1,26 @@
+{
+  "key": "lr_warmup_steps",
+  "title": "学习率预热步数",
+  "category": "训练 / 学习率",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "standard": {
+    "summary": "训练开始时学习率从 0 线性增长到目标值的步数，防止训练初期大梯度破坏预训练权重。",
+    "effect": "前 N 步 LR 线性爬升，N 步后达到设定的 learning_rate 并进入正式调度阶段。",
+    "whenToUse": "推荐总步数的 5%~10% 作为预热。总步数 500 时，warmup=25~50。使用高学习率（>5e-4）时更需要预热。",
+    "avoidWhen": "极短训练（<50步）或已使用自适应优化器（Prodigy 自带预热机制）时可设为 0。"
+  },
+  "advanced": {
+    "principle": "预热期 lr_t = lr_target × (t / warmup_steps)，防止初始 momentum 为 0 时大梯度更新损坏预训练特征。",
+    "tradeoffs": "预热过短 → 初期大幅度更新可能影响基础能力；预热过长 → 占用太多有效训练步数。"
+  },
+  "relatedConfigs": [
+    "learning_rate",
+    "lr_scheduler",
+    "lr_scheduler_num_cycles"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "key": "fp8_base",
+  "title": "FP8 基座精度",
+  "category": "训练 / 精度",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "fp8_base_unet",
+    "full_bf16",
+    "full_fp16",
+    "no_half_vae",
+    "loss_precision",
+    "flashattn",
+    "sageattn",
+    "sdpa",
+    "mem_eff_attn",
+    "split_attn"
+  ],
+  "standard": {
+    "summary": "控制训练精度和注意力实现：fp8_base 将基础模型权重量化为 FP8（节省约 50% 显存）；full_bf16/full_fp16 强制整个训练使用 bf16/fp16；注意力实现（flashattn/sageattn/sdpa/mem_eff_attn/split_attn）控制注意力计算的具体 kernel。",
+    "effect": "fp8_base = 基座以 FP8 存储，显存节省约 50%，有一定精度损失；flashattn = FlashAttention v2/v3（最快，需要特定 CUDA 版本）；sdpa = PyTorch 内置 scaled_dot_product_attention（默认，稳定）；sageattn = SageAttention（优化版本）。",
+    "whenToUse": "flashattn 在支持的环境下最推荐；sdpa 是最安全的通用选择；fp8_base 在极低显存场景（<10GB 训练 SDXL）时考虑。",
+    "avoidWhen": "fp8_base 有明显的精度损失，不建议用于需要高质量输出的训练；flashattn 安装复杂，遇到兼容性问题时改用 sdpa/xformers。"
+  },
+  "advanced": {
+    "principle": "FP8（8位浮点）有 e4m3 和 e5m2 两种：e4m3 精度更高（指数4位，尾数3位），e5m2 范围更大（通常用于梯度）。基座 FP8 量化：forward 时 dequantize（FP8→BF16），backward 梯度仍在 BF16，只有权重存储是 FP8。flashattn 通过 IO-aware 算法将注意力矩阵保留在 SRAM 中，避免 HBM 读写，对长序列效果最好。",
+    "tradeoffs": "FP8 训练目前只在 H100 等高端卡有完善支持；A100/A10 等卡 FP8 计算可能回退到 FP16/BF16 仿真（无实际加速）。"
+  },
+  "relatedConfigs": [
+    "mixed_precision",
+    "xformers",
+    "gradient_checkpointing"
+  ]
+}

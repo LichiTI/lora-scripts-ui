@@ -1,0 +1,23 @@
+{
+  "key": "compile_static_shape_drop_last",
+  "title": "静态形状丢弃末批",
+  "category": "速度 / 编译",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "使用静态形状编译时，若最后一个 batch 大小与编译形状不一致，自动丢弃该 batch 而非重新编译。",
+    "effect": "防止末批形状不一致触发额外编译。少量数据损失（最多少于一个 batch 的样本）换取编译稳定性。",
+    "whenToUse": "开启 compile 且使用固定 batch 形状时，若遇到末批大小不一致的编译告警可开启。",
+    "avoidWhen": "数据集极小（如 <10 张）时丢失末批比例过高，不建议开启。"
+  },
+  "advanced": {
+    "principle": "在 DataLoader 层检测 batch 形状是否与编译时注册的形状一致，不一致时跳过该 batch 而非触发重编译（torch.compile 的重编译代价较高）。",
+    "tradeoffs": "丢失数据与避免重编译之间的 trade-off，总体而言编译稳定性通常比丢失几个样本更重要。"
+  },
+  "relatedConfigs": [
+    "compile_runtime",
+    "torch_compile",
+    "dynamo_recompile_limit"
+  ]
+}

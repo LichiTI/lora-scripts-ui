@@ -1,0 +1,24 @@
+{
+  "key": "lr_scheduler_type",
+  "title": "自定义调度器类",
+  "category": "训练 / 学习率",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "指定自定义学习率调度器的完整类路径，如 torch.optim.lr_scheduler.CosineAnnealingLR。填写后优先于上方调度器选择。",
+    "effect": "后端会按类路径动态导入并实例化该调度器，配合 lr_scheduler_args 传递参数。",
+    "whenToUse": "需要使用内置列表外的特殊调度器时填写。",
+    "avoidWhen": "有内置选项满足需求时无需使用，内置选项有更好的集成和参数验证。"
+  },
+  "advanced": {
+    "principle": "使用 importlib 动态导入，允许使用 torch.optim.lr_scheduler.* 或 pytorch_optimizer.* 下的任意调度器。",
+    "tradeoffs": "需要确保类路径在运行环境中可访问，且参数与调度器构造函数匹配（通过 lr_scheduler_args 传 key=value）。"
+  },
+  "relatedConfigs": [
+    "lr_scheduler",
+    "lr_scheduler_args"
+  ]
+}

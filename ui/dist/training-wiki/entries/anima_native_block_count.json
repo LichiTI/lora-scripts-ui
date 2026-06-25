@@ -1,0 +1,22 @@
+{
+  "key": "anima_native_block_count",
+  "title": "Anima Native Block 数",
+  "category": "训练 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "Anima native DiT 路线使用的 block 数量，控制训练时激活的 transformer block 范围。",
+    "effect": "通常由训练器自动推断，无需手动设置。修改可以限制 LoRA 注入的 block 范围。",
+    "whenToUse": "高级调试场景，或需要只训练模型特定层级的 block 时。通常保持默认（自动推断）。",
+    "avoidWhen": "不了解 Anima 架构时不要修改，错误值会导致 LoRA 注入范围错误。"
+  },
+  "advanced": {
+    "principle": "Anima native runtime 的 block 数由基座模型决定（如 28 个 transformer block）。此参数覆盖自动推断值，用于需要精确控制注入范围的场景。",
+    "tradeoffs": "设置为比模型实际 block 数更小的值会导致最深层 block 不被训练，可能影响全局结构学习。"
+  },
+  "relatedConfigs": [
+    "anima_block_prefetch",
+    "gradient_checkpointing"
+  ]
+}

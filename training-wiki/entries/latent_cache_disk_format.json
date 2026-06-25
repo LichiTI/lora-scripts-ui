@@ -1,0 +1,33 @@
+{
+  "key": "latent_cache_disk_format",
+  "title": "Latent 缓存磁盘格式",
+  "category": "速度 / 缓存",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "latent_cache_disk_dtype",
+    "text_encoder_outputs_cache_disk_format",
+    "text_encoder_outputs_cache_disk_dtype",
+    "cache_latents_to_disk",
+    "cache_text_encoder_outputs_to_disk",
+    "text_encoder_outputs_cache_dtype"
+  ],
+  "standard": {
+    "summary": "原版缓存引擎（lossless_cache_replacement_mode=off）下，latent 缓存文件的存储格式和精度。",
+    "effect": "format=npz（默认）= NumPy 压缩格式，兼容性最好；safetensors = HuggingFace 格式，读取更快；pt = PyTorch 格式。dtype=float16/bfloat16/float32 控制缓存精度（float16 最省空间）。",
+    "whenToUse": "开启 cache_latents_to_disk 后选择合适格式。npz 兼容性最广；safetensors 读取最快；pt 与 PyTorch 生态集成最好。",
+    "avoidWhen": "lossless_cache_replacement_mode != off 时此参数无效（lossless 引擎有自己的格式控制）。"
+  },
+  "advanced": {
+    "principle": "latent 缓存存储 VAE encoder 输出的 float 张量，原版引擎通过 numpy.savez_compressed（npz）或 safetensors.torch.save_file 写出。dtype 降精度（float32 → float16）可以节省约 50% 磁盘空间，引入的精度误差通常在训练中不可感知（latent 空间的 float16 精度已够用）。",
+    "tradeoffs": "npz 的 gzip 压缩在读取时需要解压（CPU 开销）；safetensors 是原始张量（无压缩，读取更快但文件更大）；lossless 引擎（lxfs/lynx）提供中间方案（快速有损压缩如 lz4）。"
+  },
+  "relatedConfigs": [
+    "cache_latents",
+    "lossless_cache_replacement_mode",
+    "anima_cached_training"
+  ]
+}

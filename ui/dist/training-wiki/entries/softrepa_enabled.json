@@ -1,0 +1,26 @@
+{
+  "key": "softrepa_enabled",
+  "title": "SoftREPA（软文本对齐正则化）",
+  "category": "前沿储备 / 训练",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "softrepa_min_weight",
+    "softrepa_max_weight"
+  ],
+  "standard": {
+    "summary": "（实验性）SoftREPA：通过软约束保持 LoRA 输出与预训练文本表征的对齐，防止 LoRA 过度漂离文本-图像对齐空间。",
+    "effect": "在训练 loss 中加入文本-图像对齐正则项，权重在 min_weight 和 max_weight 之间动态调整（基于当前对齐偏差）。",
+    "whenToUse": "实验性功能。担心 LoRA 训练破坏原始文本响应能力时可以尝试。",
+    "avoidWhen": "默认关闭。对齐正则化会限制 LoRA 的学习自由度，可能减慢概念学习速度。"
+  },
+  "advanced": {
+    "principle": "REPA（Representation Alignment）是一种在潜在空间对齐表征的方法。SoftREPA 是其软化版本：通过动态权重（在 min/max 之间线性插值）避免过度约束。当前对齐很好时用低权重（自由学习），偏差大时用高权重（拉回对齐）。",
+    "tradeoffs": "对齐约束的强度（权重范围）需要根据具体任务调整；太强会阻止 LoRA 学习新概念，太弱则失去正则化效果。"
+  },
+  "relatedConfigs": [
+    "perceptual_anchor_loss_enabled",
+    "anima_ema_feat_align_enabled"
+  ]
+}

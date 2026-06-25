@@ -1,0 +1,21 @@
+{
+  "key": "chimera_hydra_enabled",
+  "title": "ChimeraHydra",
+  "category": "LoRA / MoE",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["LoRA Adapter"],
+  "standard": {
+    "summary": "ChimeraHydra 是 HydraLoRA v2 思路：内容专家池和频率/FEI 专家池双路相加。当前是 default-off primitive，不会改变现有 hydralora。",
+    "effect": "内容 routing 负责语义/概念，频率 routing 负责纹理或频域特征，两路 delta 相加。",
+    "whenToUse": "后续多概念、多风格或频率特征明显的 Anima/Newbie LoRA A/B。",
+    "avoidWhen": "需要当前 HydraLoRA 稳定行为；ChimeraHydra 尚未接 request/config 和 checkpoint 路线。"
+  },
+  "advanced": {
+    "principle": "双池 MoE-LoRA 使用两个 routing 分布生成 additive delta，并拒绝静态 merge。",
+    "intervention": "Adapter primitive → future adapter registry → live routing loader。",
+    "expectedImpact": "可能提升容量和细节分工，但推理端必须支持 live dual-pool routing。",
+    "tradeoffs": "文件和计算开销高于普通 LoRA，不能静默替换 hydralora。",
+    "codePath": "backend/core/lulynx_trainer/chimera_hydra.py"
+  },
+  "relatedConfigs": ["chimera_hydra_enabled", "chimera_hydra_content_experts", "chimera_hydra_frequency_experts"]
+}

@@ -1,0 +1,31 @@
+{
+  "key": "lulynx_precision_swap_enabled",
+  "title": "精度自动切换",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "lulynx_precision_swap_strategy",
+    "lulynx_weight_residency",
+    "lulynx_weight_residency_min_params",
+    "lulynx_resource_manager_enabled",
+    "lulynx_resource_log_interval"
+  ],
+  "standard": {
+    "summary": "动态精度管理：在训练过程中自动切换权重精度（bf16/fp32），非激活状态的权重以低精度存储节省 VRAM，激活时升精度计算。",
+    "effect": "lulynx_weight_residency 控制常驻 GPU 的权重类型（哪些权重始终保持 GPU 高精度版本）；resource_manager 追踪 VRAM 使用并动态决定精度切换时机。",
+    "whenToUse": "大模型（>20GB 基座）在有限显存上训练时的精度管理工具。实验性功能。",
+    "avoidWhen": "显存充足时无需精度动态切换，会增加精度转换开销。"
+  },
+  "advanced": {
+    "principle": "权重驻留策略（weight_residency）：LoRA 权重始终高精度（fp32/bf16）驻留 GPU；大基座权重在不激活时降为 fp16/int8 等待卸载，前向时提升为 bf16。resource_log_interval 控制 VRAM 使用日志记录频率。",
+    "tradeoffs": "频繁精度转换会增加 CPU-GPU 数据传输量，对 PCIe 带宽有要求；精度切换过激可能引入累积数值误差。"
+  },
+  "relatedConfigs": [
+    "mixed_precision",
+    "anima_block_prefetch",
+    "peak_vram_control_enabled"
+  ]
+}

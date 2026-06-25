@@ -1,0 +1,23 @@
+{
+  "key": "ac_clip_drift_danger",
+  "title": "CLIP 漂移危险阈值",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "CLIP 分数漂移超过此值时触发干预（如降低学习率）。默认 0.05。",
+    "effect": "超过危险阈值且持续 ac_clip_drift_consecutive 步后，AutoController 会触发相应干预策略。",
+    "whenToUse": "配合 CLIP 评估监控开启。0.05 = 对齐度下降 5% 时触发，是常见合理值。",
+    "avoidWhen": "若不关心文本对齐（如纯风格 LoRA），可适当调高避免误触发。"
+  },
+  "advanced": {
+    "principle": "危险级别触发干预：降低 LR 或发出停止信号。需连续 ac_clip_drift_consecutive 步超过阈值才触发，防止偶发误触发。",
+    "tradeoffs": "CLIP 分数本身有波动，单步超阈值不足以判断漂移，需要连续超阈值才有意义。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_clip_drift_warning",
+    "ac_clip_drift_consecutive"
+  ]
+}

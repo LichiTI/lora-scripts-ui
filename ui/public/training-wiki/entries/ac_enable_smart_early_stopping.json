@@ -1,0 +1,23 @@
+{
+  "key": "ac_enable_smart_early_stopping",
+  "title": "智能早停",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "损失长期不下降时自动停止训练，避免过拟合或无效训练浪费时间。",
+    "effect": "若在 ac_early_stopping_patience 次评估窗口内 loss 改善小于 ac_early_stopping_threshold，则自动停止训练。",
+    "whenToUse": "长步数训练或不确定最佳步数时开启。可防止过拟合继续。",
+    "avoidWhen": "loss 曲线有明显振荡但整体在下降时，早停可能误判平台期。"
+  },
+  "advanced": {
+    "principle": "维护最近 ac_early_stopping_patience 个评估窗口的 best loss，若当前 best 相比历史 best 改善 < threshold，触发停止。",
+    "tradeoffs": "patience 设置过小（<3）容易误触发；过大（>20）则失去保护意义。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_early_stopping_patience",
+    "ac_early_stopping_threshold"
+  ]
+}

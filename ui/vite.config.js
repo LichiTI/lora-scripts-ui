@@ -3,6 +3,7 @@ import { spawn as nodeSpawn, execFileSync } from 'node:child_process';
 import http from 'node:http';
 import path from 'node:path';
 import { defineConfig } from 'vite';
+import { copyTrainingWikiAssets } from './tools/copyTrainingWikiAssets.js';
 
 // ── 自动检测 lora-scripts 根目录 ──
 // 优先级：环境变量 LORA_SCRIPTS_ROOT > ui 的上级目录（即 ui/ 放在 lora-scripts 内部）> ui 同级的 lora-scripts-*
@@ -155,6 +156,7 @@ export default defineConfig({
     }
   },
   plugins: [
+    copyTrainingWikiAssets(),
     {
       name: 'builtin-picker-api',
       configureServer(server) {
@@ -791,6 +793,6 @@ export default defineConfig({
   ],
   build: {
     outDir: 'dist',
-    emptyOutDir: true,
+    emptyOutDir: false,
   },
 });

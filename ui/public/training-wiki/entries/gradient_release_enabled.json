@@ -1,0 +1,21 @@
+{
+  "key": "gradient_release_enabled",
+  "title": "梯度释放 (显存优化)",
+  "category": "显存优化 / 梯度",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["显存层"],
+  "standard": {
+    "summary": "在 backward 过程中逐参数释放梯度张量，减少梯度内存的峰值占用。",
+    "effect": "gradient_release_mode='post_step' 在 optimizer.step 后遍历释放；'during_backward' 在 backward hook 中即时释放。",
+    "whenToUse": "显存紧张且梯度内存成为瓶颈时（大模型/大 batch）。",
+    "avoidWhen": "梯度累积步数 > 1 时不能使用 during_backward 模式（需要保留累积梯度）。"
+  },
+  "advanced": {
+    "principle": "标准 PyTorch 在所有参数 backward 完成后才释放梯度，导致峰值显存 = 所有参数梯度同时驻留。during_backward 模式注册 backward hook，每个参数 backward 后在 optimizer step 中处理完就立即释放 .grad，使峰值显存降低到单个参数梯度的量级。post_step 模式更安全——在 optimizer step 后遍历所有参数并释放 .grad。",
+    "intervention": "register_hook on each parameter's backward → .grad = None after processing。",
+    "expectedImpact": "梯度峰值显存减少 30-50%（取决于模型大小）。",
+    "tradeoffs": "during_backward 模式不兼容梯度累积 > 1。",
+    "codePath": "training_loop.py:gradient_release → per-parameter backward hook → immediate .grad release"
+  },
+  "relatedConfigs": ["gradient_release_mode", "gradient_accumulation_steps"]
+}

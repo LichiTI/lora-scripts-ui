@@ -111,9 +111,9 @@ export function renderLogLines(lines) {
     // --- 关键字语义着色 ---
     let safe = escapeHtml(line);
     let color = '';
-    if (/\b(error|exception|traceback|failed|fatal|UnicodeDecodeError)\b/i.test(line)) color = '#ef4444';
-    else if (/\b(warning|warn|deprecated)\b/i.test(line)) color = '#f59e0b';
-    else if (/\b(saved|saving|checkpoint|completed|finished|done)\b/i.test(line)) color = '#22c55e';
+    if (/\b(error|exception|traceback|failed|fatal|UnicodeDecodeError)\b/i.test(line)) color = 'var(--danger)';
+    else if (/\b(warning|warn|deprecated)\b/i.test(line)) color = 'var(--warning)';
+    else if (/\b(saved|saving|checkpoint|completed|finished|done)\b/i.test(line)) color = 'var(--success)';
     else if (/\bsteps?\b.*\bLoss\b|\bloss[=:]\s*/i.test(line)) color = '#06b6d4';
     else if (/epoch\s+\d|^\s*\d+%\|/i.test(line)) color = '#60a5fa';
     else if (/^(INFO|DEBUG)\b|\bINFO\b|\bDEBUG\b/i.test(line)) color = '#64748b';

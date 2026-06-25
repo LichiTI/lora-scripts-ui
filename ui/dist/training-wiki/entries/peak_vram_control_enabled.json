@@ -1,0 +1,34 @@
+{
+  "key": "peak_vram_control_enabled",
+  "title": "Peak VRAM 峰值控制",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "peak_vram_auto_protection_enabled",
+    "peak_vram_diagnostics_enabled",
+    "peak_vram_diagnostics_interval",
+    "peak_vram_micro_batch_enabled",
+    "peak_vram_micro_batch_size",
+    "peak_vram_reduce_enabled",
+    "peak_vram_reserved_gb",
+    "peak_vram_soft_limit_gb",
+    "peak_vram_target_gb"
+  ],
+  "standard": {
+    "summary": "启用 VRAM 峰值动态管理：实时监控 GPU 显存使用情况，在接近 OOM 时自动触发显存释放或降级措施，防止训练崩溃。",
+    "effect": "开启后每步监控 VRAM 使用率，峰值接近设定阈值时自动执行：micro batch 拆分（将当前步分为更小的子 batch）/ 临时卸载 / GC 触发等措施。",
+    "whenToUse": "训练偶发 OOM 但平均显存充足时开启（如某些 batch 因高分辨率图偶发 OOM）。",
+    "avoidWhen": "显存使用稳定时无需开启（每步都有额外监控开销）。系统性 OOM（每步都 OOM）需要从根本上降低分辨率或 batch size。"
+  },
+  "advanced": {
+    "principle": "peak_vram_target_gb 设置目标峰值；soft_limit_gb 是触发降级的阈值；reserved_gb 是预留给系统的显存。diagnostics 模式记录每步 VRAM 使用峰值到日志文件，用于找出 VRAM 瓶颈 batch。micro_batch 模式在 VRAM 接近上限时将 batch 拆分为更小单元序列执行（类似 gradient accumulation 但是在 OOM 保护触发时动态生效）。",
+    "tradeoffs": "实时 VRAM 监控（torch.cuda.memory_stats）有约 0.5ms/step 的额外开销；micro_batch 拆分会降低每步速度。"
+  },
+  "relatedConfigs": [
+    "gradient_checkpointing",
+    "anima_block_prefetch",
+    "train_batch_size"
+  ]
+}

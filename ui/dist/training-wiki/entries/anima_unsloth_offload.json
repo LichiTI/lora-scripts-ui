@@ -1,0 +1,23 @@
+{
+  "key": "anima_unsloth_offload",
+  "title": "Unsloth 梯度卸载",
+  "category": "速度 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "使用 Unsloth 风格的梯度卸载技术，在 backward 过程中将非必要的中间激活卸载到 CPU，进一步降低 VRAM 峰值。",
+    "effect": "可以进一步节省 VRAM，使更大分辨率或更多 batch 的训练成为可能，代价是训练速度略有下降。",
+    "whenToUse": "开启 gradient_checkpointing 和 block_prefetch 仍然 OOM 时的最后手段。",
+    "avoidWhen": "显存充足时不建议使用（额外的 CPU-GPU 数据传输会降低训练速度）。"
+  },
+  "advanced": {
+    "principle": "Unsloth 方法在 backward 时主动将已完成 backward 的 block 权重卸载到 CPU，并在下一个 block 需要前预取回来，与计算重叠。等效于更细粒度的 gradient checkpointing + offload 组合。",
+    "tradeoffs": "实现复杂，与某些 LoRA 实现可能有兼容性问题；建议先用官方 gradient_checkpointing 方案，确认不够用后再尝试此选项。"
+  },
+  "relatedConfigs": [
+    "gradient_checkpointing",
+    "anima_block_prefetch",
+    "blocks_to_swap"
+  ]
+}

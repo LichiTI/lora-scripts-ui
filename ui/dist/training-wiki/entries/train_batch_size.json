@@ -1,0 +1,28 @@
+{
+  "key": "train_batch_size",
+  "title": "批次大小",
+  "category": "训练 / 批次",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["数据层", "优化器层"],
+  "standard": {
+    "summary": "每次前向/反向传播同时处理多少张图片。batch_size 是显存、梯度质量和训练速度三者之间的核心调节旋钮。",
+    "effect": "batch=1 时显存最低但梯度噪声最大（每步只看一张图）。batch=4 时梯度更平滑但显存约为 batch=1 的 2.5-3 倍（不是线性关系，因为 activation 与 batch 线性而权重和 optimizer state 不变）。实际显存占用 ≈ 权重 + optimizer_state + activation_per_sample × batch_size。",
+    "recommendedValues": {
+      "sdxl_lora_16gb": "batch=1（1024px），配合 gradient_accumulation=4 得到 effective_batch=4",
+      "sdxl_lora_24gb": "batch=2（1024px），或 batch=1 + gradient_accumulation=8",
+      "sd15_lora_8gb": "batch=1（512px）",
+      "anima_lora_24gb": "batch=1（1024px），Anima DiT 模型显存开销大于 UNet",
+      "finetune_sdxl": "batch=1，finetune 的 optimizer state 极大"
+    },
+    "whenToUse": "先确定显存能承受的 batch_size，再用 gradient_accumulation_steps 补足到目标有效 batch。经验法则：LoRA 训练有效 batch=4-8 通常足够；概念学习（角色/风格）batch=1-2 也可以接受。",
+    "avoidWhen": "不要为了提高 batch_size 而降低分辨率到 < 512px（SDXL 底模训练在 1024px，太低会丢失信息）。OOM 时优先开 gradient_checkpointing 和 cache_latents，其次降 batch_size，最后才降分辨率。"
+  },
+  "advanced": {
+    "principle": "显存组成：(1) 模型权重（冻结）≈ SDXL UNet 3.5B × 2 bytes(BF16) = 7GB；(2) optimizer state ≈ rank × 参数量 × 12 bytes(2 个 fp32 动量 + fp32 主权重)；(3) activation ≈ batch × resolution² × channel × layers × 2 bytes(BF16)。batch_size 只影响 (3) activation 部分。gradient_accumulation_steps 不增加 activation 显存，因为每个 micro-batch 的 activation 在 backward 后就释放了。",
+    "intervention": "DataLoader 每步返回 batch_size 个样本，stack 成 (B, C, H, W) tensor 送入 UNet forward。loss 对 batch 维度取 mean 后再 backward()。gradient_accumulation_steps > 1 时，每 N 步才执行 optimizer.step()，中间 N-1 步只累加 .grad。",
+    "expectedImpact": "大 batch 降低梯度方差（更稳定的 loss 曲线），但可能陷入尖锐极小值（泛化性差）。小 batch 噪声大但有隐式正则化效果（类似 dropout），有时泛化性更好。LoRA 训练中 batch=1 + grad_accum=4 和 batch=4 + grad_accum=1 最终质量差异通常 < 1%。",
+    "tradeoffs": "dataloader_num_workers 控制数据加载并行度。Windows 下默认 0（主进程加载），Linux 下推荐 4。pin_memory=True 让 DataLoader 使用 CUDA pinned memory，加速 CPU→GPU tensor 传输。prefetch_factor 控制每个 worker 预加载多少个 batch。cached_dataloader_auto_policy 在使用 latent cache 时自动调优这些参数。",
+    "codePath": "training_loop.py:_build_dataloader() → DataLoader(batch_size=..., num_workers=..., pin_memory=...) → training_step()"
+  },
+  "relatedConfigs": ["gradient_accumulation_steps", "gradient_accumulation_mode", "resolution", "enable_bucket", "max_grad_norm", "dataloader_num_workers", "pin_memory"]
+}

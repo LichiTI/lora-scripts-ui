@@ -1,0 +1,31 @@
+{
+  "key": "lulynx_block_weight_enabled",
+  "title": "Lulynx Block 权重（SDXL）",
+  "category": "训练 / Block 权重",
+  "appliesTo": [
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "lulynx_down_lr_weight",
+    "lulynx_mid_lr_weight",
+    "lulynx_up_lr_weight",
+    "lulynx_block_lr_zero_threshold",
+    "lulynx_smart_rank_enabled",
+    "lulynx_smart_rank_keep_ratio"
+  ],
+  "standard": {
+    "summary": "SDXL 路线的 Block 级学习率差异化设置：分别对 UNet 的 down blocks / mid block / up blocks 设置独立的学习率权重，实现细粒度控制。",
+    "effect": "down_lr_weight 控制编码器（下采样）块的 LR 倍率；mid_lr_weight 控制瓶颈块；up_lr_weight 控制解码器（上采样）块。",
+    "whenToUse": "SDXL LoRA 时需要对不同层级差异化训练时使用。例如只训练解码器（up）可实现更精细的局部特征学习。",
+    "avoidWhen": "不了解 UNet 各层功能时保持默认（所有层等权），差异化设置需要对模型行为有深入理解。"
+  },
+  "advanced": {
+    "principle": "SDXL UNet 分三段：input_blocks（down，下采样，捕捉低级特征）/ middle_block（mid，瓶颈，高级语义）/ output_blocks（up，上采样，精细化和重建）。差异化 LR 权重等价于更粗粒度的 block weight 控制。smart_rank 根据各层梯度自动调整参与训练的 rank 数量。",
+    "tradeoffs": "up_lr 过高 → 解码器训练过度，结果可能失去整体一致性；down_lr 过高 → 特征提取过度，可能影响其他 LoRA 兼容性。"
+  },
+  "relatedConfigs": [
+    "block_weight_preset",
+    "learning_rate",
+    "block_lr_zero_threshold"
+  ]
+}

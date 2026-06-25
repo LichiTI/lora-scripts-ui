@@ -1,0 +1,23 @@
+{
+  "key": "lowram",
+  "title": "低内存模式",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "启用低内存（RAM）模式，将大部分权重保留在 GPU 显存而非系统内存，降低 CPU RAM 占用。",
+    "effect": "开启后主要权重不缓存到 CPU RAM，节省系统内存约 50%。适合 CPU RAM 较小（<16GB）的机器。",
+    "whenToUse": "系统内存有限（<16GB）且 GPU 显存充足时开启。",
+    "avoidWhen": "GPU 显存不足时，low_ram 反而会增加 GPU 压力。系统内存充足时无需开启。"
+  },
+  "advanced": {
+    "principle": "正常训练会在 CPU RAM 保留权重副本用于快速加载；low_ram 模式减少这些 RAM 副本，依赖 GPU 的 VRAM 作为主要工作区。",
+    "tradeoffs": "低 RAM 模式可能影响训练速度（数据传输路径改变）；在某些情况下反而增加 GPU-CPU 数据交换。"
+  },
+  "relatedConfigs": [
+    "xformers",
+    "gradient_checkpointing"
+  ]
+}

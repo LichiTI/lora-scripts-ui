@@ -1,0 +1,23 @@
+{
+  "key": "optimizer_args_custom",
+  "title": "优化器自定义参数（原始格式）",
+  "category": "训练 / 优化器",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "standard": {
+    "summary": "以原始字符串格式传递优化器参数，支持更复杂的格式（如嵌套结构）。",
+    "effect": "与 optimizer_args 功能类似，但允许直接传递 Python 字面量格式。",
+    "whenToUse": "需要传递复杂嵌套参数时使用。普通参数建议使用 optimizer_args。",
+    "avoidWhen": "大多数情况使用 optimizer_args 即可。"
+  },
+  "advanced": {
+    "principle": "后端通过 ast.literal_eval 或 eval 解析，允许更复杂的数据结构。",
+    "tradeoffs": "安全性略低（eval 解析），建议只填写可信内容。"
+  },
+  "relatedConfigs": [
+    "optimizer_type",
+    "optimizer_args"
+  ]
+}

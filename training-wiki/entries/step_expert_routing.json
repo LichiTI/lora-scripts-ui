@@ -1,0 +1,21 @@
+{
+  "key": "step_expert_routing",
+  "title": "Step Expert Routing",
+  "category": "LoRA / Turbo",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["LoRA Adapter"],
+  "standard": {
+    "summary": "Step Expert Routing 会按 denoise step 或 timestep 选择不同 LoRA 专家，适合 Turbo/few-step 学生路线。",
+    "effect": "不同步数可走不同专家，提升 few-step 适配容量，但 adapter 需要 live routing，不能静态合并成普通 LoRA。",
+    "whenToUse": "后续做 DP-DMD/Turbo 学生并有 checkpoint/save-load 路线时。",
+    "avoidWhen": "需要可合并、可普通推理端加载的 LoRA；当前尚未注册训练入口。"
+  },
+  "advanced": {
+    "principle": "根据 step bucket/timestep 计算专家权重，再组合专家 LoRA delta。",
+    "intervention": "Turbo denoise step context → live LoRA expert routing。",
+    "expectedImpact": "完整接入后可能改善 few-step 质量，但会增加 adapter 参数和推理端要求。",
+    "tradeoffs": "不适合作为普通 LoRA 默认格式。",
+    "codePath": "backend/core/lulynx_trainer/step_expert_routing.py"
+  },
+  "relatedConfigs": ["step_expert_enabled", "step_expert_count", "step_expert_schedule"]
+}

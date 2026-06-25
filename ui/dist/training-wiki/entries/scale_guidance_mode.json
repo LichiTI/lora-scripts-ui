@@ -1,0 +1,22 @@
+{
+  "key": "scale_guidance_mode",
+  "title": "Scale Guidance 模式",
+  "category": "前沿储备 / 训练",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "（实验性）Scale Guidance：通过调整不同噪声时间步的 loss 权重，引导训练聚焦于特定频率的特征（细节 / 风格 / 构图）。",
+    "effect": "detail = 提高高频特征（细节/纹理）的训练权重；style = 聚焦中频风格特征；composition = 提高低频结构/构图权重；off = 标准权重。",
+    "whenToUse": "有明确训练目标（如需要更清晰细节 → detail；需要统一构图风格 → composition）时使用。实验性功能。",
+    "avoidWhen": "默认 off。不确定目标时保持 off 使用标准权重，各频率均衡训练。"
+  },
+  "advanced": {
+    "principle": "基于信噪比（SNR）的频率域分析：高 SNR 步（低噪声）→ 高频细节；低 SNR 步（高噪声）→ 低频构图。scale_guidance 通过调整不同 SNR 区间的 loss 权重，控制各频段的学习强度。",
+    "tradeoffs": "频率域聚焦可能造成其他频率的学习不足，例如 detail 模式强化细节但可能弱化整体构图。建议配合基线对比（无/有 scale_guidance）验证效果。"
+  },
+  "relatedConfigs": [
+    "anima_weighting_scheme",
+    "p2_weighting_enabled"
+  ]
+}

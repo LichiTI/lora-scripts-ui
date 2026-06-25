@@ -1,0 +1,29 @@
+{
+  "key": "lineart_preservation_enabled",
+  "title": "线稿保留 Loss",
+  "category": "前沿储备 / 质量",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "lineart_preservation_weight",
+    "lineart_preservation_edge_weight",
+    "lineart_preservation_min_t",
+    "lineart_preservation_max_t"
+  ],
+  "standard": {
+    "summary": "（实验性）线稿保留辅助 loss：通过边缘检测约束训练输出保留原始线稿的清晰度和精确度，适合线稿/插画风格 LoRA。",
+    "effect": "开启后增加一个基于 Canny/Sobel 边缘检测的辅助 loss，鼓励生成保留或增强线条清晰度。edge_weight 控制边缘像素的相对权重（相比非边缘区域）。",
+    "whenToUse": "实验性功能。线稿风格 LoRA 或对线条清晰度有高要求的训练场景。min_t/max_t 控制只在特定噪声级别激活（建议只在中低噪声级别激活，高噪声步骤线稿信息已丢失）。",
+    "avoidWhen": "默认关闭。非线稿风格训练（如照片写实）使用此 loss 意义不大。"
+  },
+  "advanced": {
+    "principle": "lineart_preservation 与 lineart_loss（在 Quality Reserve Pack 中）类似但有区分：preservation 侧重保留原始图像的线条（忠实重建），loss 侧重生成的边缘质量。两者均基于边缘检测，min_t/max_t 通过 sigma 阈值控制激活范围。",
+    "tradeoffs": "edge_weight 过高会过度约束边缘区域的重建（可能在低噪声步骤欠拟合非边缘区域）；过低则效果不明显。建议从 edge_weight=2~5 开始尝试。"
+  },
+  "relatedConfigs": [
+    "lineart_loss_enabled",
+    "dct_frequency_enabled",
+    "perceptual_anchor_loss_enabled"
+  ]
+}

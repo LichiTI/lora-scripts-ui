@@ -1,0 +1,29 @@
+{
+  "key": "dpo_enabled",
+  "title": "DPO（直接偏好优化）",
+  "category": "前沿储备 / 训练",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "dpo_beta",
+    "dpo_logprob_scale",
+    "dpo_preference_pair_field",
+    "dpo_rejected_perturb"
+  ],
+  "standard": {
+    "summary": "（实验性）DPO（Direct Preference Optimization）：使用偏好对数据（preferred / rejected 图像对）训练 LoRA，使生成更符合人类偏好，而非单纯最小化重建 loss。",
+    "effect": "开启后需要数据集包含偏好对（每张图有一个被偏好版本和一个被拒绝版本），训练 loss 改为最大化偏好图与拒绝图之间的对数似然差。",
+    "whenToUse": "实验性功能。有高质量偏好对数据集时可以使用，适合微调已收敛 LoRA 的\"偏好方向\"。",
+    "avoidWhen": "没有偏好对数据时无法使用。DPO 对数据质量非常敏感，低质量偏好对会导致训练崩溃。"
+  },
+  "advanced": {
+    "principle": "DPO loss = -log σ(β × (log π_θ(y_w|x) - log π_ref(y_w|x)) - β × (log π_θ(y_l|x) - log π_ref(y_l|x)))，其中 y_w 是偏好图，y_l 是拒绝图，β 是温度系数。需要参考模型 π_ref（通常是训练前的基础模型）。",
+    "tradeoffs": "DPO 需要两次 forward（参考模型 + 当前模型），显存和计算量约翻倍。dpo_beta 控制 KL 散度惩罚强度：β 过大会过度约束使模型偏向参考模型；过小则不约束，可能走捷径。"
+  },
+  "relatedConfigs": [
+    "ema_enabled",
+    "network_dim"
+  ]
+}

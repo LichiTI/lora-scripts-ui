@@ -1,0 +1,23 @@
+{
+  "key": "ac_target_loss",
+  "title": "目标 Loss",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "期望达到的目标 loss 值。达到此值后 AutoController 可触发收敛相关策略。默认 0.0（不设目标）。",
+    "effect": "设为 0 = 不使用目标 loss。设为具体值后 AutoController 会在 loss 接近目标时调整策略。",
+    "whenToUse": "对训练质量有明确量化目标时设置。LoRA 训练通常 loss 在 0.05~0.2 范围收敛。",
+    "avoidWhen": "不清楚目标 loss 量级时保持 0（禁用）。"
+  },
+  "advanced": {
+    "principle": "与 GSNR 目标联合使用，当 loss 接近 target_loss 时可调整 LR 策略避免过拟合。",
+    "tradeoffs": "目标 loss 需要根据具体任务和基座模型校准，设置不当可能导致训练过早停止。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_enable_auto_lr_adjustment",
+    "ac_target_gsnr"
+  ]
+}

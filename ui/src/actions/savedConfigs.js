@@ -29,6 +29,15 @@ export function createSavedConfigsActions({
   // constants
   DRAFT_STORAGE_KEY,
 }) {
+  function getTrainingTypeEntry(typeId) {
+    return TRAINING_TYPES.find((item) => item.id === typeId) || null;
+  }
+
+  function getAvailableTrainingType(typeId) {
+    const targetType = getTrainingTypeEntry(typeId);
+    return targetType && !targetType.disabled ? targetType : null;
+  }
+
   function setupImportConfig() {
     if (state.importInputBound) {
       return;
@@ -122,7 +131,10 @@ export function createSavedConfigsActions({
         // 导入文件时先重置为默认配置，防止旧参数残留
         const importType = parsed.model_train_type || state.activeTrainingType;
         if (importType &&importType !== state.activeTrainingType) {
-          window.switchTrainingType(importType);
+          const switched = window.switchTrainingType(importType);
+          if (!switched) {
+            parsed.model_train_type = state.activeTrainingType;
+          }
         }
         state.config = createDefaultConfig(state.activeTrainingType);
         mergeConfigPatch(parsed);
@@ -139,9 +151,22 @@ export function createSavedConfigsActions({
   }
 
   function switchTrainingType(typeId) {
-    if (typeId === state.activeTrainingType) return;
+    if (typeId === state.activeTrainingType) return true;
+    const targetType = getTrainingTypeEntry(typeId);
+    if (!targetType) {
+      showToast('该训练类型已从当前 WebUI 入口移除。');
+      return false;
+    }
+    if (targetType?.disabled) {
+      showToast(targetType.disabledReason || '该训练类型暂未开放。');
+      return false;
+    }
     state.activeTrainingType = typeId;
     localStorage.setItem('sd-rescripts:training-type', typeId);
+    // Update global training type for model arch detection
+    if (window.currentTrainingType !== undefined) {
+      window.currentTrainingType = typeId;
+    }
     // 重建配置，保留共用字段的当前值
     const oldConfig = { ...state.config };
     state.config = createDefaultConfig(typeId);
@@ -161,6 +186,7 @@ export function createSavedConfigsActions({
     } else {
       updateJSONPreview();
     }
+    return true;
   }
 
   function saveCurrentParams() {
@@ -361,11 +387,14 @@ try {
       enforceLycorisDoraSafety(data);
 
       if (savedType && savedType !== state.activeTrainingType) {
-        const typeExists = TRAINING_TYPES.some((t) => t.id === savedType);
-        if (typeExists) {
+        const targetType = getAvailableTrainingType(savedType);
+        if (targetType) {
           state.activeTrainingType = savedType;
           localStorage.setItem('sd-rescripts:training-type', savedType);
           state.config = createDefaultConfig(savedType);
+        } else {
+          data.model_train_type = state.activeTrainingType;
+          showToast(`参数中的训练类型已移除，已按当前类型载入：${state.activeTrainingType}`);
         }
       }
       mergeConfigPatch(data);

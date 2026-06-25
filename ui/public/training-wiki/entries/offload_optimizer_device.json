@@ -1,0 +1,29 @@
+{
+  "key": "offload_optimizer_device",
+  "title": "优化器状态卸载",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "offload_param_to_cpu",
+    "offload_gradients",
+    "disk_offload_path"
+  ],
+  "standard": {
+    "summary": "将优化器状态（Adam 的 m/v 动量）卸载到 CPU 或磁盘，以节省 GPU 显存。显存节省约等于参数量大小（Adam 有 2× 参数量的动量存储）。",
+    "effect": "CPU offload：优化器 step 在 CPU 执行，节省显存约等于模型参数量 × 2；disk offload：进一步卸载到 NVMe，显存节省更大但速度更慢。",
+    "whenToUse": "极低显存场景（<8GB）的保命选项，配合 gradient_checkpointing 和 xformers 使用。优先考虑 AdamW8bit 省显存（速度更好）。",
+    "avoidWhen": "显存足够的情况下，卸载优化器会显著拖慢训练速度（尤其是磁盘卸载，每步需要读写大量数据）。"
+  },
+  "advanced": {
+    "principle": "CPU offload：每步 optimizer.step 前将梯度传到 CPU，在 CPU 上执行 AdamW 更新，再将新参数传回 GPU。增加约 2× CPU-GPU 数据传输。disk offload：更进一步将动量存储在 NVMe，仅在更新时读取。",
+    "tradeoffs": "卸载的速度代价：CPU offload ≈ 2-5× 慢（取决于 PCIe 带宽）；disk offload ≈ 5-20× 慢（取决于 SSD 速度）。但对于原本显存不足无法训练的场景，这是唯一选择。"
+  },
+  "relatedConfigs": [
+    "gradient_checkpointing",
+    "anima_block_prefetch",
+    "xformers"
+  ]
+}

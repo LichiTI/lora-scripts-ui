@@ -1,0 +1,28 @@
+{
+  "key": "enable_bucket",
+  "title": "多分辨率桶",
+  "category": "数据集 / 分辨率",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["数据层"],
+  "standard": {
+    "summary": "自动将不同宽高比的图片分配到不同分辨率桶（Aspect Ratio Bucket）中训练。同一 batch 内图片分辨率相近，不同 batch 可以分辨率不同。避免强制缩放导致的图像拉伸或裁切，保留原始构图信息。",
+    "effect": "开启后竖图和横图混合训练时效果显著——模型学到更自然的宽高比泛化。例如训练数据有 3:4 竖图和 16:9 横图，bucket 会让它们分别进入不同的 (768,1024) 和 (1024,576) 桶，而不是全部 resize 到 1024×1024。",
+    "recommendedValues": {
+      "enable_bucket": "true（推荐几乎所有场景开启）",
+      "min_bucket_reso": "256（SD1.5）或 512（SDXL）",
+      "max_bucket_reso": "2048（默认）或根据显存调整",
+      "bucket_reso_steps": "64（标准值，控制桶的分辨率粒度）",
+      "bucket_no_upscale": "true（防止小图被放大产生模糊）"
+    },
+    "whenToUse": "训练数据宽高比差异大时必开。竖图和横图混合训练时效果显著。即使所有图都是 1:1 也不会产生负面影响。",
+    "avoidWhen": "bucket_no_upscale=False 时小图会被放大到最小桶分辨率，可能产生模糊——建议设为 true 或在数据预处理阶段就裁切好。bucket_custom_resos 允许手动指定桶分辨率列表，但通常自动计算就够用了。"
+  },
+  "advanced": {
+    "principle": "Bucket 算法：(1) 对每张图片按 area 缩放到接近 resolution² 的 scale，得到 (w', h')；(2) 将 w' 和 h' 分别 round 到最近的 bucket_reso_steps 倍数；(3) clamp 到 [min_bucket_reso, max_bucket_reso] 范围。同一 batch 内必须分辨率相同以保证 tensor shape 对齐——DataLoader 使用 BucketBatchSampler 按桶分组采样。",
+    "intervention": "替换默认 SequentialSampler 为 BucketBatchSampler。collate_fn 不再做 resize/pad，直接 stack 同桶内的 (C, H, W) tensor。bucket_selection_mode='aspect'（默认）按宽高比选桶，'area' 按面积选桶。",
+    "expectedImpact": "保留原始宽高比信息，模型学到更自然的构图。对生成图像的默认宽高比泛化有帮助——不开 bucket 的模型倾向于只擅长生成正方形图像。实测对 FID 改善约 1-3%，但对 prompt 中的宽高比控制能力改善更显著。",
+    "tradeoffs": "resolution_aware_batch_enabled 可以根据桶分辨率动态调整 batch_size——小分辨率桶用更大 batch（因为显存占用小），大分辨率桶用更小 batch。这能在总显存不变的情况下提高吞吐量。bucket_reso_steps 越小桶越多（更精确的宽高比匹配），但每个桶的样本数可能太少导致 batch 凑不齐。",
+    "codePath": "dataset_loader.py:BucketManager → BucketBatchSampler → DataLoader per-bucket batching"
+  },
+  "relatedConfigs": ["resolution", "min_bucket_reso", "max_bucket_reso", "bucket_reso_steps", "bucket_no_upscale", "bucket_selection_mode", "resolution_aware_batch_enabled"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "vram_smart_sensing_enabled",
+  "title": "VRAM Smart Sensing (显存智能感知)",
+  "category": "显存优化 / 智能",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["显存层"],
+  "standard": {
+    "summary": "VRAM Smart Sensing 在训练初期（baseline_steps）监控显存增长趋势，自动在显存接近满载时触发保护措施（如降低 batch、激活 swap），防止 OOM 崩溃。",
+    "effect": "vram_smart_sensing_slowdown_ratio 控制触发保护的阈值（显存增长超过基线的 1.5 倍时触发）。vram_auto_enhance_enabled 在检测到压力时自动启用额外优化。",
+    "whenToUse": "显存紧张或不确定最佳配置时。默认开启（vram_smart_sensing_enabled=True）。",
+    "avoidWhen": "显存非常充裕时不需要。频繁的自动保护可能影响训练一致性。"
+  },
+  "advanced": {
+    "principle": "在 baseline_steps 内采集显存使用数据建立基线。之后每 window_steps 比较当前值与基线，如果增长率超过 slowdown_ratio 则触发：(1) streaming swap → 渐进式 CPU offload；(2) sparse swap → 只交换最冷的参数；(3) delta cache → PCIe 传输差量压缩。",
+    "intervention": "training_step 后检查显存 → 趋势分析 → 触发/解除保护措施。",
+    "expectedImpact": "显著降低 OOM 崩溃风险。自动保护模式下性能损失约 5-15%。",
+    "tradeoffs": "vram_smart_sensing_sparse_swap_enabled 和 vram_smart_sensing_delta_cache_enabled 是两种保护手段。",
+    "codePath": "core/vram_smart_sensing/ → baseline profiling → trend detection → adaptive protection"
+  },
+  "relatedConfigs": ["vram_smart_sensing_baseline_steps", "vram_smart_sensing_slowdown_ratio", "vram_auto_enhance_enabled", "sparse_swap_enabled", "pcie_delta_cache_enabled"]
+}

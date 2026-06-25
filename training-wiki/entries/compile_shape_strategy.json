@@ -1,0 +1,23 @@
+{
+  "key": "compile_shape_strategy",
+  "title": "Compile Shape 策略",
+  "category": "速度 / 编译",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "控制 torch.compile 处理输入形状的方式：auto（自动）/ token_flatten（序列展平，适合 native token bucket）/ fixed_pad（固定填充）。",
+    "effect": "token_flatten 在 Anima/Newbie native token bucket 路线下将变长序列展平，减少形状变化导致的重编译；非 native DiT 自动 fallback 到 fixed_pad。",
+    "whenToUse": "Anima LoRA 长训练推荐 token_flatten + compile_cache 组合。",
+    "avoidWhen": "使用非 native DiT 路线（如 SDXL）时 token_flatten 会自动 fallback，保持 auto 即可。"
+  },
+  "advanced": {
+    "principle": "token_flatten 将 [B, H, W, C] 或 [B, T, C] 展平为 [B×T, C]，确保序列维度合并后形状稳定，减少 Dynamo guard 触发重编译。",
+    "tradeoffs": "token_flatten 需要模型支持展平后的输入形状，不兼容的层会自动回退。"
+  },
+  "relatedConfigs": [
+    "compile_runtime",
+    "compile_target_strategy",
+    "dynamo_backend"
+  ]
+}

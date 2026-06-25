@@ -1,0 +1,21 @@
+{
+  "key": "modulation_guidance",
+  "title": "Modulation Guidance",
+  "category": "训练 / Guidance",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["AdaLN", "Text Projection"],
+  "standard": {
+    "summary": "Modulation Guidance 用 pooled text 调制 AdaLN guidance。完整 pooled-text 路由现已接成默认关的 opt-in 技术储备(modulation_guidance_reserve_seam.py):一个零初始化的 PooledTextModulationProjector 把 prompt 池化向量投影成每个 AdaLN 站点的 shift/scale delta(gate 不动),并配套专用 distill loss + 推理投影 context + replay/metadata 契约。原有常量-bias 的 adaln_guidance 仍作为独立的 partial 路由共存。",
+    "effect": "开启后,guidance 随 prompt 变化(不再只是常量 bias);默认关(method=none 或未发布 pooled text)时逐位 parity,不改变训练性能或默认输出。",
+    "whenToUse": "做 Anima/Newbie 的 pooled-text modulation distillation 研究时(默认关,需显式开启 + 操作员签字)。",
+    "avoidWhen": "只想要零风险默认训练时;该路线默认关、不改默认行为,也不替换 partial 的 adaln_guidance。"
+  },
+  "advanced": {
+    "principle": "用文本池化向量预测 AdaLN 调制 delta,让 guidance 依赖 prompt 而非简单常量 bias;投影器零初始化 → 装上即恒等。",
+    "intervention": "pooled text → PooledTextModulationProjector → 每站点 (shift_δ, scale_δ) 加到 AdaLN 输出(gate 原样) → 专用 distill loss(off=base / on 加 MSE+反传)蒸馏投影器 → 推理经 pooled-text context 复用同一发布路径。base 权重(llm_adapter/timestep_embed/adaln_modulation)零改动。",
+    "expectedImpact": "默认关时不改变训练性能(bitwise parity);开启后增加少量投影计算并让 AdaLN 受 prompt 条件化。真机机制门已验证:85 个站点、投影器从 0 训起、distill 收敛、parity/remove 逐位、faithful 不降级。配色/身份美学质量仍是用户的活。",
+    "tradeoffs": "constant-bias 的 adaln_guidance 仍是独立 partial fallback,full 路由不静默替换它。蒸馏/引导质量需 curated 数据 + 真长训(操作员/用户判断)。",
+    "codePath": "backend/core/lulynx_trainer/modulation_guidance_reserve_seam.py + modulation_guidance_reconciliation.py"
+  },
+  "relatedConfigs": ["adaln_guidance", "modulation_guidance_enabled"]
+}

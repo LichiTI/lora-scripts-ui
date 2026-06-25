@@ -1,0 +1,26 @@
+{
+  "key": "gradient_accumulation_steps",
+  "title": "梯度累积",
+  "category": "优化器 / 累积",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["优化器层"],
+  "standard": {
+    "summary": "累积多少步 micro-batch 的梯度后，才做一次参数更新和梯度清零。等效于放大 batch_size 但不增加峰值显存。",
+    "effect": "effective_batch = train_batch_size × gradient_accumulation_steps。例如 batch=1 + accum=4 = 有效 batch 4，但显存只占用 batch=1 的水平。训练速度方面，accum=4 意味着每 4 步才做一次 optimizer.step()，所以按 update 次数计的「有效训练步数」只有总步数的 1/4。",
+    "recommendedValues": {
+      "no_accumulation": "1（默认，每步都更新）",
+      "moderate": "4-8（大多数 LoRA 训练的推荐范围）",
+      "heavy": "16-32（极大有效 batch，适合大数据集或需要非常稳定梯度的场景）"
+    },
+    "whenToUse": "显存只够 batch=1 但想要更稳定梯度时。例如 SDXL 16GB 显存：batch=1 + accum=4 得到 effective_batch=4 的梯度质量，显存只需要 batch=1 的水平。多卡训练中也可以用来增大 effective batch。",
+    "avoidWhen": "不需要大有效批次时不要盲目加大——accum=8 意味着训练墙钟时间增加 8 倍（按 step 计）而更新次数不变。如果 loss 曲线已经很平滑，增大 accum 不会带来质量提升。"
+  },
+  "advanced": {
+    "principle": "每步 forward 得到 loss_i，backward 计算 grad_i 累加到 param.grad。loss 在 backward 前除以 N（accumulation steps），这样累加后的 grad 等价于一次性 batch=N 的平均梯度。第 N 步时执行 optimizer.step() 然后 optimizer.zero_grad()。gradient_accumulation_mode='fast' 在 Lulynx 中跳过中间步的 gradient norm 检查和 scheduler 更新，只在第 N 步做，略微加速。",
+    "intervention": "training_loop.py 的 training_step() 中：loss = loss / accumulation_steps；loss.backward()；if step % accumulation_steps == 0: clip_grad_norm_() → optimizer.step() → scheduler.step() → zero_grad()。",
+    "expectedImpact": "等效大 batch 让梯度噪声降低 √N 倍（统计学上 N 个独立样本的平均方差 = 单样本方差/N）。但实际上 micro-batch 不是完全独立的（来自同一个 epoch 的连续样本），所以实际降噪效果略低于理论值。",
+    "tradeoffs": "fast 模式（默认）vs classic 模式：fast 跳过中间步的 max_grad_norm 检查和 scheduler warmup 检查，只在 optimizer step 步做。在大多数场景下结果一致，但如果有极端的 loss spike 发生在中间步，fast 模式不会立即裁剪。gradient_accumulation_mode='classic' 更安全但略慢。",
+    "codePath": "training_loop.py:training_step() → loss /= accum_steps → loss.backward() → if (step+1) % accum_steps == 0: optimizer.step()"
+  },
+  "relatedConfigs": ["train_batch_size", "gradient_accumulation_mode", "max_grad_norm", "resolution"]
+}

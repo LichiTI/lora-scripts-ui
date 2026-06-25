@@ -1,0 +1,26 @@
+{
+  "key": "multires_noise_iterations",
+  "title": "多分辨率噪声",
+  "category": "训练 / 噪声控制",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "multires_noise_discount"
+  ],
+  "standard": {
+    "summary": "使用多分辨率噪声替代标准高斯噪声：生成多个不同分辨率的噪声图并加权叠加，有助于学习多尺度特征。",
+    "effect": "iterations=6 = 生成 6 个不同分辨率的噪声层叠加。使模型同时学习全局结构和局部细节的噪声去除。",
+    "whenToUse": "希望 LoRA 同时改善全局构图和局部细节时可以尝试。对风格类 LoRA 可能有益。",
+    "avoidWhen": "不确定效果时不建议使用，多分辨率噪声改变了训练分布，可能需要更多步数才能收敛。"
+  },
+  "advanced": {
+    "principle": "生成 N 个不同下采样分辨率的高斯噪声，上采样回原始分辨率后加权叠加（discount 控制每层权重的衰减）。多分辨率噪声包含更多低频成分，引导模型学习全局特征。",
+    "tradeoffs": "multires_noise 显著改变噪声分布，与标准 noise schedule 不完全兼容，可能影响推理时使用标准采样器的效果。"
+  },
+  "relatedConfigs": [
+    "noise_offset",
+    "zero_terminal_snr"
+  ]
+}

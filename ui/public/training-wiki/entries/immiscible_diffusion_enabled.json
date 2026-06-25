@@ -1,0 +1,21 @@
+{
+  "key": "immiscible_diffusion_enabled",
+  "title": "Immiscible Diffusion (不可混扩散)",
+  "category": "训练 / Flow",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "在每个 mini-batch 内，按 L2 距离重新排列噪声到数据的配对——让噪声和对应数据在特征空间中更匹配，改善训练信号质量。",
+    "effect": "immiscible_metric='l2'（标准 Immiscible 论文方法）按 L2 距离排序。'cosine' 按余弦相似度排序（适用于 flow matching OT 场景）。",
+    "whenToUse": "想改善训练信号质量时。理论上减少噪声-数据不匹配导致的梯度方差。",
+    "avoidWhen": "batch size 太小时排序效果有限。有轻微排序开销。"
+  },
+  "advanced": {
+    "principle": "标准扩散训练中，每个样本随机采样噪声 ε~N(0,I)。Immiscible Diffusion 在 mini-batch 内对噪声和数据分别计算特征（如 VAE latent），然后按最优传输（L2 距离）重新配对，使每对 (x, ε) 在特征空间中更匹配。这减少了噪声-数据不匹配导致的梯度方差，理论上加速收敛。",
+    "intervention": "训练循环中采样噪声后，对 mini-batch 做最优传输重排。",
+    "expectedImpact": "理论上改善收敛速度约 5-10%。",
+    "tradeoffs": "需要 batch 内计算配对距离，有 O(N²) 排序开销。",
+    "codePath": "training_loop.py:immiscible_diffusion → mini-batch optimal transport reordering"
+  },
+  "relatedConfigs": ["immiscible_metric"]
+}

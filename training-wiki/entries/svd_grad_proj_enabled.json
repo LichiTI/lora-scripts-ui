@@ -1,0 +1,21 @@
+{
+  "key": "svd_grad_proj_enabled",
+  "title": "SVD 梯度投影",
+  "category": "优化器 / 实验性",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["优化器层"],
+  "standard": {
+    "summary": "通过 SVD 分解将梯度投影到低秩子空间中，减少梯度更新的有效维度，实现更内存高效的训练。",
+    "effect": "svd_grad_proj_rank=128 控制投影子空间的维度。svd_grad_proj_update_interval=200 控制投影基的重算频率。svd_grad_proj_target 选择作用范围（lora/all）。",
+    "whenToUse": "大 rank LoRA 训练时想减少梯度内存和更新开销。",
+    "avoidWhen": "rank 很低时不需要。投影可能丢失有用的梯度信息。"
+  },
+  "advanced": {
+    "principle": "每隔 update_interval 步，对当前梯度矩阵做 SVD 分解，取前 rank 个奇异向量构建投影基 P。后续梯度先投影到 P 张成的子空间中：g_proj = P·P^T·g。这限制更新方向在最重要的子空间内。svd_grad_proj_warmup_steps 控制预热期（使用完整梯度）。svd_grad_proj_scale 控制投影后梯度的缩放。",
+    "intervention": "backward 后、optimizer.step 前，将梯度乘以投影矩阵。",
+    "expectedImpact": "梯度内存减少（rank/full_rank 比例）。训练速度可能提升 5-15%。",
+    "tradeoffs": "投影基需要定期更新以适应训练动态。",
+    "codePath": "training_loop.py:SVD gradient projection → P·P^T·g → optimizer.step()"
+  },
+  "relatedConfigs": ["svd_grad_proj_rank", "svd_grad_proj_update_interval", "svd_grad_proj_scale", "svd_grad_proj_target"]
+}

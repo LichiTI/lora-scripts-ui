@@ -1,0 +1,27 @@
+{
+  "key": "optimizer_type",
+  "title": "优化器",
+  "category": "优化器 / 类型",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["优化器层"],
+  "standard": {
+    "summary": "优化器决定如何根据梯度更新 LoRA / 模型权重。不同优化器对学习率敏感度、收敛速度和显存开销差异很大，是影响训练稳定性的关键选择。",
+    "effect": "AdamW8bit（默认）维护一阶+二阶动量的 8-bit 量化版本，显存约为全精度 AdamW 的一半。Prodigy/AutoProdigy 通过 D-Adaptation 理论自动估算步长，基本不需要手动调学习率。ScheduleFree 系列（AdamWScheduleFree、ProdigyPlusScheduleFree）内置学习率衰减，不需要配合 lr_scheduler。",
+    "recommendedValues": {
+      "adamw_8bit": "最稳妥的默认选择，适合几乎所有 LoRA / finetune 场景",
+      "prodigy_plus_schedule_free": "新手友好，免 scheduler 免调学习率，推荐搭配 lr_scheduler=constant",
+      "auto_prodigy": "自适应学习率 + 可选手动 scheduler，安全档 safe 模式适合小数据集",
+      "adamw_schedule_free": "Meta 提出的 Schedule-Free AdamW，不需要 scheduler 但有学习率上界"
+    },
+    "whenToUse": "大多数场景 AdamW8bit + cosine scheduler 是黄金组合。不想调学习率时用 ProdigyPlusScheduleFree。显存紧张时用 PagedAdamW8bit（optimizer state 分页到 CPU）。",
+    "avoidWhen": "不要给 Prodigy / ScheduleFree 优化器配 cosine scheduler——它们自带衰减逻辑，外部 scheduler 会冲突导致学习率异常。DAdaptation 系列在 < 50 张图的小数据集上可能不稳定。"
+  },
+  "advanced": {
+    "principle": "AdamW 维护 m_t（一阶矩）和 v_t（二阶矩）：param -= lr * m_t / (√v_t + ε)，并独立应用 weight_decay。8bit 变体（bitsandbytes OptimizerPage / BNB Optimizer）将 m_t 和 v_t 量化到 int8 存储，节省约 50% optimizer state 显存。Prodigy 基于 D-Adaptation 理论，在每步估算最优步长 d_t ≈ ‖x_t - x*‖，学习率 = d_t * d_coef。ScheduleFree 通过 z = (1-β)*x + β*y 公式混合当前参数和 EMA 参数，不需要显式 scheduler。",
+    "intervention": "Lulynx 在 training_loop.py 的 _build_optimizer() 中根据 optimizer_type 分发到不同的优化器构造函数。optimizer_backend 参数控制底层实现（torch_adamw / foreach_adamw / bnb_8bit / apex 等）。advanced_optimizer_strategy 可进一步对 LoRA 的 A/B 矩阵设置不同的学习率（LoRA+ 策略）。",
+    "expectedImpact": "AdamW vs Prodigy 对最终质量差异通常在 1-3%；但 Prodigy 省去了学习率搜索。8bit 优化器在大 rank（>64）时节省的 optimizer state 显存更显著：rank=128 的 SDXL LoRA optimizer state 约 800MB（fp32）→ 400MB（8bit）。",
+    "tradeoffs": "PagedAdamW 将 optimizer state 分页到 CPU，在 step 时按需搬到 GPU——适合 optimizer state 比模型权重还大的场景（大 rank LoRA），但 step 时间增加 10-20%。fused_optimizer 将 AdamW 的多步运算融合为单次 CUDA kernel，减少 kernel launch 开销。blockwise_fused_optimizers 按 block 粒度融合，显存效率更高但实现更复杂。",
+    "codePath": "training_loop.py:_build_optimizer() → optimizer_type dispatch → optional LoRA+ param groups"
+  },
+  "relatedConfigs": ["learning_rate", "lr_scheduler", "optimizer_args", "optimizer_backend", "advanced_optimizer_strategy", "fused_optimizer", "blockwise_fused_optimizers"]
+}

@@ -1,0 +1,22 @@
+{
+  "key": "anima_sigmoid_scale",
+  "title": "Anima Sigmoid 时间步缩放",
+  "category": "训练 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "控制 logit_normal 时间步采样的 sigmoid 缩放系数，决定采样分布的集中程度（宽/窄）。",
+    "effect": "值越大，采样越集中于中等噪声步（中频特征）；值越小，采样分布越宽（覆盖更多极端时间步）。",
+    "whenToUse": "配合 anima_weighting_scheme=logit_normal 使用，通过调整此值控制训练的\"频率偏好\"。",
+    "avoidWhen": "不使用 logit_normal 权重方案时此参数无效。"
+  },
+  "advanced": {
+    "principle": "时间步采样：t ~ sigmoid(σ × N(0,1))，σ 即 sigmoid_scale。σ 越大，采样越集中于 t=0.5（中等噪声）；σ=1 时接近均匀分布。",
+    "tradeoffs": "集中采样中等噪声步有助于学习语义级特征，但可能欠拟合极端（纯噪声 / 纯干净）时间步的分布，影响全局结构或细节极端情况。"
+  },
+  "relatedConfigs": [
+    "anima_weighting_scheme",
+    "anima_guidance_scale"
+  ]
+}

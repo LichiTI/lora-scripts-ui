@@ -1,0 +1,21 @@
+{
+  "key": "lulynx_geometric_lock",
+  "title": "Lulynx LAB (实验研究特性)",
+  "category": "训练 / LAB",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "Lulynx LAB 是一组实验性研究特性的集合，包括几何锁（防止权重偏离预训练流形）、LN 守卫（保护 LayerNorm 不被破坏）、反油炸（防止生成图像出现过度锐化）等。",
+    "effect": "lulynx_geometric_lock 使用权重投影保持参数在预训练流形附近。lulynx_ln_guard 用正则化保护 LayerNorm 参数。lulynx_anti_fry 限制高频区域的 loss 权重。",
+    "whenToUse": "研究用途。探索高级正则化和训练稳定性方法。",
+    "avoidWhen": "日常训练不需要。这些特性可能互相干扰且效果不稳定。"
+  },
+  "advanced": {
+    "principle": "geometric_lock: 计算权重与预训练权重的偏移向量，投影到预训练权重的切空间中（lulynx_proj_dim 控制投影维度），限制偏移在流形内。ln_guard: 对 LayerNorm 的 γ/β 参数施加 lulynx_ln_lambda 强度的 L2 正则化。anti_fry: 检测生成图像中的高频过冲并降低对应 timestep 的 loss 权重。ghost_replay: 定期用旧权重生成图像作为正则化锚点（lulynx_ghost_weight 控制强度）。hutchinson_probes: Hutchinson 迹估算用于监控权重变化。",
+    "intervention": "training_step 后对各组件施加正则化/投影约束。",
+    "expectedImpact": "理论上减少灾难性遗忘和过拟合。实际效果需要实验验证。",
+    "tradeoffs": "各特性有独立的计算开销。不建议同时启用所有特性。",
+    "codePath": "core/lulynx_lab/ → geometric projection + LN guard + anti-fry + ghost replay"
+  },
+  "relatedConfigs": ["lulynx_proj_dim", "lulynx_manifold_weight", "lulynx_ln_guard", "lulynx_anti_fry", "lulynx_ghost_replay"]
+}

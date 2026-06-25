@@ -1,0 +1,26 @@
+{
+  "key": "p2_weighting_enabled",
+  "title": "P2 Weighting（感知优先权重）",
+  "category": "前沿储备 / 训练",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "p2_weighting_gamma",
+    "p2_weighting_k"
+  ],
+  "standard": {
+    "summary": "（实验性）P2 Weighting：按照人类感知重要性对不同噪声级别的 loss 进行加权，减少对低信噪比步骤的过度依赖，提升感知质量。",
+    "effect": "中等噪声级别的 loss 权重提高，极高/极低噪声步权重降低，使训练更专注于人类可感知的图像质量改善。",
+    "whenToUse": "追求感知质量（如图像清晰度、细节层次）时尝试开启。实验性功能。",
+    "avoidWhen": "默认关闭。效果在小数据集上不明显，建议 >200 张图时才对比测试。"
+  },
+  "advanced": {
+    "principle": "P2 权重：w(λ) = (k + SNR(λ))^(-γ)，SNR(λ) = e^λ/(1+e^λ)。k 控制权重下限，γ 控制 SNR 影响的曲率。γ=1 使权重线性随 SNR 变化；更大 γ 使中间 SNR 区间权重更突出。",
+    "tradeoffs": "P2 weighting 改变了训练的有效 loss 分布，不同于标准 flow matching loss；效果依赖于 γ 和 k 的正确设置，设置不当可能不如默认加权。"
+  },
+  "relatedConfigs": [
+    "anima_weighting_scheme",
+    "scale_guidance_mode"
+  ]
+}

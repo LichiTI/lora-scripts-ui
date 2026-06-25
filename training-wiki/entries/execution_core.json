@@ -1,0 +1,21 @@
+{
+  "key": "execution_core",
+  "title": "执行核心",
+  "category": "性能 / 执行",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["计算层"],
+  "standard": {
+    "summary": "选择训练的执行核心引擎。standard 使用标准 PyTorch 训练循环；turbo 启用 TurboCore 加速路径（实验性）；auto 自动选择。",
+    "effect": "standard 最稳定。turbo 可能提供额外加速但仍处于实验阶段。auto 让系统根据硬件和配置自动选择。",
+    "whenToUse": "大多数用户保持 standard。开发者或想尝试加速的用户可选 turbo（需要 turbocore_allow_fallback=True）。",
+    "avoidWhen": "生产训练建议用 standard。turbo 的某些特性可能不完全验证。"
+  },
+  "advanced": {
+    "principle": "TurboCore 是一个优化的执行路径，可能包含：融合 kernel、自定义 CUDA 算子、异步数据管线等。turbocore_features 可以细粒度启用/禁用特定 TurboCore 特性。turbocore_strict=True 时在 TurboCore 不可用时直接失败而非回退。",
+    "intervention": "entry_train.py 根据 execution_core 选择执行路径。",
+    "expectedImpact": "turbo 在支持的硬件上可能提速 10-20%，但稳定性不如 standard。",
+    "tradeoffs": "turbocore_allow_fallback=True 在 turbo 不可用时自动回退到 standard。",
+    "codePath": "entry_train.py:execution_core dispatch → standard/turbo/auto"
+  },
+  "relatedConfigs": ["turbocore_features", "turbocore_strict", "turbocore_allow_fallback"]
+}

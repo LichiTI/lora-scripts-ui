@@ -1,0 +1,22 @@
+{
+  "key": "anima_weighting_scheme",
+  "title": "Anima 训练步权重方案",
+  "category": "训练 / Anima 专用",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "控制不同噪声时间步（timestep）对 loss 的贡献权重。不同权重方案让训练聚焦于不同粒度的特征学习。",
+    "effect": "uniform = 所有时间步等权（最简单）；logit_normal = 中等噪声步权重更高（聚焦中频特征）；sigma_sqrt = 基于 sigma 值的平方根加权（聚焦高噪声步）。",
+    "whenToUse": "logit_normal 是 Anima/Flux 等新架构的推荐方案，平衡细节和结构学习。uniform 适合调试时使用（与基础实现最接近）。",
+    "avoidWhen": "不了解各方案差异时，保持默认（logit_normal）即可，已经过调优。"
+  },
+  "advanced": {
+    "principle": "训练 loss = E_t[w(t) × ||ε_θ(x_t,t) - ε||²]。权重函数 w(t) 决定模型优化的优先方向：低噪声步（精细细节）vs 高噪声步（全局结构）。logit_normal 通过对数正态分布集中采样中等噪声，等效于关注语义级特征。",
+    "tradeoffs": "sigma_sqrt 偏重高噪声步，可能导致全局结构学习更充分但细节稍弱；logit_normal 是当前 SOTA 扩散模型训练的主流选择。"
+  },
+  "relatedConfigs": [
+    "anima_sigmoid_scale",
+    "anima_guidance_scale"
+  ]
+}

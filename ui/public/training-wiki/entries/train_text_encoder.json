@@ -1,0 +1,28 @@
+{
+  "key": "train_text_encoder",
+  "title": "训练文本编码器",
+  "category": "LoRA / 训练目标",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "train_text_encoder_1",
+    "train_text_encoder_2"
+  ],
+  "standard": {
+    "summary": "是否同时训练文本编码器（CLIP 等）的 LoRA 权重。开启后可以让模型更好地理解和绑定触发词。",
+    "effect": "关闭（默认）= 只训练 UNet/DiT，文本编码器固定；开启 = TE 同时训练，触发词与概念绑定更紧密，但显存增加约 20%~50%。",
+    "whenToUse": "训练新概念/角色且触发词响应不佳时开启。简单风格 LoRA 或数据集图说对应简单时可关闭。",
+    "avoidWhen": "数据集极小（<10张）时训练 TE 容易过拟合，导致其他提示词失效。显存不足时优先关闭。"
+  },
+  "advanced": {
+    "principle": "TE LoRA 通过改变 CLIP 的 token embedding 空间，使特定触发词的嵌入向量更接近概念的视觉特征。UNet LoRA 学习在给定 TE 输出时如何生成，两者协同工作。",
+    "tradeoffs": "训练 TE 会略微改变整个文本编码空间，可能影响与其他 LoRA 的兼容性。一般 TE LR 应远低于 UNet LR。"
+  },
+  "relatedConfigs": [
+    "text_encoder_lr",
+    "unet_lr",
+    "learning_rate"
+  ]
+}

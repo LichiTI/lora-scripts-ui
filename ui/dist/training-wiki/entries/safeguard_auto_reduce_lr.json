@@ -1,0 +1,28 @@
+{
+  "key": "safeguard_auto_reduce_lr",
+  "title": "自动降低学习率",
+  "category": "训练 / 稳定性",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "lulynx_safeguard_auto_reduce_lr"
+  ],
+  "standard": {
+    "summary": "SafeGuard 检测到 loss spike 时，自动将学习率乘以 lr_reduction_factor 降低，而非直接停止训练。",
+    "effect": "开启后 spike 触发时不停训，尝试以更低学习率继续。适合无人值守训练，宁可慢下来也不中断。",
+    "whenToUse": "希望训练全程无人值守且不因一次 spike 中断时开启。结合 lr_reduction_factor=0.5 调整降幅。",
+    "avoidWhen": "若 loss 爆炸是真实崩溃（如数据错误），自动降 LR 也救不了，建议关闭让训练直接停止排查。"
+  },
+  "advanced": {
+    "principle": "触发 spike 后调用 optimizer.param_groups 遍历，将所有参数组 lr *= lr_reduction_factor。不影响优化器动量等状态。",
+    "tradeoffs": "多次触发导致 LR 呈指数衰减（连续 3 次 0.5 倍 → 降至原 LR × 0.125），可能影响后续收敛速度。"
+  },
+  "relatedConfigs": [
+    "safeguard_enabled",
+    "safeguard_lr_reduction_factor",
+    "safeguard_loss_spike_threshold"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "key": "fg_lora_rank_policy",
+  "title": "Fine-Grained LoRA Rank 策略",
+  "category": "LoRA 变体 / Fine-Grained",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "fg_lora_rank_min",
+    "fg_lora_rank_max",
+    "fg_lora_rank_conserve_budget",
+    "fg_lora_rank_map_json"
+  ],
+  "standard": {
+    "summary": "细粒度 LoRA rank 策略：对不同层分配不同的 rank，而非全局使用同一 rank，可在相同参数预算下提升学习效率。",
+    "effect": "coupled-prune = 根据层重要性自动剪枝分配 rank（重要层高 rank，次要层低 rank）；orthogonal-redistribute = 正交重分配（保持总参数量，优化各层 rank 分布）。",
+    "whenToUse": "实验性功能。想在固定参数预算下最大化学习效率时尝试。",
+    "avoidWhen": "不了解各层重要性时保持默认（全局统一 rank），不确定性更小。"
+  },
+  "advanced": {
+    "principle": "通过分析各层梯度 stable rank 或权重奇异值分布，动态调整各层的 LoRA rank 分配。fg_lora_rank_map_json 允许手动指定每层的 rank，提供最大灵活性。",
+    "tradeoffs": "非均匀 rank 分配使 LoRA 结构更复杂，与某些推理框架（如 A1111）的标准 LoRA 加载可能不完全兼容。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "network_alpha",
+    "adapter_target_policy"
+  ]
+}

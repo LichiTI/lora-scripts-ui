@@ -1,0 +1,30 @@
+{
+  "key": "wandb_api_key",
+  "title": "WandB 训练跟踪",
+  "category": "训练 / 日志",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "wandb_run_name",
+    "log_tracker_name",
+    "log_tracker_config",
+    "log_prefix"
+  ],
+  "standard": {
+    "summary": "配置 Weights & Biases（WandB）训练追踪：API Key 验证身份，run_name 设置本次训练的显示名称。训练过程中的 loss、LR、速度等指标自动上传到 WandB 看板。",
+    "effect": "开启后可以在 wandb.ai 实时查看训练曲线、对比不同实验、存储训练配置历史。",
+    "whenToUse": "需要系统化追踪和对比多次训练实验时使用。适合调参阶段（对比不同 LR/rank/optimizer 的 loss 曲线）。",
+    "avoidWhen": "wandb_api_key 不要硬编码到配置文件（有泄露风险），建议通过环境变量或 wandb login 命令设置。不需要远程追踪时保持 None（默认只记录本地日志）。"
+  },
+  "advanced": {
+    "principle": "WandB 集成通过 wandb.init() + wandb.log() 实现，log_prefix 给所有指标添加前缀（方便同一项目下多次训练的指标区分）。log_tracker_config 指定额外记录的配置字段（默认记录全部训练配置）。",
+    "tradeoffs": "WandB 上传需要网络连接，中断训练时离线缓存的数据会在恢复网络后自动同步。付费计划限制大量数据上传；开源项目可免费使用基本功能。"
+  },
+  "relatedConfigs": [
+    "output_dir",
+    "output_name"
+  ]
+}

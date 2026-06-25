@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createRuntimeActions } from '../src/actions/runtimeActions.js';
 
 const calls = [];
+const confirms = [];
 const state = {
   activeModule: 'training',
   trainSubTab: 'preflight',
@@ -27,12 +28,17 @@ const state = {
 };
 
 globalThis.window = {
-  confirm: () => true,
+  confirm: (message) => {
+    confirms.push(String(message || ''));
+    return true;
+  },
 };
+
+const api = {};
 
 const actions = createRuntimeActions({
   state,
-  api: {},
+  api,
   showToast: (message) => calls.push(['toast', message]),
   renderView: (view) => calls.push(['render', view]),
   updateJSONPreview: () => calls.push(['json']),
@@ -63,5 +69,46 @@ state.preflight = { training_advisor: { vram: {}, a_tier: {} } };
 window.confirm = () => true;
 actions.applyTrainingAdvisorPatch();
 assert.ok(calls.some((item) => item[0] === 'toast' && String(item[1]).includes('没有可应用')));
+
+state.preflight = {
+  bubble_controller: {
+    enabled: true,
+    mode: 'advisor_patch',
+    diagnosis: {
+      kind: 'data_bound',
+      recommended_action: { kind: 'set_dataloader_workers' },
+    },
+    action_plan: {
+      status: 'advisor_patch_ready',
+      apply_mode: 'advisor_patch',
+      can_apply_to_next_request: true,
+      config_overlay: { cached_dataloader_workers: 2 },
+      mutations: [{ path: 'cached_dataloader_workers' }],
+    },
+  },
+};
+window.confirm = (message) => {
+  confirms.push(String(message || ''));
+  return true;
+};
+api.applyBubbleAdvisorPatch = async () => ({
+  status: 'success',
+  data: {
+    ok: true,
+    next_request_overlay: {
+      cached_dataloader_workers: 2,
+      bubble_controller_enabled: true,
+      bubble_controller_mode: 'advisor_patch',
+      bubble_advisor_action_ledger: { action_id: 'bubble-smoke' },
+      bubble_advisor_action_history: [{ action_id: 'bubble-smoke' }],
+    },
+  },
+});
+await actions.applyTrainingAdvisorPatch();
+assert.equal(state.config.cached_dataloader_workers, 2);
+assert.equal(state.config.bubble_controller_enabled, true);
+assert.equal(state.config.bubble_advisor_action_ledger.action_id, 'bubble-smoke');
+assert.ok(confirms.some((message) => message.includes('空泡来源: 数据供给跟不上')));
+assert.ok(confirms.some((message) => message.includes('建议动作: 调整 DataLoader workers')));
 
 console.log('advisorPatchSmoke: ok');

@@ -1,0 +1,24 @@
+{
+  "key": "bucket_no_upscale",
+  "title": "禁止 Bucket 放大",
+  "category": "数据集 / 预处理",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "开启后，Bucket 训练不会将小于目标分辨率的图像放大（超分），只缩小不放大。",
+    "effect": "防止小图被放大训练（放大引入的模糊/噪声可能影响训练质量）。图像保持原始分辨率或缩小到匹配的桶。",
+    "whenToUse": "数据集中包含低分辨率图像（如 256×256）时推荐开启，避免放大劣化图像质量。",
+    "avoidWhen": "数据集全为高分辨率图像时无需开启（不会触发放大）。"
+  },
+  "advanced": {
+    "principle": "在桶分配时，若图像最大维度小于桶的最小维度，则不分配到该桶而是寻找面积更小的桶（或丢弃）。",
+    "tradeoffs": "可能导致小图被分配到更小的桶（更低分辨率训练），影响这部分数据的贡献度。"
+  },
+  "relatedConfigs": [
+    "enable_bucket",
+    "resolution",
+    "bucket_reso_steps"
+  ]
+}

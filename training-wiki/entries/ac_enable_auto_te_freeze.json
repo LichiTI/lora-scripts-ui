@@ -1,0 +1,22 @@
+{
+  "key": "ac_enable_auto_te_freeze",
+  "title": "自动冻结文本编码器",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "训练到指定步数（ac_te_freeze_step）后自动冻结文本编码器，减少后续显存占用和计算量。",
+    "effect": "冻结 TE 后 TE 参数不再更新，节省约 10-20% 的 backward 开销（取决于 TE 参与度）。",
+    "whenToUse": "训练文本编码器且步数较长时开启。常见做法：前半段训练 TE，后半段冻结 TE 让 UNet/DiT 继续精调。",
+    "avoidWhen": "从不训练文本编码器（train_text_encoder=false）时此选项无意义。"
+  },
+  "advanced": {
+    "principle": "到达 ac_te_freeze_step 时，对 text_encoder 的所有参数调用 requires_grad_(False)，从优化器 param_groups 中移除 TE 参数。",
+    "tradeoffs": "冻结时机（te_freeze_step）需要根据训练步数比例调整，过早冻结可能限制风格学习，过晚则失去节省的意义。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_te_freeze_step"
+  ]
+}

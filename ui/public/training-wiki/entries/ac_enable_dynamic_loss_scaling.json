@@ -1,0 +1,21 @@
+{
+  "key": "ac_enable_dynamic_loss_scaling",
+  "title": "动态损失缩放",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "根据梯度范数动态调整 loss 的缩放系数，防止梯度爆炸或消失。",
+    "effect": "梯度范数过大时缩小 loss 缩放，过小时放大，维持梯度在健康范围内。",
+    "whenToUse": "使用 FP16 混合精度训练且梯度不稳定时考虑开启。",
+    "avoidWhen": "已使用 GradScaler 或 BF16（不需要动态缩放）时避免与系统级 loss scaler 冲突。"
+  },
+  "advanced": {
+    "principle": "基于历史梯度范数动态调整 loss 缩放系数，类似 AMP GradScaler 的自定义实现。",
+    "tradeoffs": "与系统级 GradScaler 可能冲突，需要确认不重复开启。"
+  },
+  "relatedConfigs": [
+    "ac_enabled"
+  ]
+}

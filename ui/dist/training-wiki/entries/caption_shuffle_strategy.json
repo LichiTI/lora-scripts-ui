@@ -1,0 +1,27 @@
+{
+  "key": "caption_shuffle_strategy",
+  "title": "Caption 打乱策略",
+  "category": "数据集 / 图说",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "caption_shuffle_copies"
+  ],
+  "standard": {
+    "summary": "训练时对 tag 列表的打乱策略：none（不打乱）/ shuffle（每步随机顺序）/ partial（保留前 N 个 tag，打乱其余）。",
+    "effect": "shuffle = 每次训练使用不同 tag 顺序，防止模型对固定 tag 顺序过度依赖，提升对任意顺序的响应能力。",
+    "whenToUse": "使用 tag 格式图说时推荐开启 shuffle，提升推理时 tag 顺序的灵活性。",
+    "avoidWhen": "自然语言图说（句子结构有语法依赖）不应打乱 tag，保持 none。"
+  },
+  "advanced": {
+    "principle": "Tag 顺序对 CLIP 处理的影响：CLIP tokenizer 是位置感知的，相同 tag 在不同位置的 embedding 略有不同。shuffle 训练让模型对所有位置的 tag 都有良好响应。",
+    "tradeoffs": "shuffle 会略微增加训练的随机性，单步梯度方向波动更大；但对 tag 组合的泛化能力有明显提升。"
+  },
+  "relatedConfigs": [
+    "caption_extension",
+    "caption_tag_dropout_rate",
+    "caption_source_tag_ratio"
+  ]
+}

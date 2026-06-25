@@ -20,4 +20,8 @@ export { createTerminateActions } from './terminateActions.js';
 export { createSavedConfigsActions } from './savedConfigs.js';
 export { createTrainingActions } from './trainingActions.js';
 export { createTrainingMetadataActions } from './trainingMetadata.js';
+export { createTrainingChromeActions } from './trainingChrome.js';
+export { createPreviewGroupsActions } from './previewGroupsActions.js';
+export { createExperimentalTrainingActions } from './experimentalTrainingActions.js';
+export { createDeveloperModeChromeActions } from './developerModeChrome.js';
 

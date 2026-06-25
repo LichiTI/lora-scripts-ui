@@ -1,0 +1,23 @@
+{
+  "key": "ac_lr_decay_factor",
+  "title": "学习率衰减系数",
+  "category": "训练 / 自动化",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "standard": {
+    "summary": "智能 LR 衰减触发时，学习率乘以的系数。默认 0.5（减半）。",
+    "effect": "0.5 = 每次减半；0.7 = 温和降低 30%；0.3 = 激进降至 30%。",
+    "whenToUse": "默认 0.5 稳健。若平台期后希望温和调整可改为 0.7~0.8。",
+    "avoidWhen": "不建议设为 0 或 1.0。"
+  },
+  "advanced": {
+    "principle": "new_lr = current_lr * ac_lr_decay_factor，应用于所有参数组，永久生效。",
+    "tradeoffs": "多次触发后 LR 呈指数衰减：3 次 × 0.5 → 原 LR 的 12.5%。"
+  },
+  "relatedConfigs": [
+    "ac_enabled",
+    "ac_enable_smart_lr_decay",
+    "ac_max_decays"
+  ]
+}

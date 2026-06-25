@@ -1,0 +1,21 @@
+{
+  "key": "spectrum_probe",
+  "title": "Spectrum Probe",
+  "category": "推理 / DiT 加速",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["DiT Block"],
+  "standard": {
+    "summary": "Spectrum 通过特征预测跳过部分 DiT block。当前 Lulynx 只保留 observe-only 探针，不会真的跳过计算。",
+    "effect": "spectrum_window_size、spectrum_warmup_steps 等字段只记录 would-skip eligibility。",
+    "whenToUse": "想收集哪些 step/block 适合做未来 block skip A/B 时。",
+    "avoidWhen": "期待立即降低推理耗时；当前没有启用 Chebyshev 预测或真实 block skip。"
+  },
+  "advanced": {
+    "principle": "先统计窗口、warmup 和 stop-caching 阶段的可跳过性，避免无质量证据就改变输出。",
+    "intervention": "GenerationRequest → Spectrum step context → executable subset telemetry。",
+    "expectedImpact": "当前仅有极小 telemetry 开销；真实加速需要后续 cache/skip 执行。",
+    "tradeoffs": "探针不等于推理加速完成。",
+    "codePath": "backend/core/lulynx_trainer/spectrum_probe.py"
+  },
+  "relatedConfigs": ["spectrum_probe", "spectrum_window_size", "spectrum_warmup_steps", "spectrum_stop_caching_step"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "t_lora_enabled",
+  "title": "T-LoRA (时间感知 LoRA)",
+  "category": "LoRA / 变体",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "T-LoRA 让 LoRA 的 rank 随 diffusion timestep 变化——高噪声 timestep 用更大 rank 捕获全局结构，低噪声 timestep 用更小 rank 精调细节。",
+    "effect": "不同 timestep 激活不同的 LoRA 子空间。t_lora_max_t 控制时间维度上限。tlora_rank_schedule 控制 rank 如何随 timestep 变化。",
+    "whenToUse": "想在不同噪声级别上有不同的学习能力时。实验性特性。",
+    "avoidWhen": "推理端需要支持 T-LoRA 格式。标准推理管线不兼容。"
+  },
+  "advanced": {
+    "principle": "将 LoRA 的 rank 维度扩展为 rank × T（T 为时间桶数），每个时间桶有独立的 LoRA 权重。推理时根据当前 timestep 选择对应桶的权重。tlora_rank_schedule='linear' 让 rank 随 timestep 线性变化，'geometric' 用指数变化。tlora_orthogonal_init 对不同时间桶的初始化施加正交约束。",
+    "intervention": "LoRA forward 时根据当前 timestep 选择对应的权重切片。",
+    "expectedImpact": "理论上可以在不同噪声级别上更精细地控制学习。实际效果因数据集而异。",
+    "tradeoffs": "文件大小为 T × 标准 LoRA。推理速度不变（只选一个桶）。",
+    "codePath": "networks/tlora.py → timestep-conditioned rank selection"
+  },
+  "relatedConfigs": ["t_lora_max_t", "tlora_min_rank", "tlora_rank_schedule", "tlora_orthogonal_init"]
+}

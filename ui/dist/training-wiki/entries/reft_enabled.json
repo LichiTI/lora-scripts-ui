@@ -1,0 +1,21 @@
+{
+  "key": "reft_enabled",
+  "title": "ReFT (表示微调)",
+  "category": "训练 / 实验性",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "ReFT（Representation Fine-tuning）不修改模型权重，而是在模型输出上叠加一个低秩干预向量，用极少的可训练参数实现模型行为调整。",
+    "effect": "reft_rank 控制干预向量的秩（默认 8）。reft_target_modules 指定在哪些模块上施加干预。reft_init_scale 控制初始化缩放。",
+    "whenToUse": "想用比 LoRA 更少参数实现模型微调时。实验性特性。",
+    "avoidWhen": "推理端需要支持 ReFT 格式。标准 LoRA 推理管线不兼容。"
+  },
+  "advanced": {
+    "principle": "ReFT 在指定层的输出 h 上叠加干预：h' = h + R·(v - h)，其中 R 是低秩投影矩阵（rank × hidden_dim），v 是可训练干预向量。reft_rank 控制 R 的秩。这比 LoRA 参数更少（只学 R 和 v，不学 A/B 矩阵对）。",
+    "intervention": "在指定模块的 forward hook 中叠加干预向量。",
+    "expectedImpact": "参数量比 LoRA 少约 50%。效果取决于任务和 rank 选择。",
+    "tradeoffs": "reft_init_scale=0 时初始无效果（从零开始学）。",
+    "codePath": "core/lulynx/ → ReFT intervention layer → forward hook injection"
+  },
+  "relatedConfigs": ["reft_target_modules", "reft_rank", "reft_init_scale"]
+}

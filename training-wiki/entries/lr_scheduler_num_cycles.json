@@ -1,0 +1,25 @@
+{
+  "key": "lr_scheduler_num_cycles",
+  "title": "Cosine 重启次数",
+  "category": "训练 / 学习率",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora",
+    "newbie-lora"
+  ],
+  "standard": {
+    "summary": "cosine_with_restarts 调度器的重启周期数。默认 1（单次余弦，从目标 LR 衰减到近 0）。",
+    "effect": "num_cycles=1：从 LR 下降到约 0，训练末期最稳定；num_cycles=3：每个周期 LR 从高到低，给优化器多次逃离局部最优的机会。",
+    "whenToUse": "长训练（>500 步）可尝试 num_cycles=2~3，让优化器在末期仍有较高 LR 探索。短训练保持 1。",
+    "avoidWhen": "使用非余弦调度器时此参数无效。"
+  },
+  "advanced": {
+    "principle": "每个 cycle 长度 = 总步数 / num_cycles，末尾 LR = lr_min（通常接近 0）。多 cycle 相当于多次重新启动探索，但也意味着最终不在 LR 最低点结束。",
+    "tradeoffs": "num_cycles > 1 在训练末期 LR 仍较高，可能导致末期权重不稳定；num_cycles=1 末期 LR 接近 0 更稳定，配合 EMA 效果最好。"
+  },
+  "relatedConfigs": [
+    "lr_scheduler",
+    "learning_rate"
+  ]
+}

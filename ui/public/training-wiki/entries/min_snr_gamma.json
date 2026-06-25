@@ -1,0 +1,26 @@
+{
+  "key": "min_snr_gamma",
+  "title": "Min-SNR 加权",
+  "category": "正则 / Loss 加权",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["Loss 层"],
+  "standard": {
+    "summary": "对高信噪比（low noise, 容易预测）的 timestep 降低 loss 权重，对低信噪比（high noise, 难以预测）的 timestep 提高权重，让模型均衡学习从纯噪声到清晰图像的所有去噪阶段。",
+    "effect": "典型值 5.0（论文推荐值）。开启后模型的中间细节（纹理、表情、手指等）和构图能力显著改善，因为原本这些对应中等噪声级别的 timestep 被高 SNR 的简单 timestep 压制了。",
+    "recommendedValues": {
+      "recommended": "5.0（Min-SNR 论文原始推荐值）",
+      "mild": "3.0（轻微加权，适合数据质量高的场景）",
+      "strong": "8.0-10.0（强力加权，适合数据量小且想强调细节的场景）"
+    },
+    "whenToUse": "SD1.5/SDXL 的 epsilon-prediction 训练中非常推荐开启。发现生成的图像整体模糊、缺乏细节、构图单调时。数据量少于 50 张时尤其有帮助（均衡各 timestep 的信号强度）。",
+    "avoidWhen": "FLUX / Flow-matching 架构不使用标准 SNR 加权（它们的 timestep 分布和 loss 计算不同）。v-prediction 模式下的加权逻辑不同（Lulynx 已自动处理，见 advanced）。debiased_estimation_loss 是另一种替代方案，通过 1/(1-α_t) 去偏加权。"
+  },
+  "advanced": {
+    "principle": "信噪比 SNR(t) = α_t² / σ_t²，其中 α_t = √(alphas_cumprod[t])，σ_t = √(1 - alphas_cumprod[t])。标准 MSE loss 在高 SNR（小 t，接近清晰图像）时梯度远大于低 SNR（大 t，接近纯噪声），导致模型主要学简单去噪而忽略高噪声阶段。Min-SNR 将权重 clamp 到 min(SNR, γ) / SNR，γ 就是 min_snr_gamma。v-prediction 时 divisor 变为 SNR + 1（因为 v = α·x_0 - σ·ε 的方差结构不同）。",
+    "intervention": "training_loop.py 中（line ~3679）：snr = compute_snr(timesteps)；divisor = snr + 1 if v_parameterization else snr；snr_weights = clamp(snr, max=snr_gamma) / divisor；loss = loss * snr_weights。这是 per-sample 加权，在 batch 维度取 mean 前乘上权重。adaptive_loss_weighting 是可学习版本——训练一组 γ/offset/scale 参数自适应调整权重。",
+    "expectedImpact": "对中等噪声 timestep（t=200-800）的学习效果改善最显著——这些 timestep 对应图像的中等细节（衣服纹理、背景元素、手部结构）。整体 FID 改善通常在 2-5%。对低噪声 timestep（t<100，对应全局色温和亮度）的影响很小。",
+    "tradeoffs": "adaptive_loss_weighting_enabled=True 时会训练一个小的 MLP 来预测最优 SNR 权重——理论上比固定 γ 更灵活，但增加额外参数和优化目标。debiased_estimation_loss 使用 1/(1-α_t) 加权，数学上等价于去偏估计，在大 timestep 端更激进。两者不应同时使用。",
+    "codePath": "training_loop.py:compute_snr() → clamp(snr, max=gamma) / divisor → per-sample loss weighting"
+  },
+  "relatedConfigs": ["debiased_estimation_loss", "adaptive_loss_weighting_enabled", "loss_type", "noise_offset", "v_parameterization"]
+}

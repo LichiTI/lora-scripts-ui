@@ -1,0 +1,21 @@
+{
+  "key": "dit_compute_reducer_strategy",
+  "title": "DiT 计算缩减",
+  "category": "DiT / 性能",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["性能层", "模型层"],
+  "standard": {
+    "summary": "在 DiT 的 block 循环中注入计算缩减策略——跳过部分 token（TREAD）、合并相似 token（DiffCR）或跳过部分 block（BlockSkip），加速训练。",
+    "effect": "dit_compute_reducer_strategy='none'（默认，不缩减）。'tread' 按 token 重要性 score 保留 top-k token。'diffcr' 合并相似 token 减少序列长度。'blockskip' 跳过部分 DiT block。",
+    "whenToUse": "DiT 模型训练太慢时。可以接受轻微质量损失换取速度时。",
+    "avoidWhen": "追求最高质量时。缩减可能导致细节丢失。"
+  },
+  "advanced": {
+    "principle": "TREAD: 对每个 token 计算重要性 score（dit_compute_reducer_score_mode='l2'），保留 top keep_ratio 比例的 token，其余跳过。dit_compute_reducer_min_keep_tokens 设置下限。DiffCR: 对 token 做聚类合并，保留 compression_ratio 比例。BlockSkip: 按 skip_ratio 跳过部分 block。dit_compute_reducer_warmup_steps 控制预热期（前 N 步不缩减）。dit_compute_reducer_min_block 控制不跳过的最低 block 索引。",
+    "intervention": "DiT _run_blocks 循环中根据策略跳过 token 或 block。",
+    "expectedImpact": "TREAD keep_ratio=0.7 可提速约 30%。质量损失约 2-5%。",
+    "tradeoffs": "dit_compute_reducer_min_tokens 和 min_block 提供安全下限。",
+    "codePath": "core/lulynx_trainer/dit_compute_reducer.py → TREAD/DiffCR/BlockSkip strategy dispatch"
+  },
+  "relatedConfigs": ["dit_compute_reducer_keep_ratio", "dit_compute_reducer_compression_ratio", "dit_compute_reducer_skip_ratio", "dit_compute_reducer_warmup_steps"]
+}

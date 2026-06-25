@@ -1,0 +1,27 @@
+{
+  "key": "safeguard_nan_check_interval",
+  "title": "NaN 检查间隔",
+  "category": "训练 / 稳定性",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "lulynx_safeguard_nan_check_interval"
+  ],
+  "standard": {
+    "summary": "每隔多少个优化步检查一次 NaN/Inf loss。默认 1 = 每步检查。",
+    "effect": "增大此值可略微降低检查开销，但 NaN 检测延迟相应增加，出现 NaN 后仍会多跑几步。",
+    "whenToUse": "保持默认 1 即可。仅在意极致性能时才考虑设为 5~10。",
+    "avoidWhen": "不宜设置过大（>50），否则真实 NaN 崩溃会被忽视很多步。"
+  },
+  "advanced": {
+    "principle": "每 N 步执行 torch.isnan(loss).any() + torch.isinf(loss).any()，代价约为一次 GPU→CPU 同步（约 0.1ms）。",
+    "expectedImpact": "从 1 改为 10，理论节省约 1-5μs/step（几乎不可测量），不值得为此牺牲检测实时性。"
+  },
+  "relatedConfigs": [
+    "safeguard_enabled",
+    "safeguard_max_nan_count"
+  ]
+}

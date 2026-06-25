@@ -1,0 +1,21 @@
+{
+  "key": "vortex_enabled",
+  "title": "Vortex Memory (显存涡流管理)",
+  "category": "显存优化 / 实验性",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["显存层"],
+  "standard": {
+    "summary": "Vortex 是 R&D 级的显存管理策略，通过智能调度 GPU 和 CPU 之间的数据流动来优化显存利用率。",
+    "effect": "vortex_strategy 控制调度策略（standard）。vortex_profile 控制激进度（standard/low_vram/extreme）。",
+    "whenToUse": "标准显存优化手段都不够时的最后选择。R&D 特性，稳定性待验证。",
+    "avoidWhen": "生产训练中不建议使用。可能影响训练结果的可复现性。"
+  },
+  "advanced": {
+    "principle": "Vortex 动态分析模型各部分的显存使用模式（计算密集 vs 内存密集），自动决定哪些部分应该常驻 GPU、哪些应该流式交换。low_vram profile 更激进的交换，extreme profile 可能导致性能大幅下降但显存需求最低。",
+    "intervention": "在训练循环中注入显存管理调度器，动态调整数据驻留策略。",
+    "expectedImpact": "extreme profile 可将显存需求降低 40-60%，但速度损失 30-50%。",
+    "tradeoffs": "vortex_profile 选择决定显存/速度的权衡。",
+    "codePath": "core/vortex/ → memory usage pattern analysis → dynamic residency scheduling"
+  },
+  "relatedConfigs": ["vortex_strategy", "vortex_profile"]
+}

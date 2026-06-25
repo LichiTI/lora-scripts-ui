@@ -1,0 +1,26 @@
+{
+  "key": "caption_tag_dropout_targets",
+  "title": "Caption Tag Dropout 目标",
+  "category": "数据集 / 图说",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "caption_tag_dropout_target_count",
+    "caption_tag_dropout_target_mode",
+    "anima_caption_variant_cache",
+    "dual_caption_long_key",
+    "dual_caption_short_key"
+  ],
+  "standard": {
+    "summary": "Tag Dropout 的精细控制：targets 指定只对特定 tag 类别做 dropout；target_count 控制目标 dropout 的 tag 数量；target_mode 控制 dropout 的方式（random/structured）。dual_caption 支持同时有长/短两种图说的数据集（通过 long_key/short_key 指定字段名）。anima_caption_variant_cache 开启 caption 变体缓存。",
+    "effect": "targets 列表中的 tag 类别才参与 dropout，其他 tag 不受影响（如只对描述性 tag 做 dropout，保留触发词）。",
+    "whenToUse": "需要精确控制哪些 tag 参与 dropout 时使用。dual_caption 适合数据集同时有详细描述和简短标签两种格式。",
+    "avoidWhen": "简单的 tag dropout 用 caption_tag_dropout_rate 即可，无需精细控制目标。"
+  },
+  "relatedConfigs": [
+    "caption_tag_dropout_rate",
+    "caption_source_tag_ratio"
+  ]
+}

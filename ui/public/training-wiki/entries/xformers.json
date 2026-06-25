@@ -1,0 +1,23 @@
+{
+  "key": "xformers",
+  "title": "xFormers 内存高效注意力",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "启用 xFormers 库的内存高效注意力（Memory Efficient Attention）实现，显著降低注意力计算的显存占用。",
+    "effect": "启用后注意力计算的显存从 O(n²) 降至接近 O(n)（使用 chunked/flash attention）。对高分辨率训练效果显著（1024×1024 可节省 30%~50% 显存）。",
+    "whenToUse": "高分辨率（1024+）训练时强烈推荐开启（若 xformers 已安装）。显存不足时优先开启。",
+    "avoidWhen": "未安装 xformers 包时会报错（需要 pip install xformers）。某些环境下 xformers 与 torch 版本不兼容，遇到错误时禁用。"
+  },
+  "advanced": {
+    "principle": "xformers 实现了 Memory Efficient Attention（MEA），将注意力计算分块处理，避免在高分辨率下实例化完整的 n×n 注意力矩阵（n = 序列长度）。底层调用 CUDA 优化 kernel。",
+    "tradeoffs": "xformers 注意力计算结果与 PyTorch 原生不完全相同（非确定性实现），可能影响可复现性；但对训练质量的实际影响极小。"
+  },
+  "relatedConfigs": [
+    "gradient_checkpointing",
+    "mixed_precision"
+  ]
+}

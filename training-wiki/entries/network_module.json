@@ -1,0 +1,24 @@
+{
+  "key": "network_module",
+  "title": "LoRA 网络模块",
+  "category": "LoRA / 网络结构",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "standard": {
+    "summary": "选择 LoRA 的实现模块。networks.lora 是标准线性 LoRA；networks.lora_fa 是 Frozen-A 变体；lora_flux / lora_sd3 是针对特定架构的专用实现。",
+    "effect": "不同模块决定 LoRA 如何注入目标层、是否支持特殊变体（DoRA、LyCORIS 等）。",
+    "whenToUse": "大多数情况使用默认值即可，训练器会根据模型类型自动选择合适的模块。",
+    "avoidWhen": "手动修改模块路径需要了解内部实现，错误的模块路径会导致训练失败。"
+  },
+  "advanced": {
+    "principle": "模块以类路径形式指定（如 networks.lora），训练器通过 importlib 动态加载并初始化 LoRA 结构。",
+    "tradeoffs": "自定义模块允许接入第三方 LoRA 实现，但需要与训练器接口兼容。"
+  },
+  "relatedConfigs": [
+    "network_dim",
+    "network_alpha"
+  ]
+}

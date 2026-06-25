@@ -1,0 +1,27 @@
+{
+  "key": "swap_granularity",
+  "title": "Block Swap 策略",
+  "category": "显存 / 交换",
+  "appliesTo": ["sdxl-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["内存层", "显存管理层"],
+  "standard": {
+    "summary": "控制冻结权重在 GPU 显存和 CPU 内存之间的搬运策略。通过将暂时不用的权重块搬出 GPU，可以在有限显存下训练更大的模型或更高分辨率，代价是 PCIe 传输时间。",
+    "effect": "off（默认）所有冻结权重常驻 GPU；block 按 Transformer block 粒度交换（SDXL UNet 约 9 个 down + 1 mid + 9 个 up = 19 个可交换块）；layer 按单个 Linear/Conv 层交换（最细粒度但开销最大）。swap_ratio 控制交换比例（0.0-1.0），swap_count 控制绝对数量。",
+    "recommendedValues": {
+      "off": "显存充足时的最佳选择（零交换开销）",
+      "block + swap_ratio=0.3-0.5": "SDXL 16GB 显存常用配置，交换约 30-50% 的 block",
+      "block + swap_ratio=0.7": "SDXL 12GB 显存的激进配置",
+      "layer": "极端显存紧张时使用（8GB 以下），但速度与 off 相比可能慢 5-10 倍"
+    },
+    "whenToUse": "显存不足但还想保持分辨率和 batch 时的核心手段。low_vram_profile 会自动设置合理的 swap 策略。SDXL 冻结 UNet 约 7GB（BF16），如果总显存 < 14GB 通常需要开启 swap。",
+    "avoidWhen": "显存充足时绝对不要开——PCIe 搬运是训练速度最大的杀手。block swap 与 torch_compile 和 vram_swap_to_ram 不兼容（training_loop.py 会显式检查并禁止）。layer swap 与 gradient_checkpointing 不兼容。"
+  },
+  "advanced": {
+    "principle": "SDXL UNet 有 ~70 个 Transformer block（down_blocks × 3 layers + mid_block + up_blocks × 3 layers），每个 block 约 100-400MB（BF16）。block swap 在 UNet forward 前将即将用到的 block 从 CPU pinned memory .to('cuda')，forward 后立即 .to('cpu')。async 模式用独立 CUDA stream 重叠搬运和计算（GPU 在算当前 block 时，下一个 block 已经在搬运）。pipeline 模式进一步预取到 GPU 临时缓冲区。block_merge_size 在 merged_block 模式下将多个相邻 block 合并为一次搬运，减少 PCIe 事务次数。",
+    "intervention": "training_loop.py 的 _setup_memory_optimizations() 中构建 BlockSwapOffloader。offloader 持有所有 block 的 CPU 副本（pinned memory），在 UNet forward 的 hook 中执行 block.to(device) / block.to('cpu')。pcie_transfer_format 可以用 FP8/INT8 传输减少搬运量（权重在 CPU 端以低精度存储，GPU 端反量化）。",
+    "expectedImpact": "SDXL 16GB 显存：off → OOM；swap_ratio=0.4 → 训练可行但速度约降 30-40%。PCIe 4.0 x16 带宽约 32 GB/s，每步搬运 3GB 冻结权重 ≈ 94ms，而 UNet forward 约 150ms——搬运和计算比约 60%。PCIe 3.0 或更低带宽时比例更高。",
+    "tradeoffs": "sparse_swap_enabled 只交换「冷」block（最近几步梯度变化小的），减少活跃 block 的搬运次数。pcie_delta_cache_enabled 在 GPU 端缓存最近使用的 block 副本，避免反复搬运。vram_smart_sensing 在训练前 50 步（baseline_steps）监控显存使用趋势，动态决定是否需要开启 swap 以及 swap 多少。",
+    "codePath": "training_loop.py:_setup_memory_optimizations() → BlockSwapOffloader → per-block .to(device)/.to('cpu') in UNet forward hooks"
+  },
+  "relatedConfigs": ["swap_ratio", "swap_count", "block_merge_size", "block_swap_strategy", "blocks_to_swap", "pcie_transfer_format", "pcie_delta_cache_enabled", "sparse_swap_enabled", "vram_smart_sensing_enabled"]
+}

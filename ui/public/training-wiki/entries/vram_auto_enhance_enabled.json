@@ -1,0 +1,35 @@
+{
+  "key": "vram_auto_enhance_enabled",
+  "title": "VRAM 自动增强 & 智能感知",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora"
+  ],
+  "aliases": [
+    "vram_smart_sensing_baseline_steps",
+    "vram_smart_sensing_delta_cache_enabled",
+    "vram_smart_sensing_slowdown_ratio",
+    "vram_swap_to_ram",
+    "anima_block_residency_min_params",
+    "peak_vram_startup_guard_enabled",
+    "peak_vram_startup_guard_mode",
+    "peak_vram_startup_guard_steps",
+    "peak_vram_target_effective_batch"
+  ],
+  "standard": {
+    "summary": "VRAM 自动增强套件：智能感知（smart_sensing）在训练前几步测量实际 VRAM 使用量，并自动推荐优化措施；vram_swap_to_ram 允许将不活跃权重换到 CPU RAM；startup_guard 在训练启动时预防 OOM。",
+    "effect": "smart_sensing 在 baseline_steps 步内监控 VRAM，检测 slowdown_ratio（VRAM 使用率超阈值时速度下降信号），delta_cache 记录增量变化。startup_guard 在开始训练前分配测试内存，预防编译或首步 OOM 爆炸。",
+    "whenToUse": "显存使用不稳定（偶发 OOM）或想自动诊断 VRAM 瓶颈时开启。",
+    "avoidWhen": "稳定训练（从不 OOM）时无需开启监控，有额外开销。"
+  },
+  "advanced": {
+    "principle": "smart_sensing 在 baseline_steps 步内以更频繁的频率记录 VRAM 使用量，建立基线；之后转为定期检查（配合 peak_vram_diagnostics）。vram_swap_to_ram 通过 torch.cuda.memory 的 reserved → system RAM 策略实现（非 offload，只是内存管理策略）。anima_block_residency_min_params 控制块驻留 GPU 所需的最小参数量（小块不值得常驻 GPU）。",
+    "tradeoffs": "频繁 VRAM 监控有约 0.5~1ms/step 额外开销；startup_guard 分配的测试内存在验证后立即释放，但可能延迟训练开始约 10~30 秒。"
+  },
+  "relatedConfigs": [
+    "peak_vram_control_enabled",
+    "anima_block_prefetch",
+    "gradient_checkpointing"
+  ]
+}

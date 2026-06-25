@@ -1,0 +1,28 @@
+{
+  "key": "anima_block_prefetch",
+  "title": "Anima Block 预取（CPU Offload）",
+  "category": "速度 / 显存",
+  "appliesTo": [
+    "anima-lora"
+  ],
+  "aliases": [
+    "anima_block_prefetch_depth",
+    "anima_block_prefetch_mode"
+  ],
+  "standard": {
+    "summary": "将 Anima DiT block 的权重在不使用时卸载到 CPU（offload），使用前预取回 GPU，显著降低 VRAM 峰值，代价是训练速度下降。",
+    "effect": "开启后大基座（如 Anima 全尺寸）可在 <12GB 显卡上运行 LoRA 训练，但速度可能降低 30%~60%（取决于预取深度和 PCIe 带宽）。",
+    "whenToUse": "大模型（>12GB VRAM）在低显存 GPU（<16GB）上训练时的保命选项。",
+    "avoidWhen": "显存充足时（>24GB for anima full）不需要，开启会降低速度。PCIe 带宽低（如 PCIe 3.0 ×8 以下）的机器速度下降更明显。"
+  },
+  "advanced": {
+    "principle": "在 DiT block 的 forward/backward 前，将下 prefetch_depth 个 block 的权重异步从 CPU 传输到 GPU；当前 block 计算完成后将其权重异步卸载回 CPU。形成流水线：CPU→GPU 传输与 GPU 计算重叠。",
+    "intervention": "prefetch_mode=adaptive：基于 blockskip 感知，不跳过的 block 才预取（减少不必要的数据传输）；prefetch_mode=original：均匀预取（parity 基准）。",
+    "tradeoffs": "prefetch_depth 越大 = 提前传输的 block 越多 = 传输与计算重叠越充分 = 速度越快，但峰值 VRAM 增加；深度过大反而没有显存节省效果。"
+  },
+  "relatedConfigs": [
+    "gradient_checkpointing",
+    "blocks_to_swap",
+    "anima_block_residency_min_params"
+  ]
+}

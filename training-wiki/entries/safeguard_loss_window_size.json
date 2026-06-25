@@ -1,0 +1,27 @@
+{
+  "key": "safeguard_loss_window_size",
+  "title": "Loss 窗口大小",
+  "category": "训练 / 稳定性",
+  "appliesTo": [
+    "anima-lora",
+    "sdxl-lora",
+    "sd-lora"
+  ],
+  "aliases": [
+    "lulynx_safeguard_loss_window_size"
+  ],
+  "standard": {
+    "summary": "用于检测 loss spike 的滑动窗口大小（步数），窗口内均值作为「正常 loss」基准。默认 20。",
+    "effect": "窗口越大，基准均值越稳定，不易被短暂波动影响；窗口越小，基准对近期 loss 更敏感。",
+    "whenToUse": "默认 20 适合大多数训练。总步数 <100 时可减小到 5~10；长训练（>1000 步）可增大到 50。",
+    "avoidWhen": "窗口过小（<5）时均值不稳定；过大（>100）时基准更新太慢，早期 spike 可能被淹没。"
+  },
+  "advanced": {
+    "principle": "使用循环队列（deque with maxlen=window_size）维护最近 N 步 loss，取均值为 spike 检测基准。",
+    "tradeoffs": "窗口大小影响「正常 loss」基准的平滑程度，与 spike_threshold 共同决定触发灵敏度。"
+  },
+  "relatedConfigs": [
+    "safeguard_enabled",
+    "safeguard_loss_spike_threshold"
+  ]
+}

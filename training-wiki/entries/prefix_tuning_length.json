@@ -1,0 +1,21 @@
+{
+  "key": "prefix_tuning_length",
+  "title": "Prefix/Postfix Tuning (软提示)",
+  "category": "训练 / 实验性",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["文本编码层"],
+  "standard": {
+    "summary": "在文本编码器的输出序列前/后添加可学习的软提示向量（soft prompt），不修改文本编码器权重，用额外参数引导生成。",
+    "effect": "prefix_tuning_length 控制前缀 token 数量（0=禁用）。postfix_tuning_length 控制后缀 token 数量。prefix_tuning_init 控制初始化方式（normal/uniform/zeros）。",
+    "whenToUse": "想在不改变文本编码器的情况下添加全局风格/概念引导时。",
+    "avoidWhen": "推理时需要拼接这些额外 token。标准推理管线需要修改。"
+  },
+  "advanced": {
+    "principle": "Prefix Tuning 在文本编码输出的开头插入 N 个可学习的 d 维向量（SDXL: d=2048）。这些向量通过梯度下降优化，充当全局上下文提示。Postfix Tuning 在末尾插入。prefix_tuning_init='normal' 用正态分布初始化，'zeros' 从零开始。训练中只优化这些向量，文本编码器和 UNet 保持冻结。",
+    "intervention": "text encoder forward 后将可学习向量拼接到输出序列的前/后。",
+    "expectedImpact": "添加全局风格/概念控制。参数量 = N × d（如 10 × 2048 = 20K 参数）。",
+    "tradeoffs": "与 Textual Inversion 类似但作用位置不同——TI 在 embedding 层，Prefix Tuning 在 encoder 输出层。",
+    "codePath": "core/lulynx/ → soft prompt injection → concat to text encoder output"
+  },
+  "relatedConfigs": ["postfix_tuning_length", "prefix_tuning_init", "ti_placeholder_token"]
+}

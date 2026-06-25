@@ -6,7 +6,13 @@
 // 解决与 statusDeck 的循环依赖）
 
 import { escapeHtml, _ico } from '../utils/dom.js';
+import { renderBubbleAdvisorNarrativePanel } from '../utils/bubbleAdvisorNarrative.js';
 import { renderPcieTransferBenchmarkCard, renderUnifiedRecommendationCard } from '../utils/trainingMetrics.js';
+import {
+  collectAdvisorRecommendedConfigPatch,
+  collectBackendRecommendedConfigPatch,
+  recommendedConfigPatchKeys,
+} from '../utils/preflightRecommendedPatch.js';
 
 export function createPreflightRenderer({ state, deps }) {
   function _renderStatusDeck() { return deps.renderStatusDeck ? deps.renderStatusDeck() : ''; }
@@ -73,7 +79,7 @@ export function createPreflightRenderer({ state, deps }) {
   }
 
   function _pfTag(label, value, type) {
-    var color = type === 'err' ? '#ef4444' : (type === 'warn' ? '#f59e0b' : 'var(--text-main)');
+    var color = type === 'err' ? 'var(--danger)' : (type === 'warn' ? 'var(--warning)' : 'var(--text-main)');
     return '<div class="preflight-tag"><span class="preflight-tag-label">' + label + '</span><span class="preflight-tag-value" style="color:' + color + ';">' + value + '</span></div>';
   }
 
@@ -150,8 +156,8 @@ export function createPreflightRenderer({ state, deps }) {
     var ditRuntime = (vram.dit_runtime && typeof vram.dit_runtime === 'object') ? vram.dit_runtime : null;
     var compileToken = (advisor.compile_token && typeof advisor.compile_token === 'object') ? advisor.compile_token : null;
     var dataset = advisor.dataset || {};
-    var patch = { ...(vram.recommended_config_patch || {}), ...(aTier.recommended_config_patch || {}) };
-    var patchKeys = Object.keys(patch).filter(function(k) { return !k.startsWith('__') && patch[k] !== undefined; });
+    var patch = collectAdvisorRecommendedConfigPatch({ training_advisor: advisor });
+    var patchKeys = recommendedConfigPatchKeys(patch);
     var html = '<details class="preflight-group collapsible-subgroup" style="margin-top:8px;">';
     html += '<summary class="preflight-group-title">' + _ico('activity', 14) + ' 训练 Advisor（S/A/B 级）<span class="collapsible-caret" aria-hidden="true">⌄</span></summary>';
     html += '<div class="preflight-dataset-grid">';
@@ -197,7 +203,7 @@ export function createPreflightRenderer({ state, deps }) {
     html += '</div>';
     if (patchKeys.length) {
       html += '<div class="preflight-item preflight-note">建议修改: ' + escapeHtml(patchKeys.slice(0, 8).join(', ') + (patchKeys.length > 8 ? '...' : '')) + '</div>';
-      html += '<button class="btn btn-outline btn-sm" type="button" onclick="applyTrainingAdvisorPatch()" style="margin-top:8px;">' + _ico('check-circle', 14) + ' 手动应用 Advisor 建议</button>';
+      html += '<button class="btn btn-outline btn-sm" type="button" onclick="applyTrainingAdvisorPatch()" style="margin-top:8px;">' + _ico('check-circle', 14) + ' 手动应用预检/Advisor 建议</button>';
     }
     if (findings.length) {
       findings.slice(0, 5).forEach(function(f) {
@@ -239,7 +245,64 @@ export function createPreflightRenderer({ state, deps }) {
         html += '<div class="preflight-item preflight-note">' + escapeHtml(n) + '</div>';
       });
     }
-    html += '<div class="preflight-item preflight-note">Advisor 只生成报告；只有点击上方按钮才会写入当前配置草稿，不会自动开始训练。</div>';
+    html += '<div class="preflight-item preflight-note">预检/Advisor 只生成报告；只有点击上方按钮才会写入当前配置草稿，不会自动开始训练。</div>';
+    html += '</details>';
+    return html;
+  }
+
+  function _renderBackendRecommendedPatch(preflight) {
+    var patch = collectBackendRecommendedConfigPatch(preflight);
+    var patchKeys = recommendedConfigPatchKeys(patch);
+    if (!patchKeys.length) return '';
+
+    var actions = [];
+    if (Array.isArray(preflight.repair_actions)) actions = actions.concat(preflight.repair_actions);
+    if (Array.isArray(preflight.repair_plan && preflight.repair_plan.repair_actions)) {
+      actions = actions.concat(preflight.repair_plan.repair_actions);
+    }
+    var action = actions.find(function(item) { return item && item.code === 'preflight.apply_recommended_config_patch'; });
+    var risk = action && action.estimated_risk ? String(action.estimated_risk) : 'medium';
+    var title = action && (action.title_zh || action.title_en) ? String(action.title_zh || action.title_en) : '应用推荐训练配置';
+    var message = action && action.message ? String(action.message) : '后端预检根据当前配置生成了推荐 patch。';
+    var preview = patchKeys.slice(0, 10).join(', ') + (patchKeys.length > 10 ? '...' : '');
+
+    var html = '<details class="preflight-group collapsible-subgroup" style="margin-top:8px;" open>';
+    html += '<summary class="preflight-group-title">' + _ico('check-circle', 14) + ' 预检推荐配置<span class="collapsible-caret" aria-hidden="true">⌄</span></summary>';
+    html += '<div class="preflight-dataset-grid">';
+    html += _pfTag('建议项', patchKeys.length, 'warn');
+    html += _pfTag('风险', risk, risk === 'high' ? 'err' : (risk === 'medium' ? 'warn' : 'ok'));
+    html += '</div>';
+    html += '<div class="preflight-item preflight-warning">' + escapeHtml(title + ': ' + message) + '</div>';
+    html += '<div class="preflight-item preflight-note">将修改: ' + escapeHtml(preview) + '</div>';
+    html += '<button class="btn btn-outline btn-sm" type="button" onclick="applyTrainingAdvisorPatch()" style="margin-top:8px;">' + _ico('check-circle', 14) + ' 应用预检推荐配置</button>';
+    html += '<div class="preflight-item preflight-note">这是 report-only 建议；点击按钮只写入当前配置草稿，不会自动开始训练。</div>';
+    html += '</details>';
+    return html;
+  }
+
+  function _renderModelAcceleration(profile) {
+    if (!profile || typeof profile !== 'object' || !profile.available) return '';
+    var patch = profile.recommended_config_patch || {};
+    var patchKeys = recommendedConfigPatchKeys(patch);
+    var tracks = Array.isArray(profile.tracks) ? profile.tracks : [];
+    var skipped = Array.isArray(profile.skipped) ? profile.skipped : [];
+    var html = '<details class="preflight-group collapsible-subgroup" style="margin-top:8px;" open>';
+    html += '<summary class="preflight-group-title">' + _ico('zap', 14) + ' 模型加速策略<span class="collapsible-caret" aria-hidden="true">⌄</span></summary>';
+    html += '<div class="preflight-dataset-grid">';
+    html += _pfTag('模型', profile.model_family || 'unknown');
+    html += _pfTag('档位', profile.effective_profile || profile.requested_profile || 'off', profile.effective_profile === 'aggressive' ? 'warn' : '');
+    html += _pfTag('推荐项', patchKeys.length, patchKeys.length ? 'warn' : 'ok');
+    html += _pfTag('保留显式项', skipped.length, skipped.length ? 'ok' : '');
+    html += '</div>';
+    if (patchKeys.length) html += '<div class="preflight-item preflight-note">将建议: ' + escapeHtml(patchKeys.slice(0, 10).join(', ') + (patchKeys.length > 10 ? '...' : '')) + '</div>';
+    tracks.slice(0, 8).forEach(function(track) {
+      var status = String((track && track.status) || 'recommended');
+      var cls = status === 'preserved' ? 'preflight-note' : 'preflight-warning';
+      var name = String((track && track.name) || 'track');
+      var msg = String((track && track.message) || status);
+      html += '<div class="preflight-item ' + cls + '">' + escapeHtml(name + ': ' + msg) + '</div>';
+    });
+    html += '<div class="preflight-item preflight-note">该策略只接管档位允许的字段；训练启动后仍会经过 compile、attention、optimizer 的运行时安全门。</div>';
     html += '</details>';
     return html;
   }
@@ -314,18 +377,31 @@ export function createPreflightRenderer({ state, deps }) {
     const ds = pf.dataset;
     const deps = pf.dependencies;
     const advisor = pf.training_advisor;
+    const modelAcceleration = pf.model_acceleration;
     const precisionSwapProfile = pf.precision_swap_profile;
     const nativeUnetProfile = pf.native_unet_profile;
 
-    if (errors.length === 0 && warnings.length === 0 && notes.length === 0 && !ds && !advisor && !precisionSwapProfile && !nativeUnetProfile) {
+    const bubbleAdvisorPanel = renderBubbleAdvisorNarrativePanel(pf);
+
+    if (
+      errors.length === 0
+      && warnings.length === 0
+      && notes.length === 0
+      && !ds
+      && !advisor
+      && !bubbleAdvisorPanel
+      && !modelAcceleration
+      && !precisionSwapProfile
+      && !nativeUnetProfile
+    ) {
       return '';
     }
 
     const canStart = pf.can_start;
-    const borderColor = canStart ? (warnings.length > 0 ? '#f59e0b' : '#22c55e') : '#ef4444';
+    const borderColor = canStart ? (warnings.length > 0 ? 'var(--warning)' : 'var(--success)') : 'var(--danger)';
     const statusIcon = canStart ? (warnings.length > 0 ? _ico('alert-tri') : _ico('check-circle')) : _ico('x-circle');
     const statusText = canStart ? (warnings.length > 0 ? '预检通过（有警告）' : '预检通过') : '预检未通过';
-    const statusColor = canStart ? (warnings.length > 0 ? '#f59e0b' : '#22c55e') : '#ef4444';
+    const statusColor = canStart ? (warnings.length > 0 ? 'var(--warning)' : 'var(--success)') : 'var(--danger)';
 
     let html = '<section class="form-section preflight-report-section" id="preflight-report" style="border-left:3px solid ' + borderColor + ';">';
     html += '<header class="section-header preflight-report-summary">';
@@ -340,7 +416,7 @@ export function createPreflightRenderer({ state, deps }) {
 
     if (errors.length > 0) {
       html += '<div class="preflight-group">';
-      html += '<div class="preflight-group-title" style="color:#ef4444;">' + _ico('x-circle', 14) + ' 错误 (' + errors.length + ')</div>';
+      html += '<div class="preflight-group-title" style="color:var(--danger);">' + _ico('x-circle', 14) + ' 错误 (' + errors.length + ')</div>';
       errors.forEach(function(e) {
         html += '<div class="preflight-item preflight-error">' + escapeHtml(_formatPreflightIssue(e)) + '</div>';
       });
@@ -350,7 +426,7 @@ export function createPreflightRenderer({ state, deps }) {
     // 警告列表
     if (warnings.length > 0) {
       html += '<div class="preflight-group">';
-      html += '<div class="preflight-group-title" style="color:#f59e0b;">' + _ico('alert-tri', 14) + ' 警告 (' + warnings.length + ')</div>';
+      html += '<div class="preflight-group-title" style="color:var(--warning);">' + _ico('alert-tri', 14) + ' 警告 (' + warnings.length + ')</div>';
       warnings.forEach(function(w) {
         html += '<div class="preflight-item preflight-warning">' + escapeHtml(_formatPreflightIssue(w)) + '</div>';
       });
@@ -388,7 +464,10 @@ export function createPreflightRenderer({ state, deps }) {
       }
     }
 
+    html += bubbleAdvisorPanel;
     html += _renderAdvisorSummary(advisor);
+    html += _renderModelAcceleration(modelAcceleration);
+    html += _renderBackendRecommendedPatch(pf);
     html += _renderNativeUnetProfile(nativeUnetProfile);
     html += _renderPrecisionSwapProfile(precisionSwapProfile);
 
@@ -408,7 +487,7 @@ export function createPreflightRenderer({ state, deps }) {
   }
 
   function _pfMetric(label, value, type) {
-    var color = type === 'accent' ? 'var(--accent)' : (type === 'ok' ? '#22c55e' : (type === 'warn' ? '#f59e0b' : (type === 'err' ? '#ef4444' : 'var(--text-main)')));
+    var color = type === 'accent' ? 'var(--accent)' : (type === 'ok' ? 'var(--success)' : (type === 'warn' ? 'var(--warning)' : (type === 'err' ? 'var(--danger)' : 'var(--text-main)')));
     return '<div class="train-pf-metric"><div class="train-pf-metric-label">' + label + '</div>'
       + '<div class="train-pf-metric-val" style="color:' + color + ';">' + value + '</div></div>';
   }
@@ -486,7 +565,7 @@ export function createPreflightRenderer({ state, deps }) {
       + '<div class="train-pf-card-hdr"><span>\u8bca\u65ad</span></div>'
       + '<ul class="train-diag-list">' + diags.map(function(d) {
           var icon = d.ok ? _ico('check-circle', 15) : (d.warn ? _ico('alert-tri', 15) : _ico('x-circle', 15));
-          var color = d.ok ? '#22c55e' : (d.warn ? '#f59e0b' : '#ef4444');
+          var color = d.ok ? 'var(--success)' : (d.warn ? 'var(--warning)' : 'var(--danger)');
           return '<li style="color:' + color + ';">' + icon + ' <span style="color:var(--text-main);">' + escapeHtml(d.text) + '</span></li>';
         }).join('') + '</ul></div>';
 

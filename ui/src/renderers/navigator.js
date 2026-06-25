@@ -43,9 +43,13 @@ export function createNavigatorRenderer({ state, TRAINING_TYPES, _persistTrainin
         const arrow = collapsed ? '▸' : '▾';
         return `<li class="group-header${collapsed ? ' collapsed' : ''}" onclick="toggleTrainingGroup('${group}')">`
           + `<span class="group-arrow">${arrow}</span> ${group} <span class="group-count">${items.length}</span></li>`
-          + (collapsed ? '' : items.map((tt) =>
-              `<li class="${tt.id === state.activeTrainingType ? 'active' : ''}" onclick="switchTrainingType('${tt.id}')">${tt.label}</li>`
-            ).join(''));
+          + (collapsed ? '' : items.map((tt) => {
+              const disabled = !!tt.disabled;
+              const cls = `${tt.id === state.activeTrainingType ? 'active' : ''}${disabled ? ' disabled' : ''}`.trim();
+              const title = disabled && tt.disabledReason ? ` title="${tt.disabledReason}"` : '';
+              const click = disabled ? '' : ` onclick="switchTrainingType('${tt.id}')"`;
+              return `<li class="${cls}"${click}${title}>${tt.label}</li>`;
+            }).join(''));
       }).join('');
     }
 
