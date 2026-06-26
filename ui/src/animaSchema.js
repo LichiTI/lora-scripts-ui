@@ -1,7 +1,19 @@
 // Anima LoRA schema - based on mikazuki/schema/anima-lora.ts
+// 注意：本文件不再依赖 schemaRegistry.js，以避免与 sdxlSchema.js 形成循环依赖
+// (sdxlSchema → animaSchema → schemaRegistry → sdxlSchema)。
+// when/all/oneOf 为纯函数，此处内联即可。
 
-import { when, all, oneOf } from './schemaRegistry.js';
 import { schedulerOptions } from './features/settingsOptions.js';
+
+function when(key, expected) {
+  return (config) => config[key] === expected;
+}
+function all(...conditions) {
+  return (config) => conditions.every((c) => c(config));
+}
+function oneOf(key, values) {
+  return (config) => values.includes(config[key]);
+}
 
 const ANIMA_TABS = [
   { key: 'model', label: '模型' },
@@ -318,6 +330,36 @@ const ANIMA_SECTIONS = [
     ],
   },
   {
+    id: 'concept-geometry-settings',
+    tab: 'dataset',
+    title: '概念几何采样',
+    description: '训练侧概念几何分析、采样与加权；不是新的 LoRA 格式，不改变 checkpoint 结构。',
+    fields: [
+      { key: 'concept_geometry_enabled', type: 'boolean', label: '启用概念几何采样', desc: '开启后可基于 concept_geometry.json 对样本做课程/密度采样与 loss 加权。', defaultValue: false },
+      { key: 'concept_geometry_path', type: 'file', pickerType: 'file', label: '概念几何文件', desc: '可选 JSON 元数据；留空时默认读取 train_data_dir/concept_geometry.json，兼容旧 h_lora_geometry.json。', defaultValue: '', visibleWhen: when('concept_geometry_enabled', true) },
+      { key: 'concept_geometry_sampler_mode', type: 'select', label: '采样模式', desc: 'curriculum 偏课程；density 偏密度；density_curriculum 结合两者；concept_batch 使用 v2 概念邻域组 batch。', defaultValue: 'density_curriculum', options: ['curriculum', 'density', 'density_curriculum', 'concept_batch'], visibleWhen: when('concept_geometry_enabled', true) },
+      { key: 'concept_geometry_loss_weighting', type: 'boolean', label: 'Loss 加权', desc: '对 batch 中样本附加几何权重；与普通 caption weight 相乘。', defaultValue: false, visibleWhen: when('concept_geometry_enabled', true) },
+      { key: 'concept_geometry_density_power', type: 'number', label: '密度幂次', desc: '调节密度分布对采样/加权的影响强度。', defaultValue: 1.0, min: 0, max: 4, step: 0.1, visibleWhen: when('concept_geometry_enabled', true) },
+      { key: 'concept_geometry_source_priority', type: 'string', label: '概念来源优先级', desc: '逗号分隔：explicit,folder,nl,identity,tag,stem。默认优先 caption 明确声明。', defaultValue: 'explicit,folder,nl,identity,tag,stem', visibleWhen: when('concept_geometry_enabled', true) },
+      { key: 'concept_geometry_alias_map', type: 'textarea', label: '概念别名 JSON', desc: '可选。准备 concept_geometry.json 时把别名归一到主概念，例如 {"露露":"lulu"}。', defaultValue: '', visibleWhen: when('concept_geometry_enabled', true) },
+      { key: 'concept_geometry_alias_map_path', type: 'file', pickerType: 'file', label: '概念别名文件', desc: '可选 JSON 文件；适合复用较大的别名表。', defaultValue: '', visibleWhen: when('concept_geometry_enabled', true) },
+
+      { key: 'concept_geometry_semantic_enabled', type: 'boolean', label: '增强语义解析', desc: '仅在准备 concept_geometry.json 时使用 text embedding；默认关闭，不下载、不联网。', defaultValue: false, visibleWhen: when('concept_geometry_enabled', true) },
+      { key: 'concept_geometry_embedding_provider', type: 'select', label: 'Embedding 来源', desc: 'local_path 使用本地模型；auto_download 需确认后下载推荐模型；api 调用 OpenAI-compatible embeddings。', defaultValue: 'local_path', options: ['local_path', 'auto_download', 'api'], visibleWhen: when('concept_geometry_semantic_enabled', true) },
+      { key: 'concept_geometry_embedding_backend', type: 'select', label: 'Embedding 后端', desc: '默认 PyTorch；ONNX 是预留给开发者适配的接口。', defaultValue: 'pytorch', options: ['pytorch', 'onnx'], visibleWhen: when('concept_geometry_semantic_enabled', true) },
+      { key: 'concept_geometry_embedding_model', type: 'string', label: 'Embedding 模型', desc: '推荐 BAAI/bge-m3；自动下载会使用 Hugging Face 仓库。', defaultValue: 'BAAI/bge-m3', visibleWhen: when('concept_geometry_semantic_enabled', true) },
+      { key: 'concept_geometry_embedding_model_path', type: 'folder', pickerType: 'folder', label: '本地 Embedding 模型目录', defaultValue: '', visibleWhen: when('concept_geometry_embedding_provider', 'local_path') },
+      { key: 'concept_geometry_embedding_api_base', type: 'string', label: 'Embedding API Base', desc: 'OpenAI-compatible /v1/embeddings 服务地址。线上 API 会上传 caption/tag。', defaultValue: '', visibleWhen: when('concept_geometry_embedding_provider', 'api') },
+      { key: 'concept_geometry_embedding_api_key', type: 'string', label: 'Embedding API Key', defaultValue: '', visibleWhen: when('concept_geometry_embedding_provider', 'api') },
+
+      { key: 'concept_geometry_translation_enabled', type: 'boolean', label: '中文 NL 翻译增强', desc: '准备 concept_geometry.json 时，把中文/日文等 caption 翻译成英文后再送入 embedding；默认关闭。', defaultValue: false, visibleWhen: when('concept_geometry_semantic_enabled', true) },
+      { key: 'concept_geometry_translation_provider', type: 'select', label: '翻译来源', defaultValue: 'local_path', options: ['local_path', 'api'], visibleWhen: when('concept_geometry_translation_enabled', true) },
+      { key: 'concept_geometry_translation_model_path', type: 'folder', pickerType: 'folder', label: '本地翻译模型目录', defaultValue: '', visibleWhen: when('concept_geometry_translation_provider', 'local_path') },
+      { key: 'concept_geometry_translation_api_base', type: 'string', label: '翻译 API Base', desc: 'OpenAI-compatible /v1/chat/completions 服务地址。线上 API 会上传 caption。', defaultValue: '', visibleWhen: when('concept_geometry_translation_provider', 'api') },
+      { key: 'concept_geometry_translation_api_key', type: 'string', label: '翻译 API Key', defaultValue: '', visibleWhen: when('concept_geometry_translation_provider', 'api') },
+    ],
+  },
+  {
     id: 'network-settings',
     tab: 'network',
     title: '网络设置',
@@ -344,7 +386,7 @@ const ANIMA_SECTIONS = [
       { key: 'hydralora_balance_loss_weight', type: 'number', label: 'HydraLoRA 均衡 Loss 权重', defaultValue: 0, min: 0, step: 0.001, visibleWhen: when('lora_type', 'hydralora') },
       { key: 'fera_gate_init', type: 'number', label: 'FeRA Gate 初始值', defaultValue: 0, step: 0.001, visibleWhen: when('lora_type', 'fera') },
       { key: 'easy_control_enabled', type: 'boolean', label: '启用 EasyControl', desc: '接收 batch 中的 control_images 并在 noisy latent 前加入轻量 residual；完整 sidecar 数据集接线仍需后续闭环。', defaultValue: false },
-      { key: 'control_image_dir', type: 'directory', label: 'Control 图片目录', defaultValue: '', visibleWhen: when('easy_control_enabled', true) },
+      { key: 'control_image_dir', type: 'folder', pickerType: 'folder', label: 'Control 图片目录', defaultValue: '', visibleWhen: when('easy_control_enabled', true) },
       { key: 'control_suffix', type: 'string', label: 'Control 文件后缀', defaultValue: '', visibleWhen: when('easy_control_enabled', true) },
       { key: 'easy_control_scale', type: 'number', label: 'EasyControl Scale', defaultValue: 1, min: 0, step: 0.01, visibleWhen: when('easy_control_enabled', true) },
       { key: 'easy_control_channels', type: 'number', label: 'EasyControl 通道数', defaultValue: 3, min: 1, visibleWhen: when('easy_control_enabled', true) },
@@ -492,6 +534,8 @@ const ANIMA_SECTIONS = [
       { key: 'anima_block_residency', type: 'select', label: 'Anima Streaming Offload', desc: '控制原生 Anima 冻结 DiT 权重的驻留策略。Streaming Offload 是省显存与速度的平衡档，但 1024/4096-token 训练需要配合 DiT Block Checkpointing；Block CPU pinned 是极限低显存档。', defaultValue: 'resident', options: ANIMA_BLOCK_RESIDENCY_OPTIONS },
       { key: 'anima_block_residency_min_params', type: 'number', label: 'Anima Offload 最小参数量', desc: '只托管参数量达到该阈值的冻结 Linear。Streaming Offload 下 0 表示 hot-aware 自动阈值：边缘 block 和 attention/modulation 热路径常驻，冷的大 Linear 才会流式卸载；Block CPU pinned 下 0 表示不过滤。', defaultValue: 0, min: 0, visibleWhen: nonResidentBlockMode('anima_block_residency') },
       { key: 'anima_block_checkpointing', type: 'boolean', label: 'Anima DiT Block Checkpointing', desc: '训练时重算 DiT block 以降低反传激活峰值。高分辨率非 resident 驻留会由后端自动启用；手动开启可让预检和配置更直观。', defaultValue: false, visibleWhen: nonResidentBlockMode('anima_block_residency') },
+      { key: 'anima_block_checkpointing_mode', type: 'select', label: 'Anima Block Checkpoint 模式', desc: 'block 按整块重算；selective 为 op-level SAC（保留 matmul/SDPA，只重算 elementwise）。', defaultValue: 'block', options: ['block', 'selective'], visibleWhen: all(nonResidentBlockMode('anima_block_residency'), when('anima_block_checkpointing', true)) },
+      { key: 'anima_block_checkpointing_interval', type: 'number', label: 'Anima Block Checkpoint 间隔', desc: '每 N 个 block 做一次 checkpoint（1=全部 block）。N>1 用更多显存换更少重算。', defaultValue: 1, min: 1, step: 1, visibleWhen: all(nonResidentBlockMode('anima_block_residency'), when('anima_block_checkpointing', true)) },
       { key: 'anima_block_prefetch', type: 'boolean', label: 'Anima Streaming Prefetch', desc: '实验性：仅对 Streaming Offload 生效，提前把后续 block 的 CPU-pinned 冻结 Linear 权重异步拉到 GPU，尝试减少 PCIe 等待。默认关闭，建议先用 benchmark 对比速度。', defaultValue: false, visibleWhen: when('anima_block_residency', 'streaming_offload') },
       { key: 'anima_block_prefetch_depth', type: 'number', label: 'Anima Prefetch 深度', desc: '提前预取后续多少个 DiT block。1 表示当前 block 入口同时预热当前和下一个 block；过大可能增加瞬时显存。', defaultValue: 1, min: 0, max: 4, visibleWhen: all(when('anima_block_residency', 'streaming_offload'), when('anima_block_prefetch', true)) },
       { key: 'pcie_transfer_format', type: 'select', label: 'PCIe 训练传输格式', desc: '实验性全局方案：仅作用于 CPU-pinned 的冻结 Linear 权重，CPU 侧预打包，训练时传到 GPU 后快速还原。默认关闭；建议先用 PCIe benchmark 对比 FP8/INT8。', defaultValue: 'off', options: PCIE_TRANSFER_FORMAT_OPTIONS, visibleWhen: nonResidentBlockMode('anima_block_residency') },
@@ -541,8 +585,11 @@ const ANIMA_SECTIONS = [
       { key: 'cuda_cache_release_interval', type: 'number', label: '缓存释放间隔', desc: '每 N 个优化 step 允许一次缓存释放。1 最省显存；2~10 可减少同步频率，适合显存略紧但想保留速度时尝试。', defaultValue: 1, min: 1, visibleWhen: (c) => c.cuda_cache_release_strategy && c.cuda_cache_release_strategy !== 'off' },
       { key: 'vram_swap_to_ram', type: 'boolean', label: 'VRAM Swap to RAM', desc: '实验性：让原生 Anima LoRA / LoRA-FA / VeRA / T-LoRA 适配器权重常驻 CPU RAM，前向时再按需拉回训练设备。更省显存，但通常更慢；暂不支持 LoKr、多进程、full_fp16/full_bf16 以及部分 8bit/paged 优化器', defaultValue: false },
       { key: 'cpu_offload_checkpointing', type: 'boolean', label: 'CPU Offload 梯度检查点', defaultValue: false },
+      { key: 'cpu_offload_checkpointing_mode', type: 'select', label: 'CPU Offload 检查点模式', desc: 'standard 使用 save_on_cpu；pinned_async 使用固定内存 + 异步 CUDA 流传输（更快，显存换速度）。', defaultValue: 'standard', options: ['standard', 'pinned_async'], visibleWhen: when('cpu_offload_checkpointing', true) },
       { key: 'disable_mmap_load_safetensors', type: 'boolean', label: '禁用 mmap 加载', defaultValue: false },
       { key: 'pytorch_cuda_expandable_segments', type: 'boolean', label: '显存碎片优化', desc: '训练前自动设置 PYTORCH_ALLOC_CONF=expandable_segments:True，缓解显存碎片导致的 OOM', defaultValue: true },
+      { key: 'gradient_release_enabled', type: 'boolean', label: '梯度释放', desc: '逐参数释放梯度以降低梯度显存峰值（基于 AdamA 论文）。后端默认开启。', defaultValue: true },
+      { key: 'gradient_release_mode', type: 'select', label: '梯度释放模式', desc: 'compatible 兼容梯度累积（节省较小，默认）；post_step 为基线；full 立即释放（峰值显存省约 15-20%，但与梯度累积/裁剪/fp16 不兼容，冲突时后端自动降级为 compatible）。', defaultValue: 'compatible', options: ['compatible', 'post_step', 'full'], visibleWhen: when('gradient_release_enabled', true) },
     ],
   },
   {
@@ -637,7 +684,6 @@ const ANIMA_CONDITIONAL_KEYS = new Set([
   'lora_type', 'enable_preview', 'save_state', 'prefer_json_caption',
   'lr_scheduler', 'optimizer_type', 'optimizer_backend', 'advanced_optimizer_strategy',
   'fp8_base', 'weight_compression_enabled', 'activation_compression_enabled',
-  'faster_dit_snr_enabled',
   'anima_block_residency',
   'anima_block_prefetch',
   'performance_expert_mode',
@@ -662,6 +708,13 @@ const ANIMA_CONDITIONAL_KEYS = new Set([
   'lulynx_block_weight_enabled', 'lulynx_smart_rank_enabled',
   'lulynx_auto_controller_enabled', 'lulynx_pcgrad_enabled', 'lulynx_safeguard_auto_reduce_lr',
   'enable_distributed_training', 'wavelet_loss_enabled',
+  'caption_source_mix_enabled',
+  'concept_geometry_enabled', 'concept_geometry_semantic_enabled',
+  'concept_geometry_embedding_provider', 'concept_geometry_translation_enabled',
+  'concept_geometry_translation_provider',
+  'cpu_offload_checkpointing',
+  'gradient_release_enabled',
+  'anima_block_checkpointing',
 ]);
 
 export const ANIMA_LORA_SCHEMA = {
