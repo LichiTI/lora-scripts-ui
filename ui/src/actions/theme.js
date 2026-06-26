@@ -43,6 +43,8 @@ export function createThemeActions({ state, t, renderView }) {
     root.classList.toggle('rounded-ui', state.roundedUI);
     root.classList.toggle('vertical-tabs', state.verticalTabs);
 
+    applyAccentColor();
+
     const moonIcon = $('.moon-icon');
     const sunIcon = $('.sun-icon');
     const clayIcon = $('.clay-icon');
@@ -141,6 +143,51 @@ export function createThemeActions({ state, t, renderView }) {
     setStyleTheme(order[(idx + 1) % order.length], event);
   }
 
+  // 强调色：仅 dark/light 生效；clay 主题固定薰衣草色，忽略强调色
+  function applyAccentColor() {
+    const root = document.documentElement;
+    const color = state.accentColor;
+    if (!color || color === 'default' || state.theme === 'clay') {
+      root.removeAttribute('data-lx-accent');
+    } else {
+      root.setAttribute('data-lx-accent', color);
+    }
+  }
+
+  function setAccentColor(color) {
+    state.accentColor= color;
+    localStorage.setItem('accentColor', color);
+    applyAccentColor();
+  }
+
+  // ── Launcher 内嵌主题同步 ──────────────────────────────────────────────
+  // 启动器「内嵌显示」用 iframe 加载本前端，并通过 URL 参数 launcher_theme=
+  // 和 postMessage({type:'launcher:theme-change', theme}) 下发主题。
+  // 这里只应用视觉（applyTheme），不写 localStorage —— 避免污染用户在
+  // 独立浏览器打开本前端时保存的主题偏好。启动器只下发配色方案（dark/
+  // light/clay），不含风格主题与强调色，二者仍由前端自身设置控制。
+  function applyLauncherTheme(rawTheme) {
+    var theme = ['dark', 'light', 'clay'].indexOf(rawTheme) !== -1 ? rawTheme : null;
+    if (!theme || theme === state.theme) return;
+    state.theme = theme;
+    applyTheme();
+  }
+
+  function initLauncherThemeSync() {
+    // 1. 首帧：读取 iframe src 上的 launcher_theme 参数
+    try {
+      var urlTheme = new URLSearchParams(window.location.search).get('launcher_theme');
+      if (urlTheme) applyLauncherTheme(urlTheme);
+    } catch (_e) { /* URLSearchParams 不可用时忽略 */ }
+    // 2. 运行时：监听启动器切换主题的 postMessage
+    window.addEventListener('message', function(event) {
+      var data = event && event.data;
+      if (data && data.type === 'launcher:theme-change' && typeof data.theme === 'string') {
+        applyLauncherTheme(data.theme);
+      }
+    });
+  }
+
   let _glassRippleTimer = null;
   function _startGlassRippleTimer() {
     if (_glassRippleTimer) return;
@@ -148,5 +195,5 @@ export function createThemeActions({ state, t, renderView }) {
   }
   _startGlassRippleTimer();
 
-  return { applyLanguage, setLanguage, applyTheme, setColorTheme, toggleTheme, toggleStyleTheme };
+  return { applyLanguage, setLanguage, applyTheme, setColorTheme, toggleTheme, toggleStyleTheme, setAccentColor, initLauncherThemeSync };
 }

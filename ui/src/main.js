@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
 import { api } from './api.js';
 import {
   pluginStore,
@@ -307,7 +307,7 @@ const _trainingDeps = {
 const { renderTraining, renderTrainingSummaryHTML } = createTrainingRenderer({ state, renderSlot, deps: _trainingDeps });
 
 // ===== actions 装配（Stage 3，逐步补充）=====
-const { applyLanguage, setLanguage, applyTheme, setColorTheme, toggleTheme, toggleStyleTheme } = createThemeActions({ state, t, renderView });
+const { applyLanguage, setLanguage, applyTheme, setColorTheme, toggleTheme, toggleStyleTheme, setAccentColor, initLauncherThemeSync } = createThemeActions({ state, t, renderView });
 // trainTabs：scanDataset 仍为 main.js 中后续声明的 window.scanDataset；用闭包 lambda 延迟取
 const { switchTrainTab } = createTrainTabsActions({
   state,
@@ -428,6 +428,7 @@ function getPersistableTasks(tasks) {
 function init() {
   loadDraft();
   applyTheme();
+  initLauncherThemeSync();
   applyLanguage();
   setupSidebar();
   syncDeveloperOnlyChrome();
@@ -1362,7 +1363,7 @@ window.runTool = runTool;
 
 const renderNavigator = createNavigatorRenderer({ state, TRAINING_TYPES, _persistTrainingGroupsCollapsed });
 // settings renderer（updateLayoutWidth 是 window 箭头函数，不在依赖列表中）
-const renderSettings = createSettingsRenderer({ state, t, renderSlot, applyAndPersistLayout, renderView, applyTheme, setColorTheme, showToast });
+const renderSettings = createSettingsRenderer({ state, t, renderSlot, applyAndPersistLayout, renderView, applyTheme, setColorTheme, setAccentColor, showToast });
 // nav actions（依赖 renderNavigator 间接通过 toggleTrainingGroup → 该函数仍在 main.js 内）
 const {
   dismissPreflightReport,

@@ -3,9 +3,9 @@
 // 以及 actions 回调：applyAndPersistLayout, renderView, applyTheme, showToast
 // 注：updateLayoutWidth 为 window 箭头函数，直接用 window.updateLayoutWidth 调用
 
-import { $, escapeHtml, _ico } from '../utils/dom.js';
+import { $, $$, escapeHtml, _ico } from '../utils/dom.js';
 
-export function createSettingsRenderer({ state, t, renderSlot, applyAndPersistLayout, renderView, applyTheme, setColorTheme, showToast }) {
+export function createSettingsRenderer({ state, t, renderSlot, applyAndPersistLayout, renderView, applyTheme, setColorTheme, setAccentColor, showToast }) {
   return function(container) {
     const savedTbUrl = localStorage.getItem('sd-rescripts:tensorboard-url') || '';
 
@@ -29,6 +29,24 @@ export function createSettingsRenderer({ state, t, renderSlot, applyAndPersistLa
                 <option value="light" ${state.theme === 'light' ? 'selected' : ''}>${t('settings.light', state.lang)}</option>
                 <option value="clay" ${state.theme === 'clay' ? 'selected' : ''}>${state.lang === 'zh' ? '薰衣草' : '💜 Lavender'}</option>
               </select>
+            </div>
+            <div class="settings-row accent-settings-row${state.theme === 'clay' ? ' is-disabled' : ''}">
+              <div>
+                <label>强调色</label>
+                <p class="field-desc">${state.theme === 'clay' ? '⚠️ 薰衣草主题使用固定配色，不受强调色影响。' : '为深色 / 浅色主题指定高亮主色（按钮、链接、进度条等）。仅本地保存。'}</p>
+              </div>
+              <div class="accent-swatches" ${state.theme === 'clay' ? 'style="opacity:0.45;pointer-events:none"' : ''}>
+                <button type="button" class="accent-swatch is-default ${(!state.accentColor || state.accentColor === 'default') ? 'active' : ''}" data-accent="default" title="跟随主题默认"></button>
+                <button type="button" class="accent-swatch ${state.accentColor === 'purple' ? 'active' : ''}" data-accent="purple" style="background:#a855f7" title="紫色"></button>
+                <button type="button" class="accent-swatch ${state.accentColor === 'pink' ? 'active' : ''}" data-accent="pink" style="background:#ec4899" title="粉色"></button>
+                <button type="button" class="accent-swatch ${state.accentColor === 'red' ? 'active' : ''}" data-accent="red" style="background:#ef4444" title="红色"></button>
+                <button type="button" class="accent-swatch ${state.accentColor === 'orange' ? 'active' : ''}" data-accent="orange" style="background:#f97316" title="橙色"></button>
+                <button type="button" class="accent-swatch ${state.accentColor === 'amber' ? 'active' : ''}" data-accent="amber" style="background:#f59e0b" title="琥珀"></button>
+                <button type="button" class="accent-swatch ${state.accentColor === 'emerald' ? 'active' : ''}" data-accent="emerald" style="background:#10b981" title="翠绿"></button>
+                <button type="button" class="accent-swatch ${state.accentColor === 'cyan' ? 'active' : ''}" data-accent="cyan" style="background:#06b6d4" title="青色"></button>
+                <button type="button" class="accent-swatch ${state.accentColor === 'blue' ? 'active' : ''}" data-accent="blue" style="background:#3b82f6" title="蓝色"></button>
+                <button type="button" class="accent-swatch ${state.accentColor === 'slate' ? 'active' : ''}" data-accent="slate" style="background:#475569" title="灰蓝"></button>
+              </div>
             </div>
             <div class="settings-row">
               <div>
@@ -126,8 +144,19 @@ export function createSettingsRenderer({ state, t, renderSlot, applyAndPersistLa
     $('#theme-select')?.addEventListener('change', (e) => {
       if (typeof setColorTheme === 'function') setColorTheme(e.target.value, e);
       else { state.theme = e.target.value; localStorage.setItem('theme', state.theme); applyTheme(); }
+      // 切换配色后重渲设置页：让强调色色板的禁用状态/备注文案随主题联动
+      // （薰衣草主题不受强调色影响，需变灰并提示）
+      setTimeout(() => renderView('settings'), 280);
     });
     $('#ui-theme-select')?.addEventListener('change', (e) => { state.uiTheme = e.target.value; localStorage.setItem('sd-rescripts:ui-theme', state.uiTheme); applyTheme(); });
+    $$('.accent-swatch')?.forEach((swatch) => {
+      swatch.addEventListener('click', () => {
+        const color = swatch.dataset.accent || 'default';
+        if (typeof setAccentColor === 'function') setAccentColor(color);
+        else { state.accentColor = color; localStorage.setItem('accentColor', color); applyTheme(); }
+        $$('.accent-swatch')?.forEach((s) => s.classList.toggle('active', s === swatch));
+      });
+    });
     $('#rounded-ui-toggle')?.addEventListener('change', (e) => {
       state.roundedUI = e.target.checked; localStorage.setItem('roundedUI', state.roundedUI); applyTheme();
     });

@@ -1,0 +1,277 @@
+/* ===========================================================================
+   launcher-polish.css — 向 Lulynx Launcher 看齐的视觉增强层
+   -------------------------------------------------------------------------
+   非侵入设计：完全不修改 style.css 原有 6632 行规则，仅在本文件（于
+   style.css 之后加载）补齐启动器具备而前端缺失的视觉质感：
+
+     1. Accent 衍生色变量（light/dark/subtle/border/ring/shadow）
+     2. 字体统一 — Logo/标题用 Space Grotesk，等宽统一 JetBrains Mono
+     3. 输入框 focus：accent ring(3px) + 外发光
+     4. 卡片 hover：accent 边框光晕 + 微上浮
+     5. 训练主按钮呼吸光晕（启动器 lx-launch-glow 同款语义）
+
+   字体走 Google Fonts；离线训练环境自动 fallback 到系统字体，不影响功能。
+   所有效果引用 --accent-* 变量，随深色/浅色/薰衣草配色自动跟随。
+   =========================================================================== */
+
+/* ===========================================================================
+   1. Accent 衍生色补齐
+   前端原仅有 --accent / --accent-glow；启动器还有一整套衍生色用于 ring/
+   shadow/border 等质感效果。按现有三套配色分别补齐。
+   =========================================================================== */
+
+:root {
+  /* dark 默认 = 金 #ffd700 */
+  --accent-light:  #ffe14d;
+  --accent-dark:   #ccac00;
+  --accent-subtle: rgba(255, 215, 0, 0.10);
+  --accent-border: rgba(255, 215, 0, 0.38);
+  --accent-ring:   rgba(255, 215, 0, 0.16);
+  --accent-shadow: rgba(255, 215, 0, 0.22);
+
+  /* 字体栈：有网加载 Google Fonts，离线 fallback 系统字体 */
+  --lx-font-display: "Space Grotesk", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --lx-font-mono:    "JetBrains Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+}
+
+:root.light-theme {
+  /* light = 蓝 #1275e2 */
+  --accent-light:  #3b8bf5;
+  --accent-dark:   #0f5bb8;
+  --accent-subtle: rgba(18, 117, 226, 0.10);
+  --accent-border: rgba(18, 117, 226, 0.32);
+  --accent-ring:   rgba(18, 117, 226, 0.12);
+  --accent-shadow: rgba(18, 117, 226, 0.15);
+}
+
+:root.clay-theme {
+  /* clay = 薰衣草 #8b7cf6 */
+  --accent-light:  #a78bfa;
+  --accent-dark:   #7c3aed;
+  --accent-subtle: rgba(139, 124, 246, 0.10);
+  --accent-border: rgba(139, 124, 246, 0.34);
+  --accent-ring:   rgba(139, 124, 246, 0.14);
+  --accent-shadow: rgba(139, 124, 246, 0.18);
+}
+
+/* ===========================================================================
+   2. 字体统一
+   Logo / 标题用 Space Grotesk（启动器标题同款）；等宽数值/代码统一
+   JetBrains Mono，替换原本混用的 Fira Code / Cascadia / Consolas。
+   =========================================================================== */
+
+.logo-text,
+.logo-version {
+  font-family: var(--lx-font-display);
+}
+
+/* 等宽文本统一（数值与代码展示类，视觉最敏感） */
+.train-loss-big,
+.train-loss-delta,
+.train-loss-chart-meta,
+.train-param-key,
+.train-param-val,
+.train-reso-count,
+.train-reso-label,
+.train-epoch-row,
+.train-epoch-cell,
+.key-name,
+.xray-num,
+.xray-output-list code,
+.xray-json pre,
+.xray-plain-json {
+  font-family: var(--lx-font-mono);
+}
+
+/* ===========================================================================
+   3. 输入框 focus：accent ring + 外发光（启动器 lx-input 效果）
+   原仅有 border-color 变化；补齐 3px 半透明 ring 与柔光，聚焦反馈更清晰。
+   =========================================================================== */
+
+select:focus,
+.text-input:focus,
+.text-area:focus,
+.input-picker:focus-within {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-ring), 0 0 14px -4px var(--accent-glow);
+  outline: none;
+}
+
+/* clay 主题原本用 #8b7cf6 硬编码 focus，统一改为走变量（颜色已对齐） */
+.clay-theme select:focus,
+.clay-theme .text-input:focus,
+.clay-theme .text-area:focus,
+.clay-theme .input-picker:focus-within {
+  box-shadow: 0 0 0 3px var(--accent-ring), 0 0 14px -4px var(--accent-glow);
+}
+
+/* ===========================================================================
+   4. 卡片 hover：accent 边框光晕 + 微上浮（启动器 lx-card-interactive）
+   仅作用于真正的卡片容器；表单分组 .config-group 不加，避免布局抖动。
+   glass 主题下禁用（保留 glass 自身的毛玻璃 hover，避免光晕叠加过重）。
+   =========================================================================== */
+
+.status-card:hover,
+.workspace-item:hover,
+.plugin-card:hover {
+  border-color: var(--accent-border);
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 24px -10px rgba(0, 0, 0, 0.28),
+    0 0 18px -8px var(--accent-glow);
+}
+
+/* glass 主题保留自身 hover，不叠加本层效果 */
+:root[data-lx-theme="glass"] .status-card:hover,
+:root[data-lx-theme="glass"] .workspace-item:hover,
+:root[data-lx-theme="glass"] .plugin-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ===========================================================================
+   5. 训练主按钮呼吸光晕（启动器 lx-launch-glow 同款语义）
+   待机时外发光缓慢呼吸，强调"启动训练"主操作；hover 时全亮。
+   用独立 ::after 伪元素，不干扰 .btn-execute 已有的 box-shadow。
+   =========================================================================== */
+
+@keyframes lx-launch-breathe {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+
+.btn-execute {
+  position: relative;
+}
+
+.btn-execute::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    0 0 18px var(--accent-glow),
+    0 0 32px -8px var(--accent-shadow);
+  opacity: 0.4;
+  animation: lx-launch-breathe 2.8s ease-in-out infinite;
+  contain: layout paint;
+}
+
+.btn-execute:hover::after {
+  animation: none;
+  opacity: 1;
+}
+
+/* 训练进行中 / 失败态不加呼吸光晕（这些状态已有自己的脉冲/配色） */
+.btn-execute.btn-training-active::after,
+.btn-execute.btn-training-failed::after {
+  animation: none;
+  opacity: 0;
+}
+
+/* ===========================================================================
+   6. 强调色（Accent Color）选择
+   -------------------------------------------------------------------------
+   :not(.clay-theme) 守卫 —— 薰衣草主题有固定配色，不受强调色影响；
+   切到 clay 时这些规则不命中，--accent 自然回退到 .clay-theme 的 #8b7cf6。
+   变量映射到前端 --accent-*（含 glow），让按钮发光/光晕跟随强调色。
+   =========================================================================== */
+
+:root[data-lx-accent="purple"]:not(.clay-theme) {
+  --accent: #a855f7; --accent-light: #c084fc; --accent-dark: #9333ea;
+  --accent-subtle: rgba(168, 85, 247, 0.10); --accent-border: rgba(168, 85, 247, 0.3);
+  --accent-ring: rgba(168, 85, 247, 0.12); --accent-shadow: rgba(168, 85, 247, 0.15);
+  --accent-glow: rgba(168, 85, 247, 0.4);
+}
+:root[data-lx-accent="pink"]:not(.clay-theme) {
+  --accent: #ec4899; --accent-light: #f472b6; --accent-dark: #db2777;
+  --accent-subtle: rgba(236, 72, 153, 0.10); --accent-border: rgba(236, 72, 153, 0.3);
+  --accent-ring: rgba(236, 72, 153, 0.12); --accent-shadow: rgba(236, 72, 153, 0.15);
+  --accent-glow: rgba(236, 72, 153, 0.4);
+}
+:root[data-lx-accent="emerald"]:not(.clay-theme) {
+  --accent: #10b981; --accent-light: #34d399; --accent-dark: #059669;
+  --accent-subtle: rgba(16, 185, 129, 0.10); --accent-border: rgba(16, 185, 129, 0.3);
+  --accent-ring: rgba(16, 185, 129, 0.12); --accent-shadow: rgba(16, 185, 129, 0.15);
+  --accent-glow: rgba(16, 185, 129, 0.4);
+}
+:root[data-lx-accent="cyan"]:not(.clay-theme) {
+  --accent: #06b6d4; --accent-light: #22d3ee; --accent-dark: #0891b2;
+  --accent-subtle: rgba(6, 182, 212, 0.10); --accent-border: rgba(6, 182, 212, 0.3);
+  --accent-ring: rgba(6, 182, 212, 0.12); --accent-shadow: rgba(6, 182, 212, 0.15);
+  --accent-glow: rgba(6, 182, 212, 0.4);
+}
+:root[data-lx-accent="amber"]:not(.clay-theme){
+  --accent: #f59e0b; --accent-light: #fbbf24; --accent-dark: #d97706;
+  --accent-subtle: rgba(245, 158, 11, 0.10); --accent-border: rgba(245, 158, 11, 0.3);
+  --accent-ring: rgba(245, 158, 11, 0.12); --accent-shadow: rgba(245, 158, 11, 0.15);
+  --accent-glow: rgba(245, 158, 11, 0.4);
+}
+:root[data-lx-accent="red"]:not(.clay-theme) {
+  --accent: #ef4444; --accent-light: #f87171; --accent-dark: #dc2626;
+  --accent-subtle: rgba(239, 68, 68, 0.10); --accent-border: rgba(239, 68, 68, 0.3);
+  --accent-ring: rgba(239, 68, 68, 0.12); --accent-shadow: rgba(239, 68, 68, 0.15);
+  --accent-glow: rgba(239, 68, 68, 0.4);
+}
+:root[data-lx-accent="blue"]:not(.clay-theme) {
+  --accent: #3b82f6; --accent-light: #60a5fa; --accent-dark: #2563eb;
+  --accent-subtle: rgba(59, 130, 246, 0.10); --accent-border: rgba(59, 130, 246, 0.3);
+  --accent-ring: rgba(59, 130, 246, 0.12); --accent-shadow: rgba(59, 130, 246, 0.15);
+  --accent-glow: rgba(59, 130, 246, 0.4);
+}
+:root[data-lx-accent="orange"]:not(.clay-theme) {
+  --accent: #f97316; --accent-light: #fb923c; --accent-dark: #ea580c;
+  --accent-subtle: rgba(249, 115, 22, 0.10); --accent-border: rgba(249, 115, 22, 0.3);
+  --accent-ring: rgba(249, 115, 22, 0.12); --accent-shadow: rgba(249, 115, 22, 0.15);
+  --accent-glow: rgba(249, 115, 22, 0.4);
+}
+:root[data-lx-accent="slate"]:not(.clay-theme) {
+  --accent: #475569; --accent-light: #64748b; --accent-dark: #334155;
+  --accent-subtle: rgba(71, 85, 105, 0.10); --accent-border: rgba(71, 85, 105, 0.3);
+  --accent-ring: rgba(71, 85, 105, 0.12); --accent-shadow: rgba(71, 85, 105, 0.15);
+  --accent-glow: rgba(71, 85, 105, 0.4);
+}
+
+/* 强调色色板按钮（设置页内） */
+.accent-swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.accent-swatch {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.accent-swatch:hover { transform: scale(1.15); }
+.accent-swatch.active {
+  border-color: var(--text-main);
+  box-shadow: 0 0 0 2px var(--bg-dark), 0 0 0 4px var(--text-main);
+}
+.accent-swatch.is-default {
+  background: conic-gradient(#ffd700, #1275e2, #8b7cf6, #10b981, #ef4444, #ffd700);
+}
+
+/* ===========================================================================
+   7. 左下角主题切换按钮：无边框 + 背景与侧边栏融为一体
+   原样式有独立边框 + 半透明面板背景 + 内阴影，与侧边栏(--bg-darker)割裂。
+   这里去掉边框/阴影/独立背景，使其隐入侧边栏；保留 hover 的 accent 提示。
+   =========================================================================== */
+
+.theme-toggle {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.light-theme .theme-toggle,
+.clay-theme .theme-toggle {
+  background: transparent !important;
+}
+.theme-toggle:hover {
+  background: var(--accent-subtle) !important;
+}

@@ -53,7 +53,11 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
         groups = [];
       }
     }
-    if (!groups.length) {
+    // 注意：用户显式清空 preview_groups 后应显示为空（不伪造默认组）。
+    // 只有当字段完全未初始化（undefined 且从无默认值）时，才提供 1 个默认对照组，
+    // 避免首次使用时空白。用 _previewGroupsInitialized 标记区分“从未初始化”与“删空”。
+    const neverInitialized = state.config.preview_groups === undefined;
+    if (neverInitialized && !groups.length) {
       const prompts = String(state.config.positive_prompts || state.config.sample_prompts || '')
         .split(/\r?\n/)
         .map((line) => line.trim())
