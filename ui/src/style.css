@@ -6845,6 +6845,188 @@ body.compact-layout .config-group.row {
   }
 }
 
+/* 字段搜索高亮动画（search.js 第 117 行使用） */
+.field-search-highlight {
+  animation: field-highlight-pulse 2s ease-out;
+  border-left: 3px solid var(--accent-color, #C8853F);
+}
+
+@keyframes field-highlight-pulse {
+  0% {
+    background-color: rgba(200, 133, 63, 0.3);
+    box-shadow: 0 0 0 0 rgba(200, 133, 63, 0.4);
+  }
+  50% {
+    background-color: rgba(200, 133, 63, 0.15);
+    box-shadow: 0 0 0 10px rgba(200, 133, 63, 0);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 rgba(200, 133, 63, 0);
+  }
+}
+
+/* 数据集质量检测弹窗样式 */
+.dataset-quality-modal .dataset-quality-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.dq-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-secondary, #f0f0f0);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+.dq-progress-fill {
+  height: 100%;
+  background: var(--accent-color, #C8853F);
+  transition: width 0.3s ease;
+}
+
+.dq-progress-text {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-dim, #666);
+  margin: 8px 0;
+}
+
+.dq-summary {
+  padding: 12px;
+  background: var(--bg-secondary, #f9f9f9);
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.dq-summary p {
+  margin: 4px 0;
+}
+
+.dq-warnings {
+  padding: 12px;
+  background: rgba(255, 152, 0, 0.1);
+  border-left: 3px solid #ff9800;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.dq-warnings h4 {
+  margin: 0 0 8px 0;
+  color: #ff9800;
+}
+
+.dq-warnings ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.dq-warnings li {
+  margin: 4px 0;
+}
+
+.dq-success {
+  padding: 12px;
+  background: rgba(76, 175, 80, 0.1);
+  border-left: 3px solid #4caf50;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  color: #4caf50;
+}
+
+.dq-section {
+  margin-bottom: 20px;
+}
+
+.dq-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+}
+
+.dq-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dq-chart-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 120px;
+  align-items: center;
+  gap: 12px;
+}
+
+.dq-chart-label {
+  font-size: 0.85rem;
+  text-align: right;
+  color: var(--text-secondary, #555);
+}
+
+.dq-chart-bar-wrap {
+  height: 20px;
+  background: var(--bg-secondary, #f0f0f0);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.dq-chart-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-color, #C8853F), rgba(200, 133, 63, 0.6));
+  transition: width 0.4s ease;
+}
+
+.dq-chart-value {
+  font-size: 0.85rem;
+  text-align: right;
+  color: var(--text-dim, #666);
+}
+
+.dq-detail {
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--bg-secondary, #f9f9f9);
+  border-radius: 4px;
+}
+
+.dq-detail summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--accent-color, #C8853F);
+  user-select: none;
+}
+
+.dq-detail summary:hover {
+  text-decoration: underline;
+}
+
+.dq-file-list {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dq-file-list li {
+  margin: 4px 0;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.dq-dup-group {
+  margin: 12px 0;
+  padding: 8px;
+  background: var(--bg, #fff);
+  border-radius: 4px;
+}
+
+.dq-dup-group strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary, #555);
+}
+
 /* 训练助手配置面板样式 */
 @import './styles/assistant-config.css';
 

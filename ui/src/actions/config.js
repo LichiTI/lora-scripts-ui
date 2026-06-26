@@ -164,16 +164,25 @@ updateJSONPreview,
     if (state.activeModule === 'config') renderView('config');
   }
 
-  function applyPreset(index) {
+  function _doApplyPreset(index) {
     const preset = state.presets[index];
-    if (!preset) {
-      return;
-    }
+    if (!preset) return;
     mergeConfigPatch(preset);
     state.hasLocalDraft = true;
     resetTransientState();
     saveDraft();
     renderView('config');
+  }
+
+  function applyPreset(index) {
+    const preset = state.presets[index];
+    if (!preset) return;
+    // Feature 8：若 presetDiffTool 已加载，先弹 diff 确认弹窗
+    if (window.openPresetDiff) {
+      window.openPresetDiff(index);
+      return;
+    }
+    _doApplyPreset(index);
   }
 
   return {

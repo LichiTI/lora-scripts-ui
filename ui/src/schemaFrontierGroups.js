@@ -177,8 +177,11 @@ export const S_AUTO_CONTROLLER = [
 
 // ── TurboCore ─────────────────────────────────────────────────────────────────
 export const S_TURBOCORE = [
-  { key: 'turbocore_native_update_dispatch_enabled', type: 'boolean', label: 'Native 更新派发', desc: 'TurboCore native 更新派发开关。default-off。', defaultValue: false },
-  { key: 'turbocore_native_update_mode', type: 'select', label: 'Native 更新模式', desc: 'native 更新模式。', defaultValue: 'auto', options: [{ value: 'auto', label: 'auto' }, { value: 'on', label: 'on' }, { value: 'off', label: 'off' }], visibleWhen: (c) => c.turbocore_native_update_dispatch_enabled },
+  { key: 'turbocore_mode', type: 'select', label: 'TurboCore 模式（开发者选项）', desc: 'profile 用于性能分析，native_experimental 用于实际加速。普通用户请使用顶栏切换按钮。', defaultValue: 'off', options: [
+    { value: 'off', label: 'off（关闭）' },
+    { value: 'profile', label: 'profile（性能分析）' },
+    { value: 'native_experimental', label: 'native_experimental（实验性加速）' },
+  ] },
   { key: 'turbocore_update_shadow_mode', type: 'boolean', label: '更新 shadow 验证', desc: '更新 shadow 验证模式。default-off。', defaultValue: false },
   { key: 'turbocore_tuned_kernel_disable', type: 'boolean', label: '禁用自动调优内核', desc: '关闭 TurboCore 自动调优内核（全局开关），仅在遇到兼容性问题时使用。', defaultValue: false },
   { key: 'turbocore_profile', type: 'select', label: 'TurboCore 性能档位', desc: 'basic=基础; balanced=平衡; aggressive=激进（增加显存）。', defaultValue: 'basic', options: [

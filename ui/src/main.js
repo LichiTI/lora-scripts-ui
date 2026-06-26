@@ -46,6 +46,13 @@ import { createInitialAppState } from './utils/appState.js';
 import { createFimScanTool } from './fimScanTool.js';
 import { createGoalForecastTool } from './goalForecastTool.js';
 import { createCopilotTool } from './copilotTool.js';
+import { createAnimaFolderScanTool } from './animaFolderScanTool.js';
+import { createLoraMetaTool } from './loraMetaTool.js';
+import { createTrainingSummaryTool } from './trainingSummaryTool.js';
+import { createPresetDiffTool } from './presetDiffTool.js';
+import { createDatasetQualityTool } from './datasetQualityTool.js';
+import { initPathValidation } from './pathValidation.js';
+import { initPromptHistory } from './promptHistory.js';
 import { configToToml as _configToToml, parseSimpleToml as _parseSimpleToml } from './utils/toml.js';
 import { renderLogLines as _renderLogLines } from './utils/logRender.js';
 import {
@@ -415,6 +422,14 @@ function init() {
   setupJsonPanel();
   setupPerfModeToggle(api, showToast);
   setupOptimizerToggle(api, showToast);
+  setupTurbocoreToggle(api, showToast);
+
+  // Feature 3: 路径存在性验证
+  initPathValidation({ api });
+
+  // Feature 5: 采样提示词历史
+  initPromptHistory();
+
   loadBootstrapData().then(function() {
     renderView(state.activeModule);
   });
@@ -613,6 +628,14 @@ bindWindowActions({
   undoFieldValue,
   applyPreset,
 });
+
+// Feature 5：包装 updateConfigValue 以支持提示词历史钩子
+const _origUpdateConfigValue = window.updateConfigValue;
+window.updateConfigValue = (key, value) => {
+  _origUpdateConfigValue(key, value);
+  window.__onConfigValueUpdated?.(key, value);
+};
+
 // sample actions—依赖 _samplesGetSorted (samples renderer)
 const {
   openSampleLightbox,
@@ -667,6 +690,43 @@ const { openGoalForecastTool, closeGoalForecastTool } = createGoalForecastTool({
   showToast,
 });
 bindWindowActions({ openGoalForecastTool, closeGoalForecastTool });
+
+// Anima 模型文件夹智能识别（safetensors 文件头 + 文件名 pattern 双重检测，自动填充模型路径字段）
+const { openAnimaFolderScanner, closeAnimaFolderScanner } = createAnimaFolderScanTool({
+  state,
+  api,
+  showToast,
+});
+bindWindowActions({ openAnimaFolderScanner, closeAnimaFolderScanner });
+
+// LoRA 元数据读取弹窗（Feature 2）
+const { openLoraMetaReader, closeLoraMetaReader } = createLoraMetaTool({
+  state,
+  api,
+  showToast,
+});
+bindWindowActions({ openLoraMetaReader, closeLoraMetaReader });
+
+// 训练参数摘要确认卡（Feature 4）
+const { openTrainingSummary, closeTrainingSummary } = createTrainingSummaryTool();
+bindWindowActions({ openTrainingSummary, closeTrainingSummary });
+
+// 预设 Diff 弹窗（Feature 8）
+const { openPresetDiff, closePresetDiff } = createPresetDiffTool({
+  state,
+  mergeConfigPatch,
+  resetTransientState,
+  saveDraft,
+  renderView,
+});
+bindWindowActions({ openPresetDiff, closePresetDiff });
+
+// 数据集质量检测弹窗
+const { openDatasetQualityScan, closeDatasetQualityScan } = createDatasetQualityTool({
+  api,
+  showToast,
+});
+bindWindowActions({ openDatasetQualityScan, closeDatasetQualityScan });
 
 // 自动训练 Copilot（全自动 RSI 闭环编排面板，授权一次无人值守训练会话）
 const { openCopilotTool, closeCopilotTool } = createCopilotTool({

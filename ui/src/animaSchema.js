@@ -232,6 +232,14 @@ const S_MEMORY_OFFLOAD = [
 // ---- Anima 概念编辑(iLECO / ADDifT / Multi-ADDifT)字段与 section 模板 ----
 const animaConceptEditModelFields = (typeId) => [
   { key: 'model_train_type', type: 'hidden', defaultValue: typeId },
+  {
+    key: 'anima_auto_scan_folder',
+    type: 'action',
+    label: '🔍 智能识别模型文件夹',
+    desc: '选择 Anima 模型根目录，自动识别并填充 DiT / VAE / Qwen3 / T5 Tokenizer / LLM Adapter 路径字段。支持文件名模式 + safetensors 架构检测（仅读文件头，不加载权重）。',
+    buttonLabel: '选择文件夹并识别',
+    handler: 'openAnimaFolderScanner',
+  },
   { key: 'pretrained_model_name_or_path', type: 'file', pickerType: 'model-file', label: 'Anima DiT 权重路径', title: 'pretrained_model_name_or_path', desc: 'Anima 主 DiT / transformer 权重路径', defaultValue: './sd-models/model.safetensors' },
   { key: 'vae', type: 'file', pickerType: 'model-file', label: 'Qwen Image VAE 路径', title: 'vae', desc: 'Anima 概念编辑需要的 VAE 路径', defaultValue: '' },
   { key: 'qwen3', type: 'file', pickerType: 'model-file', label: 'Qwen3 文本模型路径', title: 'qwen3', desc: 'Qwen3 文本模型路径。可填写单文件或本地模型目录', defaultValue: '' },
@@ -239,6 +247,14 @@ const animaConceptEditModelFields = (typeId) => [
   { key: 't5_tokenizer_path', type: 'folder', pickerType: 'folder', label: 'T5 tokenizer 目录', title: 't5_tokenizer_path', desc: '可选。留空时回退到项目内置 tokenizer', defaultValue: '' },
   { key: 'network_weights', type: 'file', pickerType: 'output-model-file', label: '继续训练 LoRA', title: 'network_weights', desc: '从已有的概念编辑 LoRA / DoRA / T-LoRA 模型继续训练', defaultValue: '' },
   { key: 'resume', type: 'folder', pickerType: 'output-folder', label: '继续训练路径', title: 'resume', desc: '从某个 save_state 保存的中断状态继续训练，填写文件路径', defaultValue: '' },
+  {
+    key: 'lora_meta_reader',
+    type: 'action',
+    label: '📖 LoRA 权重元数据读取',
+    desc: '读取现有 LoRA 文件的训练参数元数据（network_dim、alpha、学习率、分辨率等），用于参考或复现训练配置。仅读取文件头部，不加载权重。',
+    buttonLabel: '选择 LoRA 文件并读取',
+    handler: 'openLoraMetaReader',
+  },
 ];
 
 const animaConceptEditNetworkFields = [
@@ -328,6 +344,14 @@ const S_LR_ANIMA_LORA = S_LR_TARGET.map((field) => field.key === 'optimizer_type
 export const ANIMA_LORA_SECTIONS = [
   sec('model-settings', 'model', '训练用模型', 'Anima 模型路径。', [
     { key: 'model_train_type', type: 'hidden', defaultValue: 'anima-lora' },
+    {
+      key: 'anima_auto_scan_folder',
+      type: 'action',
+      label: '🔍 智能识别模型文件夹',
+      desc: '选择 Anima 模型根目录，自动识别并填充 DiT / VAE / Qwen3 / T5 Tokenizer / LLM Adapter 路径字段。支持文件名模式 + safetensors 架构检测（仅读文件头，不加载权重）。',
+      buttonLabel: '选择文件夹并识别',
+      handler: 'openAnimaFolderScanner',
+    },
     { key: 'pretrained_model_name_or_path', type: 'file', pickerType: 'model-file', label: 'Anima DiT 权重路径', title: 'pretrained_model_name_or_path', desc: '底模文件路径', defaultValue: './sd-models/model.safetensors' },
     { key: 'vae', type: 'file', pickerType: 'model-file', label: 'Qwen Image VAE 路径', title: 'vae', desc: '(可选) VAE 模型文件路径，使用外置 VAE 文件覆盖模型内本身的', defaultValue: '' },
     { key: 'qwen3', type: 'file', pickerType: 'model-file', label: 'Qwen3 文本模型路径', title: 'qwen3', desc: 'Qwen3 文本模型路径', defaultValue: '' },
@@ -471,6 +495,14 @@ export const ANIMA_MULTI_ADDIFT_SECTIONS = animaConceptEditSections({
 export const ANIMA_FT_SECTIONS = [
   sec('model-settings', 'model', '训练用模型', 'Anima 全参微调。', [
     { key: 'model_train_type', type: 'hidden', defaultValue: 'anima-finetune' },
+    {
+      key: 'anima_auto_scan_folder',
+      type: 'action',
+      label: '🔍 智能识别模型文件夹',
+      desc: '选择 Anima 模型根目录，自动识别并填充 DiT / VAE / Qwen3 / T5 Tokenizer / LLM Adapter 路径字段。支持文件名模式 + safetensors 架构检测（仅读文件头，不加载权重）。',
+      buttonLabel: '选择文件夹并识别',
+      handler: 'openAnimaFolderScanner',
+    },
     { key: 'pretrained_model_name_or_path', type: 'file', pickerType: 'model-file', label: 'Anima DiT 路径', title: 'pretrained_model_name_or_path', desc: 'Anima DiT 路径', defaultValue: './sd-models/model.safetensors' },
     { key: 'vae', type: 'file', pickerType: 'model-file', label: 'Qwen Image VAE 路径', title: 'vae', desc: 'Qwen Image VAE 路径', defaultValue: '' },
     { key: 'qwen3', type: 'file', pickerType: 'model-file', label: 'Qwen3 文本模型路径', title: 'qwen3', desc: 'Qwen3 文本模型路径', defaultValue: '' },

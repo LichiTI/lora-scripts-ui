@@ -68,6 +68,16 @@ async function toggleTurbocore(api, showToast, btn, label) {
     if (response.ok) {
       turbocoreEnabled = newState;
       updateUI(btn, label, turbocoreEnabled);
+
+      // 同步表单状态
+      if (window.updateConfigValue) {
+        window.updateConfigValue('turbocore_enabled', newState);
+        if (newState) {
+          // 启用时自动设为 native_experimental
+          window.updateConfigValue('turbocore_mode', 'native_experimental');
+        }
+      }
+
       showToast(turbocoreEnabled ? 'TurboCore 已启用' : '已切换到 PyTorch 原生');
     } else {
       throw new Error('切换失败');

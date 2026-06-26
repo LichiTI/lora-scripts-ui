@@ -324,6 +324,30 @@ export function createTrainingActions({
       }
     }
 
+    // Feature 6：输出目录冲突检测（仅当 api.checkOutputConflict 存在时生效）
+    if (api.checkOutputConflict) {
+      try {
+        const conflictResp = await api.checkOutputConflict(
+          state.config.output_dir || '',
+          state.config.output_name || '',
+        );
+        const conflictData = conflictResp?.data;
+        if (conflictData?.conflict && conflictData.existing_files?.length > 0) {
+          const fileList = conflictData.existing_files.join('、');
+          const proceed = confirm(
+            `⚠ 输出目录中已存在同名 LoRA 文件：${fileList}\n\n继续训练将覆盖已有文件，是否继续？`
+          );
+          if (!proceed) {
+            state.loading.run = false;
+            syncFooterAction();
+            return;
+          }
+        }
+      } catch (_e) {
+        // 冲突检测失败不阻断训练
+      }
+    }
+
     try {
       if (!labLaunchApi) {
         const preflightResponse =await api.runPreflight(runConfig);
@@ -353,6 +377,17 @@ export function createTrainingActions({
           warnings: ['实验训练由 Lulynx LAB 后端路由校验，已跳过普通 sd-scripts 预检。'],
         };
       }
+
+      // Feature 4：训练前参数摘要确认卡
+      if (window.openTrainingSummary) {
+        const confirmed = await window.openTrainingSummary(state.config, state.activeTrainingType, runConfig);
+        if (!confirmed) {
+          state.loading.run = false;
+          syncFooterAction();
+          return;
+        }
+      }
+
       state._pendingTrainingMetadata = launchMetadata;
       state.activeTrainingTaskId = '';
       const response = labLaunchApi ? await labLaunchApi(runConfig) : await api.runTraining(runConfig);

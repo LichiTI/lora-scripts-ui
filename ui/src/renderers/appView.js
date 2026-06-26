@@ -70,6 +70,8 @@ export function createAppViewRenderer({
     } else {
       renderFallback(container, module);
     }
+    // Feature 5: 触发视图渲染完成事件，供 promptHistory 等模块监听
+    document.dispatchEvent(new CustomEvent('lulynx:viewRendered'));
   }
 
   function renderView(module) {

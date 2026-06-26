@@ -77,6 +77,59 @@ export const api = {
     return request(`/api/builtin_picker?${params.join('&')}`);
   },
 
+  /**
+   * 扫描 Anima 模型根目录，智能识别 DiT/VAE/Qwen3/T5 等组件路径。
+   * 通过 safetensors 二进制头 + 文件名 pattern 双重检测，不加载权重。
+   * @param {string} folderPath  本地文件夹绝对路径
+   */
+  scanAnimaFolder(folderPath) {
+    return request(`/api/scan_anima_folder?folder_path=${encodeURIComponent(folderPath)}`, { method: 'POST' });
+  },
+
+  /**
+   * 读取 LoRA/safetensors 文件的 __metadata__ 头部，不加载权重张量。
+   * @param {string} loraPath  本地 .safetensors / .pt / .ckpt 文件绝对路径
+   */
+  readLoraMetadata(loraPath) {
+    return postJson('/api/read_lora_metadata', { path: loraPath });
+  },
+
+  /**
+   * 检查路径是否存在于文件系统（用于路径字段存在性验证）。
+   * @param {string} path  本地绝对路径
+   * @returns {{ exists: boolean, type: 'file'|'dir'|'missing' }}
+   */
+  checkPathExists(path) {
+    return postJson('/api/check_path_exists', { path });
+  },
+
+  /**
+   * 在训练启动前检查输出目录是否已有同名 LoRA 文件（冲突检测）。
+   * @param {string} outputDir   输出目录绝对路径
+   * @param {string} outputName  LoRA 输出名（不含扩展名）
+   * @returns {{ conflict: boolean, existing_files: string[] }}
+   */
+  checkOutputConflict(outputDir, outputName) {
+    return postJson('/api/check_output_conflict', { output_dir: outputDir, output_name: outputName });
+  },
+
+  /**
+   * 启动数据集质量扫描（异步后台任务）。
+   * @param {string} datasetDir  数据集目录绝对路径
+   * @returns {{ task_id: string, status: 'running' }}
+   */
+  startDatasetQualityScan(datasetDir) {
+    return postJson('/api/dataset/start_quality_scan', { dataset_dir: datasetDir, recursive: true });
+  },
+
+  /**
+   * 查询数据集质量扫描任务状态 + 结果。
+   * @param {string} taskId  任务 ID
+   * @returns {{ status: 'running'|'completed'|'failed', progress: number, total: number, result: object }}
+   */
+  getDatasetQualityStatus(taskId) {
+    return getJson(`/api/dataset/quality_scan_status/${taskId}`);
+  },
 
   saveConfig(name, config) {
     return postJson('/api/saved_configs/save', { name, config });
