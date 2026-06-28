@@ -1,0 +1,21 @@
+{
+  "key": "tag_group_shuffle",
+  "title": "标签组打乱",
+  "category": "Caption / 打乱",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["数据层", "Caption 层"],
+  "standard": {
+    "summary": "将 caption 按分隔符分为多个组，在每个组内部打乱标签顺序，但保持组之间的相对顺序。比全局 shuffle 更精细。",
+    "effect": "tag_group_separator 指定分隔符（默认 '|||'）。组内标签随机排列，组之间保持原始顺序。",
+    "whenToUse": "caption 有明确的分层结构时（如 '触发词 ||| 外观描述 ||| 背景描述'）。想保持描述层级但增加组内多样性。",
+    "avoidWhen": "caption 没有分层结构时。与 shuffle_caption 互斥（选一种即可）。"
+  },
+  "advanced": {
+    "principle": "caption 示例：'sks girl, 1girl ||| red hair, blue eyes ||| outdoor, sunset'。组内打乱后可能变成：'sks girl, 1girl ||| blue eyes, red hair ||| sunset, outdoor'。触发词通常固定在第一组首位。这保持了语义层级（先人物→再外貌→再场景）同时增加了训练多样性。",
+    "intervention": "DataLoader 在构建 caption 时先 split → shuffle within group → join。",
+    "expectedImpact": "比全局 shuffle 更好地保持 prompt 结构理解。多概念训练中减少概念混淆。",
+    "tradeoffs": "需要标注时就有意识地分层。",
+    "codePath": "dataset/elements.py:tag_group_shuffle() → split by separator → per-group shuffle → rejoin"
+  },
+  "relatedConfigs": ["tag_group_separator", "shuffle_caption", "keep_tokens", "tag_swap_rate"]
+}

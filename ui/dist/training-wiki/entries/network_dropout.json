@@ -1,0 +1,20 @@
+{
+  "key": "network_dropout",
+  "title": "LoRA Dropout",
+  "category": "LoRA / 正则",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "训练时随机将 LoRA 层的输出置零，防止对特定 LoRA 通道的过度依赖。",
+    "effect": "0 = 不丢弃（默认）；0.05-0.1 可轻微正则化；大于 0.2 可能阻碍学习。",
+    "whenToUse": "数据少且 rank 较高时防止过拟合；多概念训练中减少概念串扰。",
+    "avoidWhen": "数据充足、rank 较低时通常不需要；训练初期不建议设太高。"
+  },
+  "advanced": {
+    "principle": "在 LoRA 的 up_proj 输出上施加 dropout mask。等效于训练时随机移除部分 LoRA 通道，迫使模型不依赖单一通道来编码信息。与 network_dim 共同控制有效容量。",
+    "intervention": "在 LoRA forward 路径中插入 nn.Dropout 层。",
+    "expectedImpact": "轻微正则化效果；对过拟合场景有帮助，但设太大会降低有效 rank。",
+    "tradeoffs": "DoRA 等变体在权重分解层面有不同行为；高 dropout + 高 rank 的组合需要短测确认。"
+  },
+  "relatedConfigs": ["network_dim", "network_alpha", "lora_type", "caption_dropout_rate"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "pattern_loss_enabled",
+  "title": "Pattern Loss (频带定制 Loss)",
+  "category": "正则 / Loss",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["Loss 层"],
+  "standard": {
+    "summary": "比 wavelet_loss 更精细的频率域 loss 控制——允许对不同频带使用不同的 loss 函数（如低频用 L2，高频用 Huber）。",
+    "effect": "pattern_loss_ll_type 和 pattern_loss_high_type 分别指定低频和高频的 loss 函数。可以组合出 L2+Huber、L1+L2 等混合策略。",
+    "whenToUse": "wavelet_loss 不够精细时。需要对不同频率成分施加不同正则化策略时。",
+    "avoidWhen": "wavelet_loss 已经满足需求时不需要叠加。计算开销略高于 wavelet_loss。"
+  },
+  "advanced": {
+    "principle": "对 pred 和 target 做 DWT 分解后，对 LL 子带用 pattern_loss_ll_type（如 l2），对 LH/HL/HH 子带用 pattern_loss_high_type（如 huber，对离群高频噪声更鲁棒）。pattern_loss_high_huber_c 控制高频 Huber 的转折点。",
+    "intervention": "training_step 中替代或叠加 wavelet_loss。",
+    "expectedImpact": "在高频有噪声（JPEG 压缩伪影、传感器噪声）的数据集上比纯 L2 高频 loss 更稳定。",
+    "tradeoffs": "pattern_loss_levels 控制 DWT 分解层数。",
+    "codePath": "training_loop.py:pattern_loss() → per-band loss with configurable functions"
+  },
+  "relatedConfigs": ["pattern_loss_levels", "pattern_loss_ll_type", "pattern_loss_high_type", "pattern_loss_high_weight", "wavelet_loss_enabled"]
+}

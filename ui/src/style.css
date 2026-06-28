@@ -517,6 +517,12 @@ body.developer-mode-enabled .nav-item.developer-only {
   letter-spacing: 0.5px;
 }
 
+.section-meta-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .chevron {
   font-size: 14px;
   color: var(--text-dim);
@@ -2011,6 +2017,67 @@ details[open] > summary .collapsible-caret {
 body.compact-layout .form-section .section-content {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}
+
+/* ── 可折叠大类 section（默认展开，状态持久化）── */
+/* 用原生 <details>/<summary>，与 data-aug 等折叠面板共用 caret 逻辑 */
+details.form-section.section-collapsible {
+  padding: 24px;
+}
+details.form-section.section-collapsible > summary.section-collapsible-header {
+  list-style: none;
+  cursor: pointer;
+  margin: -24px -24px 0 -24px;
+  padding: 16px 24px;
+  background: var(--bg-nav);
+  border-bottom: 1px solid var(--border);
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background 0.15s;
+}
+details.form-section.section-collapsible > summary.section-collapsible-header::-webkit-details-marker { display: none; }
+details.form-section.section-collapsible > summary.section-collapsible-header:hover {
+  background: var(--bg-panel);
+}
+.section-collapsible-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-collapsible-title h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+/* 大类 section 折叠箭头：不旋转，用伪元素切换字符（◀ 收起 / ▼ 展开），
+   避免字符旋转导致的基线跳动；字号与「X 项参数」一致，保证垂直对齐 */
+details.form-section.section-collapsible > summary.section-collapsible-header .collapsible-caret {
+  font-size: 0;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  transform: none;
+  transition: none;
+}
+details.form-section.section-collapsible > summary.section-collapsible-header .collapsible-caret::after {
+  content: '◀';
+  font-size: 0.62rem;
+  line-height: 1;
+}
+details.form-section.section-collapsible[open] > summary.section-collapsible-header .collapsible-caret::after {
+  content: '▼';
+}
+/* 折叠状态时隐藏 description 和 content（原生 details 自动隐藏 content，但 summary 后的兄弟元素需要手动处理） */
+details.form-section.section-collapsible:not([open]) > .section-summary,
+details.form-section.section-collapsible:not([open]) > .section-content {
+  display: none;
 }
 
 .config-group {
@@ -4935,6 +5002,62 @@ body.compact-layout .config-group.row {
   border: 1px solid #d8d4ea;
   box-shadow: 0 4px 16px rgba(139, 124, 246, 0.10), 0 1.5px 4px rgba(0, 0, 0, 0.04);
 }
+
+/* ── 训练参数帮助按钮（字段标题右侧的 ?）── */
+.field-help-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; margin-left: 6px; padding: 0;
+  border: none; border-radius: 50%;
+  background: transparent; color: var(--text-muted, #a8a4bc);
+  font-size: 12px; font-weight: 700; line-height: 1;
+  cursor: pointer; vertical-align: middle;
+  transition: background 0.15s, color 0.15s;
+}
+.field-help-btn:hover { background: rgba(139, 124, 246, 0.14); color: #7568e0; }
+
+/* ── 训练参数 Wiki 帮助弹窗 ── */
+.training-option-help-modal {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(61, 58, 80, 0.35); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  padding: 24px;
+  animation: toh-fade 0.18s ease;
+}
+.training-option-help-dialog {
+  width: min(560px, 100%); max-height: 80vh; overflow: auto;
+  background: var(--bg-card, #ffffff); border: 1px solid var(--border, #d8d4ea); border-radius: 16px;
+  box-shadow: 0 12px 48px rgba(139, 124, 246, 0.18), 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+.training-option-help-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 18px 20px 12px; border-bottom: 1px solid var(--border, #eceaf3);
+}
+.training-option-help-category {
+  display: inline-block; font-size: 12px; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 2px 8px; border-radius: 6px; margin-bottom: 6px;
+}
+.training-option-help-head h3 { margin: 0; font-size: 17px; color: var(--text, #2d2a40); }
+.training-option-help-close {
+  flex-shrink: 0; width: 28px; height: 28px; border: none; border-radius: 8px;
+  background: transparent; color: var(--text-muted, #a8a4bc); font-size: 20px; line-height: 1; cursor: pointer;
+}
+.training-option-help-close:hover { background: rgba(0, 0, 0, 0.05); color: var(--text, #2d2a40); }
+.training-option-help-body { padding: 16px 20px 20px; }
+.training-option-help-row { margin-bottom: 14px; }
+.training-option-help-row:last-child { margin-bottom: 0; }
+.training-option-help-row strong { display: block; font-size: 13px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+.training-option-help-row p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text, #4a4660); }
+.training-option-help-note {
+  margin-top: 12px; padding: 10px 12px; font-size: 12px; color: #8a6d2a;
+  background: #fdf3da; border-radius: 8px;
+}
+.training-option-help-related { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border, #eceaf3); }
+.training-option-help-related-label { font-size: 12px; color: var(--text-muted, #a8a4bc); margin-right: 6px; }
+.training-option-help-related-tag {
+  display: inline-block; font-size: 12px; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent); padding: 2px 8px; border-radius: 6px; margin: 2px 4px 2px 0;
+}
+@keyframes toh-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ── Modal / Dropdown ── */
 .clay-theme .modal-overlay {

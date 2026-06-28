@@ -1,0 +1,21 @@
+{
+  "key": "masked_loss",
+  "title": "Masked Loss (遮罩损失)",
+  "category": "正则 / Loss",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["Loss 层"],
+  "standard": {
+    "summary": "使用 alpha mask 对 loss 进行区域加权——只有 mask 覆盖的区域参与 loss 计算。让模型专注于学习特定区域（如人物、物体）。",
+    "effect": "masked_loss=True 时，每张图需要一个对应的 mask（图片的 alpha 通道或 *_mask.png sidecar 文件）。mask=1 的区域正常计算 loss，mask=0 的区域 loss 为 0。",
+    "whenToUse": "训练数据有复杂背景且只想学习主体时。有手动标注的 mask 数据时。",
+    "avoidWhen": "没有 mask 数据时（会报错，除非 strict_masked_loss=False 时回退到普通 loss）。"
+  },
+  "advanced": {
+    "principle": "loss_mask 被 resize 到 latent 空间分辨率，然后在 loss 计算时逐像素乘上 mask：loss = loss * mask / mask.mean()。alpha_mask=True 时自动从 PNG alpha 通道提取 mask。strict_masked_loss=True 时如果 batch 中任何样本缺少 mask 会抛出 RuntimeError。",
+    "intervention": "training_step 中在 loss 计算后乘上 loss_mask。",
+    "expectedImpact": "在有精确 mask 的数据上可显著改善主体学习质量，减少背景干扰。",
+    "tradeoffs": "与 concept_geometry_loss_weighting 可以叠加——区域 mask × 概念权重。",
+    "codePath": "training_loop.py:loss = loss * loss_mask / loss_mask.mean()"
+  },
+  "relatedConfigs": ["alpha_mask", "strict_masked_loss"]
+}

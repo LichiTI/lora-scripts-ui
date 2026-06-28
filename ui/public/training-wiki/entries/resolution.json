@@ -1,0 +1,27 @@
+{
+  "key": "resolution",
+  "title": "训练分辨率",
+  "category": "数据集 / 分辨率",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["数据层"],
+  "standard": {
+    "summary": "训练图片的目标分辨率。分辨率越高模型学到的细节越多，但显存占用和训练时间也显著增加。是除训练步数外最影响训练成本和效果的参数。",
+    "effect": "SDXL 推荐 1024（匹配底模训练分辨率）；SD1.5 推荐 512。支持 '1024,768' 格式指定非正方形分辨率。分辨率翻倍，latent 面积翻 4 倍，显存约翻 4 倍，训练时间约翻 4 倍（UNet forward 与空间面积成正比）。",
+    "recommendedValues": {
+      "sdxl": "1024（底模训练分辨率，强烈推荐）",
+      "sd15": "512（底模训练分辨率）",
+      "anima_newbie": "1024（DiT 架构推荐）",
+      "flux": "1024（FLUX.1 推荐）"
+    },
+    "whenToUse": "匹配底模训练分辨率是最佳实践。如果显存不足，优先开 gradient_checkpointing + cache_latents 而不是降分辨率——降分辨率会丢失高频信息，模型无法学到细节。",
+    "avoidWhen": "不要在 16GB 以下显存跑 SDXL 2048——即使开了所有显存优化也很难稳定训练。enable_mixed_resolution_training 可以在同一训练中混合多个分辨率阶段（前期 512 后期 1024），兼顾速度和细节。"
+  },
+  "advanced": {
+    "principle": "分辨率 → VAE encode → latent 空间维度。SDXL VAE 下采样 8 倍：1024px → 128×128 latent（4 channels × 128 × 128 = 65536 元素）。UNet forward 的 attention 计算是 O(n²)，n = latent 面积 = (resolution/8)²。所以分辨率从 1024→2048，attention 计算量翻 16 倍（不是 4 倍）。Flash Attention 将 attention 从 O(n²) 降到 O(n)，所以高分辨率时 Flash2/SageAttn 的收益更大。",
+    "intervention": "resolution 传入 DataLoader 的 resize target 和 BucketManager 的面积基准。VAE encode 输出的 latent shape 直接取决于输入分辨率。staged_resolution 在训练过程中动态切换分辨率——例如前 500 步用 512 快速学构图，后 1500 步用 1024 学细节。",
+    "expectedImpact": "高分辨率对纹理细节（皮肤、织物、毛发）影响最大。SDXL 在 512px 训练的 LoRA 生成 1024px 图像时会出现重复纹理和模糊。对构图和色彩的影响较小——这些在低分辨率也能学好。",
+    "tradeoffs": "staged_resolution_steps 和 staged_resolution_values 控制阶段分辨率训练。例如 '500,1500' + '512,1024' 表示前 500 步 512px，后 1500 步 1024px。staged_resolution_ratio_* 系列参数按面积比例控制。这比固定分辨率节省约 20-30% 训练时间且质量接近。",
+    "codePath": "dataset_loader.py:resize/crop → VAE encode → latent (C, H/8, W/8) → UNet forward"
+  },
+  "relatedConfigs": ["enable_bucket", "min_bucket_reso", "max_bucket_reso", "enable_mixed_resolution_training", "staged_resolution_steps", "staged_resolution_values", "train_batch_size", "attention_backend"]
+}

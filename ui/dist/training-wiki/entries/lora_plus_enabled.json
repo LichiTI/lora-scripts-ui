@@ -1,0 +1,21 @@
+{
+  "key": "lora_plus_enabled",
+  "title": "LoRA+ (差分学习率)",
+  "category": "LoRA / 变体",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层", "优化器层"],
+  "standard": {
+    "summary": "LoRA+ 对 LoRA 的两个矩阵使用不同的学习率：down projection（A 矩阵）用基础 lr，up projection（B 矩阵）用更高的 lr（默认 16 倍）。",
+    "effect": "收敛速度提升约 10-20%，最终质量改善约 3-8%。不增加显存开销。",
+    "whenToUse": "几乎所有 LoRA 训练都推荐开启。免费的性能提升。",
+    "avoidWhen": "与某些自定义 optimizer 后端不兼容（需要支持 param groups）。"
+  },
+  "advanced": {
+    "principle": "LoRA 的 A 矩阵（down_proj, d_in × rank）和 B 矩阵（up_proj, rank × d_out）对梯度的敏感度不同。B 矩阵直接贡献输出，需要更大的更新步幅。lora_plus_lr_ratio=16 表示 B 矩阵的学习率是 A 矩阵的 16 倍。",
+    "intervention": "在 _build_optimizer() 中将 LoRA 参数分成两个 param group：group_A (lr) 和 group_B (lr * ratio)。",
+    "expectedImpact": "免费提升——不增加显存和计算。rank 越高改善越明显。",
+    "tradeoffs": "rs_lora 和 lora_plus 可以同时启用，作用在不同层面。advanced_optimizer_strategy='lora_plus' 是等效的全局开关。",
+    "codePath": "training_loop.py:_build_optimizer() → param_group_A (lr) + param_group_B (lr * ratio)"
+  },
+  "relatedConfigs": ["lora_plus_lr_ratio", "rs_lora_enabled", "advanced_optimizer_strategy", "learning_rate"]
+}

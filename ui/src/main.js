@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { t } from './i18n.js';
 import { api } from './api.js';
 import {
   pluginStore,
@@ -28,7 +28,7 @@ import {
   getSectionsForType,
   isFieldVisible,
   normalizeDraftValue,
-} from './sdxlSchema.js';
+} from './schemaIndex.js';
 import {
   SCHEDULER_TYPE_TO_VALUE,
 } from './features/settingsOptions.js';
@@ -48,6 +48,7 @@ import {
   persistDeletedTaskIds as _persistDeletedIdsToStorage,
 } from './utils/storage.js';
 import { configToToml as _configToToml, parseSimpleToml as _parseSimpleToml } from './utils/toml.js';
+import { loadTrainingWikiEntry, buildSchemaFallbackEntry } from './utils/trainingWiki.js';
 import {
   renderLogLines as _renderLogLines,
   createTrainingLogCursor,
@@ -127,6 +128,10 @@ const state = {
     'training-types': true,
     'preset-list': true,
   },
+  // section 级别折叠状态（持久化到 localStorage）。默认展开，只有用户手动折叠的才进 Set。
+  _collapsedSections: new Set((() => { try { return JSON.parse(localStorage.getItem('sd-rescripts:config-sections-collapsed') || '[]'); } catch (_e) { return []; } })()),
+  // 训练类型导航分组折叠状态（同上，持久化）。修复既有的“只存不读”bug：之前 toggle 写入了 localStorage 但从未恢复。
+  _collapsedTrainingGroups: new Set((() => { try { return JSON.parse(localStorage.getItem('sd-rescripts:training-groups-collapsed') || '[]'); } catch (_e) { return []; } })()),
   accentColor: localStorage.getItem('accentColor') || null,
   activeTrainingType: uiPreferences.activeTrainingType,
   config: createDefaultConfig(uiPreferences.activeTrainingType),
@@ -964,6 +969,9 @@ function renderConfig(container) {
   if (waterfall) {
     _setupWaterfallScrollSpy(container);
   }
+
+  // 绑定 section 折叠的 toggle 事件（持久化到 localStorage）
+  _bindSectionToggleEvents(container);
 }
 
 window.validateTurboLoraOutputFromConfig = async function() {
@@ -1045,6 +1053,69 @@ function _setupWaterfallScrollSpy(container) {
 
 
 
+
+// ── 训练参数 Wiki 帮助面板（与 trainingWiki.js + configForm 的 field-help-btn 联动）──
+async function openTrainingOptionHelp(fieldKey) {
+  const field = getFieldDefinition(fieldKey, state.activeTrainingType);
+  renderTrainingOptionHelpModal({ loading: true, field, fieldKey });
+  try {
+    const wikiEntry = await loadTrainingWikiEntry(fieldKey);
+    renderTrainingOptionHelpModal({ entry: wikiEntry || buildSchemaFallbackEntry(field), field, fieldKey });
+  } catch (_error) {
+    renderTrainingOptionHelpModal({ entry: buildSchemaFallbackEntry(field), field, fieldKey });
+  }
+}
+function closeTrainingOptionHelp() {
+  const modal = document.querySelector('.training-option-help-modal');
+  if (modal) modal.remove();
+}
+function renderTrainingOptionHelpModal({ entry = null, loading = false, field = null, fieldKey = '' }) {
+  closeTrainingOptionHelp();
+  const safeEntry = entry || buildSchemaFallbackEntry(field) || {
+    key: fieldKey,
+    title: fieldKey || '参数说明',
+    category: '训练参数',
+    standard: { summary: '正在加载参数说明...', effect: '', whenToUse: '', avoidWhen: '' },
+    relatedConfigs: [],
+  };
+  const standard = safeEntry.standard || {};
+  const related = Array.isArray(safeEntry.relatedConfigs) ? safeEntry.relatedConfigs : [];
+  const body = document.createElement('div');
+  body.className = 'training-option-help-modal open';
+  body.innerHTML = `
+    <div class="training-option-help-dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(safeEntry.title || '参数说明')}">
+      <div class="training-option-help-head">
+        <div>
+          <span class="training-option-help-category">${escapeHtml(safeEntry.category || '训练参数')}</span>
+          <h3>${escapeHtml(safeEntry.title || field?.label || fieldKey || '参数说明')}</h3>
+        </div>
+        <button class="training-option-help-close" type="button" title="关闭" aria-label="关闭" onclick="closeTrainingOptionHelp()">×</button>
+      </div>
+      <div class="training-option-help-body">
+        ${loading ? '<p class="field-desc">正在加载参数说明...</p>' : ''}
+        ${renderHelpRow('简单说', standard.summary)}
+        ${renderHelpRow('打开后效果', standard.effect)}
+        ${renderHelpRow('适合什么时候开', standard.whenToUse)}
+        ${renderHelpRow('什么时候先别开', standard.avoidWhen)}
+        ${safeEntry.fallback ? '<p class="training-option-help-note">完整 Wiki 条目还在补充中，当前内容来自训练 schema。</p>' : ''}
+        ${related.length ? `<div class="training-option-help-related"><span class="training-option-help-related-label">相关参数：</span>${related.map((item) => `<span class="training-option-help-related-tag">${escapeHtml(item)}</span>`).join('')}</div>` : ''}
+      </div>
+    </div>
+  `;
+  body.addEventListener('click', (event) => { if (event.target === body) closeTrainingOptionHelp(); });
+  document.body.appendChild(body);
+}
+function renderHelpRow(title, text) {
+  if (!text) return '';
+  return `
+    <div class="training-option-help-row">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(text)}</p>
+    </div>
+  `;
+}
+window.openTrainingOptionHelp = openTrainingOptionHelp;
+window.closeTrainingOptionHelp = closeTrainingOptionHelp;
 
 window.toggleTrainingGroup = function(group) {
   if (!state._collapsedTrainingGroups) state._collapsedTrainingGroups = new Set();
@@ -1163,6 +1234,115 @@ function _persistTrainingGroupsCollapsed() {
     const arr = Array.from(state._collapsedTrainingGroups || []);
     localStorage.setItem('sd-rescripts:training-groups-collapsed', JSON.stringify(arr));
   } catch (_e) { /* ignore */ }
+}
+
+// ── section 级折叠（与 configForm 的 <details> 联动）──
+// 用 <details> 原生 toggle 事件，不需要 onclick，用户点击 summary 自动切换。
+// 这里只负责持久化状态，不触发 renderView（原生 details 自动展开/收起，性能最优）。
+function _persistSectionCollapsed() {
+  try {
+    const arr = Array.from(state._collapsedSections || []);
+    localStorage.setItem('sd-rescripts:config-sections-collapsed', JSON.stringify(arr));
+  } catch (_e) { /* ignore */ }
+}
+//折叠/展开动画参数
+const COLLAPSIBLE_TOGGLE_DURATION = 300;
+const COLLAPSIBLE_TOGGLE_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)';
+
+// 取 details 内 summary 之后的所有内容元素（.section-summary / .section-content / .preflight-* 等）
+function _getDetailsContentEls(detailsEl) {
+  return [...detailsEl.children].filter((c) => c.tagName !== 'SUMMARY');
+}
+
+// 通用：用 WAAPI 对 details 内容区做 高度+透明度+margin/padding 的平滑过渡
+// 适用于大类 section、预检总览面板、预检子分组（Advisor / Precision Swap / 提示）等所有可折叠 details
+// 展开时：先 open=true 让内容渲染，下一帧测量目标高度，从 0 动画到目标
+// 收起时：先测当前高度，动画到 0，结束后才 open=false
+function _animateDetailsContent(el) {
+  if (el._animating) return;
+  el._animating = true;
+  const contentEls = _getDetailsContentEls(el);
+  const willOpen = !el.open;
+
+  const cleanUp = () => {
+    contentEls.forEach((c) => { c.style.overflow = ''; });
+    el._animating = false;
+  };
+
+  if (willOpen) {
+    el.open = true;
+    requestAnimationFrame(() => {
+      const animations = contentEls.map((c) => {
+        const targetHeight = c.offsetHeight;
+        const cs = getComputedStyle(c);
+        c.style.overflow = 'hidden';
+        return c.animate(
+          [
+            { height: '0px', opacity: '0', marginTop: '0px', marginBottom: '0px', paddingTop: '0px', paddingBottom: '0px' },
+            { height: targetHeight + 'px', opacity: '1', marginTop: cs.marginTop, marginBottom: cs.marginBottom, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom },
+          ],
+          { duration: COLLAPSIBLE_TOGGLE_DURATION, easing: COLLAPSIBLE_TOGGLE_EASING },
+        );
+      });
+      Promise.all(animations.map((a) => a.finished)).then(cleanUp).catch(cleanUp);
+    });
+  } else {
+    const animations = contentEls.map((c) => {
+      const startHeight = c.offsetHeight;
+      const cs = getComputedStyle(c);
+      c.style.overflow = 'hidden';
+      return c.animate(
+        [
+          { height: startHeight + 'px', opacity: '1', marginTop: cs.marginTop, marginBottom: cs.marginBottom, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom },
+          { height: '0px', opacity: '0', marginTop: '0px', marginBottom: '0px', paddingTop: '0px', paddingBottom: '0px' },
+        ],
+        { duration: COLLAPSIBLE_TOGGLE_DURATION, easing: COLLAPSIBLE_TOGGLE_EASING },
+      );
+    });
+    Promise.all(animations.map((a) => a.finished)).then(() => {
+      el.open = false;
+      cleanUp();
+    }).catch(() => {
+      el.open = false;
+      cleanUp();
+    });
+  }
+}
+
+// 绑定所有可折叠 details（在 renderConfig 完成后调用）：
+//   - 大类 section（data-section-collapsible）：折叠状态持久化到 localStorage
+//   - 预检总览面板（collapsible-panel）/ 预检子分组（collapsible-subgroup）：仅动画，不持久化
+// 三者共用同一套高度+透明度动画。
+function _bindSectionToggleEvents(container) {
+  const details = container.querySelectorAll(
+    'details.form-section[data-section-collapsible="true"], details.collapsible-panel, details.collapsible-subgroup'
+  );
+  details.forEach((el) => {
+    if (el._toggleBound) return;
+    el._toggleBound = true;
+    // section 折叠状态持久化（预检 details 无 id，toggle 回调里自动跳过）
+    el.addEventListener('toggle', () => {
+      const sectionId = el.id;
+      if (!sectionId) return;
+      if (!state._collapsedSections) state._collapsedSections = new Set();
+      // open=false 表示被折叠
+      if (el.open) state._collapsedSections.delete(sectionId);
+      else state._collapsedSections.add(sectionId);
+      _persistSectionCollapsed();
+    });
+    // 拦截 summary 点击，接管折叠/展开动画（阻止原生瞬间切换）
+    const summary = el.querySelector('summary');
+    if (summary) {
+   summary.addEventListener('click', (e) => {
+        // 点击 summary 内的交互控件（按钮/链接/输入框）时不拦截，避免误触折叠
+        const interactive = e.target.closest('button, a, input, select, textarea');
+        if (interactive) return;
+        if (el._animating) { e.preventDefault(); return; }
+        e.preventDefault();
+        _animateDetailsContent(el);
+      });
+    }
+  });
 }
 
 // layout actions—提前装配以供后续 renderSettings/_trainingDeps 使用

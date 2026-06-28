@@ -1,0 +1,20 @@
+{
+  "key": "save_precision",
+  "title": "保存精度",
+  "category": "精度 / 输出",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["输出层"],
+  "standard": {
+    "summary": "LoRA/模型权重保存时的数值精度。FP16 文件最小，FP32 精度最高。",
+    "effect": "fp16 文件约为 fp32 的一半大小；bf16 和 fp16 文件大小相近但数值范围不同。",
+    "whenToUse": "fp16 是最常见的选择，文件大小和推理精度平衡良好。",
+    "avoidWhen": "如果后续要 merge/继续训练，保存 fp32 或 float 避免精度累积损失。"
+  },
+  "advanced": {
+    "principle": "训练过程中权重保持 FP32 主副本（mixed_precision 下）。保存时将 FP32 权重 cast 到目标精度。fp16 有 5 位指数 + 10 位尾数，bf16 有 8 位指数 + 7 位尾数。",
+    "intervention": "在 save_pretrained / safetensors 保存时转换 dtype。",
+    "expectedImpact": "fp16/bf16 保存对推理质量影响极小（<0.1%），但文件体积减半。",
+    "tradeoffs": "mem_efficient_save 在保存前将 tensor 移到 CPU，减少保存时的 GPU 显存峰值。"
+  },
+  "relatedConfigs": ["save_model_as", "mixed_precision", "mem_efficient_save", "save_every_n_epochs"]
+}

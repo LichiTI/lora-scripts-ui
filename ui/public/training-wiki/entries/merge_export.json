@@ -1,0 +1,21 @@
+{
+  "key": "merge_export",
+  "title": "合并导出 (Merged Checkpoint)",
+  "category": "保存 / 导出",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["保存层"],
+  "standard": {
+    "summary": "训练结束后自动将 LoRA 权重合并到底模中，导出完整的合并模型而非单独的 LoRA 文件。",
+    "effect": "merge_export=True 启用合并导出。anima_merge_export 对 Anima 模型有特殊处理。导出的模型是完整的底模 + LoRA 合并结果。",
+    "whenToUse": "需要部署独立模型（不依赖推理端支持 LoRA）时。推理端只支持完整模型时。",
+    "avoidWhen": "文件会非常大（数 GB 到数十 GB）。失去 LoRA 的灵活性（无法快速切换不同适配器）。"
+  },
+  "advanced": {
+    "principle": "合并公式：W_merged = W_base + scale × (A·B)，其中 A 和 B 是 LoRA 的 down/up 矩阵，scale = alpha/dim。合并后模型推理时不需要额外的 LoRA 加载步骤。anima_merge_export 对 Anima DiT 有特殊处理（可能涉及 Qwen3 LLM adapter 的合并）。prefuse_adapter_path 允许在训练前先将已有 LoRA 合并到底模中。",
+    "intervention": "训练结束后遍历所有 LoRA 权重，计算 delta 并加到底模对应权重上。",
+    "expectedImpact": "导出完整模型。文件增大到完整底模大小。",
+    "tradeoffs": "base_weight 和 base_weights_multiplier 支持多 LoRA 加权合并。",
+    "codePath": "trainer.py:merge_export → LoRA delta computation → weight addition → full model save"
+  },
+  "relatedConfigs": ["anima_merge_export", "base_weight", "base_weight_path", "base_weights_multiplier", "prefuse_adapter_path"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "multi_gpu",
+  "title": "多 GPU 训练 (DDP)",
+  "category": "性能 / 分布式",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "启用 PyTorch DDP（Distributed Data Parallel）多 GPU 训练。每张 GPU 处理独立的 batch，梯度通过 AllReduce 同步。",
+    "effect": "2 张 GPU 约提速 1.8-1.9 倍（不是完美 2 倍，因为通信开销）。num_processes 指定 GPU 数量。",
+    "whenToUse": "有多张 GPU 且想加速训练时。",
+    "avoidWhen": "单 GPU 时不要开启。与 block swap 不兼容。"
+  },
+  "advanced": {
+    "principle": "DDP 在每张 GPU 上运行完整的训练循环，每步 optimizer.step() 前通过 NCCL AllReduce 同步所有 GPU 的梯度。ddp_gradient_as_bucket_view=True 将梯度放入连续内存桶中减少通信开销。ddp_static_graph=True 在图不变时进一步优化。ddp_find_unused_parameters 检测未使用的参数（调试用，训练时关闭）。",
+    "intervention": "entry_train.py 通过 torch.distributed.launch 启动多进程。",
+    "expectedImpact": "接近线性的加速比。2 GPU ≈ 1.85x，4 GPU ≈ 3.5x。",
+    "tradeoffs": "main_process_ip/port 配置多机训练的网络。nccl_socket_ifname 指定网络接口。",
+    "codePath": "entry_train.py:torch.distributed.launch → DDP(model) → AllReduce gradients"
+  },
+  "relatedConfigs": ["num_processes", "num_machines", "main_process_ip", "main_process_port"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "easycontrol_v2_enabled",
+  "title": "EasyControl v2 / Colorization",
+  "category": "训练 / 控制适配器",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["DiT Block", "数据集 Sidecar"],
+  "standard": {
+    "summary": "EasyControl v2 是两路 DiT 条件控制路线，Colorization（上色）作为其中一种控制任务。当前 Lulynx 已把完整链路接成默认关的 opt-in 技术储备：契约 + 两路 patch + 训练步消费 + cond-latent 缓存生产者 + cache-first 数据集消费，真机已验证。推理侧上色渲染路径也已接（anima_colorize_inference.py）：载训练好的 adapter、把控制图编码成训练同款 cond latent、条件化每次 DiT forward（无控制图时逐位 parity，gate 强制关时回归 control-OFF）。condition warmup（跳过高噪声早期步、比例 0.6 默认）修掉早期轨迹破坏，真机已渲出彩色图（机制+关时 parity+真彩色图已交付，配色美学仍是用户的活）。",
+    "effect": "v2 通过条件 latent/text sidecar、cond token 和 per-block gate/LoRA delta 影响目标 token；上色任务用线稿/灰度控制图编码出的条件 latent 引导出图配色。",
+    "whenToUse": "需要原生图像控制、上色或条件图像适配器时（默认关，需显式开启 + 操作员签字）。",
+    "avoidWhen": "只想要零风险默认训练时；该路线默认关、不改变默认行为。"
+  },
+  "advanced": {
+    "principle": "目标 token 的 query 可以 attend 到 target+condition keys，并通过条件列 bias 控制强度。",
+    "intervention": "colorize_preprocess 产线稿/灰度控制图 → colorize_cond_cache 用真 Qwen-Image VAE 把控制图编码成 cond-latent sidecar → AnimaCachedDataset 加载 sidecar → 训练步把 condition 喂给两路 patch → adapter 随 LoRA 存（easycontrol_v2.* 前缀）。",
+    "expectedImpact": "默认关时不改变训练性能（bitwise parity）；开启后增加少量条件 token 和 LoRA/gate 计算，并让出图按控制图配色。",
+    "tradeoffs": "v1 easy_control_enabled 仍是独立低风险 fallback，v2 不应静默替换 v1。无控制图的样本回退到 cache-first 派生参考（仅机制可用，非控制质量）。",
+    "codePath": "backend/core/lulynx_trainer/easycontrol_v2_anima_patch.py + colorize_cond_cache.py + anima_colorize_inference.py"
+  },
+  "relatedConfigs": ["easycontrol_v2_task", "easycontrol_v2_cond_cache_dir", "easycontrol_v2_control_image_dir", "easycontrol_v2_control_suffix"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "optimizer_state_paging_enabled",
+  "title": "优化器状态分页",
+  "category": "显存 / Offload",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["内存层", "优化器层"],
+  "standard": {
+    "summary": "将 optimizer state（AdamW 的 m_t 和 v_t）在 step 间隙停放在 CPU 内存中，只在 step 时搬到 GPU。减少 optimizer state 的常驻显存。",
+    "effect": "大 rank LoRA 的 optimizer state 可能比模型权重还大（rank=128 约 800MB）。分页可将这部分显存降到接近 0。",
+    "whenToUse": "大 rank（>64）且显存紧张时。与 PagedAdamW 优化器配合效果最好。",
+    "avoidWhen": "小 rank 时 optimizer state 本身就小，分页的 PCIe 开销可能不值得。"
+  },
+  "advanced": {
+    "principle": "optimizer.step() 前将 m_t 和 v_t 从 CPU .to('cuda')，step 后 .to('cpu') 并释放 GPU 副本。optimizer_state_paging_min_tensor_mb 只对大于阈值的 tensor 分页（小的留在 GPU）。optimizer_state_paging_pin_memory 使用 pinned memory 加速传输。",
+    "intervention": "包装 optimizer 的 state dict，在 step 前后自动搬运。",
+    "expectedImpact": "optimizer state 显存趋近于 0。step 时间增加约 10-20%（取决于 PCIe 带宽和 state 大小）。",
+    "tradeoffs": "与 fused_optimizer 可能不完全兼容。",
+    "codePath": "training_loop.py:optimizer_state_paging → per-step state .to(device)/.to('cpu')"
+  },
+  "relatedConfigs": ["optimizer_state_paging_min_tensor_mb", "optimizer_state_paging_pin_memory", "optimizer_type"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "stochastic_rounding",
+  "title": "随机舍入",
+  "category": "精度 / 优化",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["优化器层"],
+  "standard": {
+    "summary": "在 optimizer step 时使用随机舍入代替确定性舍入，减少 BF16/FP16 参数更新的系统性偏差。",
+    "effect": "标准舍入（round-to-nearest）在低精度下会系统性地偏向某个方向。随机舍入以概率方式保持无偏性，长期累积更精确。",
+    "whenToUse": "使用 full_bf16 训练时推荐开启。BF16 尾数只有 7 位，舍入误差更显著。",
+    "avoidWhen": "FP32 训练时不需要。需要严格确定性时不要开（随机舍入引入额外随机性）。"
+  },
+  "advanced": {
+    "principle": "标准 round-to-nearest: 如果值正好在两个可表示值中间，总是向偶数方向舍入，导致系统性偏差。Stochastic rounding: 以概率 p 向上舍入、概率 (1-p) 向下舍入，其中 p 与值距两端的距离成正比。期望值 = 精确值（无偏）。stochastic_grad_accumulation 对梯度累积也施加随机舍入。",
+    "intervention": "在 optimizer.step() 的参数更新阶段替换默认的 round 操作。",
+    "expectedImpact": "full_bf16 长训练中参数漂移减少约 20-30%。对混合精度训练影响较小。",
+    "tradeoffs": "增加约 5% 的 step 时间（随机数生成开销）。",
+    "codePath": "training_loop.py:optimizer.step() → stochastic_round(param_update)"
+  },
+  "relatedConfigs": ["mixed_precision", "full_bf16", "stochastic_grad_accumulation"]
+}

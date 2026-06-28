@@ -1,0 +1,20 @@
+{
+  "key": "lr_scheduler",
+  "title": "学习率调度器",
+  "category": "优化器 / 调度",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "controlnet"],
+  "layers": ["优化器层", "训练控制层"],
+  "standard": {
+    "summary": "学习率调度器决定训练过程中学习率如何变化。",
+    "effect": "余弦类通常先高后低；loss-aware 方案会根据 loss 改善情况延缓或锁定余弦相位。",
+    "whenToUse": "常规 LoRA 可从 cosine/cosine_with_restarts 开始；loss-aware 适合想避免余弦过早降到底的实验。",
+    "avoidWhen": "需要严格复现实验、loss 很噪或 batch 很小时，loss-aware 需要更保守的护栏参数。"
+  },
+  "advanced": {
+    "principle": "Loss-aware 调度器用 EMA loss 判断有效下降。下降时可保持当前余弦值，平台期再推进；加权版越到后期越重视 loss 信号。",
+    "intervention": "只改变 optimizer step 前后的 LR 计算，不改变 loss 本身。",
+    "expectedImpact": "可能把学习率停留在对当前数据仍有效的区间，给后期细节更多容量。",
+    "tradeoffs": "如果没有 max_hold、min_advance、delta 阈值等护栏，可能形成负反馈循环或过拟合局部噪声。"
+  },
+  "relatedConfigs": ["loss_scheduler_ema_alpha", "loss_scheduler_patience", "loss_scheduler_max_hold_steps", "loss_scheduler_min_advance_ratio"]
+}

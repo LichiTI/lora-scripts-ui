@@ -1,0 +1,27 @@
+{
+  "key": "torch_compile",
+  "title": "Torch Compile",
+  "category": "性能 / 编译",
+  "appliesTo": ["sdxl-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["计算层"],
+  "standard": {
+    "summary": "使用 PyTorch 2.0+ 的 torch.compile 将模型 forward 编译为优化的 CUDA kernel，消除 Python 解释器开销和冗余的 kernel launch。通常可提速 10-30%，首次编译需要几十秒到几分钟。",
+    "effect": "编译后 Python 层面的 for 循环、条件分支、中间 tensor 创建等开销被消除，多个小 kernel 被融合为一个。在 Anima/Newbie DiT 模型上效果更明显（因为 DiT 有大量重复的 Transformer block），SDXL UNet 上提升约 10-15%。",
+    "recommendedValues": {
+      "off": "默认。调试阶段或不确定兼容性时保持关闭",
+      "on + dynamic=true": "使用 bucket 多分辨率时必须开启 dynamic 模式",
+      "on + fullgraph=true": "整个 forward 编译为一个图，最大化加速但不能有任何 Python 控制流",
+      "compile_runtime=compile_cache": "编译产物缓存到磁盘，后续启动跳过编译"
+    },
+    "whenToUse": "PyTorch 2.4+ 且训练 shape 相对稳定时推荐开启。配合 compile_cache_enabled=True 可以将编译结果持久化到磁盘，第二次及以后启动不需要重新编译。compile_probe_enabled 会在训练前做 3 步性能探测，确认编译确实有收益才继续使用。",
+    "avoidWhen": "与 block swap 不兼容（training_loop.py 会显式检查并禁止同时使用）。动态 batch size 时需要 dynamic=True 否则每次 batch 变化都会重新编译。SD1.5 小模型上编译开销可能抵消收益。"
+  },
+  "advanced": {
+    "principle": "torch.compile 通过 TorchDynamo 在 Python 字节码层面捕获计算图（FX graph），然后 Inductor 后端将图编译为 Triton/CUDA C++ kernel。fullgraph 模式要求整个 forward 函数被捕获为一个图——任何 graph break（如 data-dependent control flow）都会导致编译失败。dynamic=True 允许输入 shape 变化（通过 symbolic shape），但生成的 kernel 可能不如 static shape 版本优化。CUDAGraph 更进一步，将整个 kernel 序列录制为 CUDA Graph，回放时消除所有 kernel launch overhead。",
+    "intervention": "trainer.py 在模型构建后调用 model = torch.compile(model, backend=compile_backend, mode=compile_mode, dynamic=compile_dynamic, fullgraph=compile_fullgraph)。compile_scope='per_block' 时逐 block 编译（适合 DiT 有大量相同 block 的模型）。compile_runtime='cudagraph' 在前几步 warmup 后用 CUDA Graph 录制并重放。",
+    "expectedImpact": "Anima LoRA 1024px batch=1（RTX 4090）：无编译 ≈ 1.8 it/s；compile ≈ 2.2 it/s（+22%）；compile + cudagraph ≈ 2.4 it/s（+33%）。SDXL LoRA 编译加速约 10-15%（UNet 已经比较优化）。对 LoRA 质量无影响（数学等价）。",
+    "tradeoffs": "compile_cache_root 指定缓存目录（默认 model.cache），compile_cache_reuse 控制是否复用已有缓存。compile_shape_strategy 控制 static shape 策略：fixed_pad 将输入 pad 到固定大小，token_flatten 展平 token 维度，native 不强制固定。compile_target_strategy='block' 逐 block 编译，'inner_forward' 编译内部 forward，'auto' 自动选择。",
+    "codePath": "trainer.py:torch.compile(model) → TorchDynamo capture → Inductor compile → optional CUDAGraph record/replay"
+  },
+  "relatedConfigs": ["torch_compile_backend", "torch_compile_mode", "torch_compile_dynamic", "torch_compile_fullgraph", "torch_compile_scope", "compile_runtime", "compile_cache_enabled", "compile_cache_root", "compile_shape_strategy"]
+}

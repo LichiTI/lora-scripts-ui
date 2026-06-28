@@ -1,0 +1,20 @@
+{
+  "key": "caption_source_mix_enabled",
+  "title": "Tag / NL 混合采样",
+  "category": "Caption / DiT",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["数据层", "文本条件层", "缓存层"],
+  "standard": {
+    "summary": "同一张图同时有自然语言和 tag 时，按比例抽取不同文本版本。",
+    "effect": "能让模型同时适应描述句、标签串、触发词和无文本条件。",
+    "whenToUse": "Anima / Newbie 结构化 caption 里同时有 NL 和 tags，且希望训练更接近真实提示词使用场景时开启。",
+    "avoidWhen": "只使用固定 .txt caption，或已经有旧文本缓存且不准备重建时先不要开。"
+  },
+  "advanced": {
+    "principle": "它把 caption 当成多路条件分布采样：触发词独立保留，NL/tag/trigger-only/empty 按权重选择。",
+    "intervention": "介入 caption variant 生成。cache-first 路线需要在缓存阶段生成对应变体。",
+    "expectedImpact": "降低单一标注风格偏置；空文本和仅触发词比例能增强视觉绑定，但过高会削弱语义可控性。",
+    "tradeoffs": "比例总和会归一化。改比例后，已缓存文本输出通常需要重建。"
+  },
+  "relatedConfigs": ["caption_source_nl_ratio", "caption_source_tag_ratio", "caption_source_trigger_only_ratio", "caption_source_empty_ratio", "caption_source_trigger_tokens"]
+}

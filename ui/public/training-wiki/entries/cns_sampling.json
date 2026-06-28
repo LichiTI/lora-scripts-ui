@@ -1,0 +1,21 @@
+{
+  "key": "cns_sampling",
+  "title": "CNS Colored Noise Sampling",
+  "category": "推理 / 噪声",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["采样器"],
+  "standard": {
+    "summary": "CNS 会重着色扩散噪声的频谱，用来改善高频细节与噪声纹理。当前在 Lulynx 中是 default-off 的后端契约能力。",
+    "effect": "cns_strength 控制重着色强度。强度过高可能改变画面纹理或带来不稳定细节。",
+    "whenToUse": "需要评估高频细节、纹理保持或噪声谱校准时。",
+    "avoidWhen": "当前路线没有随机噪声注入 seam，或任务要求严格复现旧采样结果时。"
+  },
+  "advanced": {
+    "principle": "在采样噪声空间调整频谱分布，保持 default-off，并通过 sampler capability matrix 判断是否能接入。",
+    "intervention": "GenerationRequest → sampler capability → stochastic noise seam。",
+    "expectedImpact": "训练时间无变化；若 sampler seam 成熟，推理质量可能提升高频细节。",
+    "tradeoffs": "它不是训练方法，也不能作为 LoRA 训练开关暴露。",
+    "codePath": "backend/core/lulynx_trainer/cns_sampling.py"
+  },
+  "relatedConfigs": ["cns", "cns_strength"]
+}

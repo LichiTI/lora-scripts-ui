@@ -1,0 +1,21 @@
+{
+  "key": "rm_enable_adaptive_batch",
+  "title": "Resource Manager (资源管理器)",
+  "category": "性能 / 资源",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["运行时层", "显存层"],
+  "standard": {
+    "summary": "Resource Manager 监控显存使用并动态调整 batch size、梯度累积步数和 checkpoint 策略，在显存压力下自动优化而不崩溃。",
+    "effect": "rm_enable_adaptive_batch 允许自动调整 batch size（min~max 范围）。rm_enable_adaptive_accumulation 允许调整梯度累积。rm_vram_warning_threshold 控制预警阈值。",
+    "whenToUse": "显存紧张或运行不同模型时想让系统自动管理显存。",
+    "avoidWhen": "需要固定 batch size 进行基准测试时。频繁调整 batch size 会影响训练一致性。"
+  },
+  "advanced": {
+    "principle": "三级阈值管理：warning（0.85）→ 日志提醒；critical（0.92）→ 触发自动调整（降 batch/增 accumulation/激活 checkpoint）；emergency（0.97）→ 强制保护措施。rm_enable_peak_tracking 追踪显存峰值用于更准确的阈值判断。rm_enable_adaptive_cpu_offload 在 VRAM 超过阈值时自动激活 CPU offload。",
+    "intervention": "每 N 步检查显存 → 阈值判断 → 触发对应级别的自适应调整。",
+    "expectedImpact": "显著减少 OOM 崩溃。自动管理显存无需手动调参。",
+    "tradeoffs": "自适应调整会改变 effective batch size，可能影响收敛速度。",
+    "codePath": "core/resource_manager/ → VRAM monitor → threshold dispatch → adaptive batch/accumulation/offload"
+  },
+  "relatedConfigs": ["rm_vram_warning_threshold", "rm_vram_critical_threshold", "rm_min_batch_size", "rm_max_batch_size", "rm_enable_adaptive_checkpointing"]
+}

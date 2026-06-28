@@ -1,0 +1,21 @@
+{
+  "key": "activation_cpu_offload_enabled",
+  "title": "激活 CPU Offload",
+  "category": "显存优化 / 激活",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["显存层"],
+  "standard": {
+    "summary": "将大的激活张量从 GPU 迁移到 CPU pinned memory，减少 GPU 激活内存占用。backward 时自动搬回 GPU 计算梯度。",
+    "effect": "activation_cpu_offload_min_tensor_mb 控制最小迁移阈值（只迁移大张量）。activation_cpu_offload_pool_gb 控制预分配的 pinned memory 池大小。",
+    "whenToUse": "激活内存成为主要瓶颈时（尤其是 DiT 模型的大序列长度场景）。",
+    "avoidWhen": "PCIe 带宽不足时迁移开销太大。已经用 gradient_checkpointing 时可能不需要。"
+  },
+  "advanced": {
+    "principle": "在 forward 时 hook autograd save_for_backward，将大于阈值的激活张量异步复制到预分配的 CPU pinned memory pool，GPU 端释放。backward 时自动触发 CUDA→CPU→GPU 的来回搬运。pool_gb 控制 pinned memory 预分配量。min_tensor_mb 避免迁移太小的张量（开销不划算）。",
+    "intervention": "save_for_backward hook → async CPU copy → GPU free → backward 时 copy back。",
+    "expectedImpact": "GPU 激活内存减少 30-60%。PCIe 传输开销约 5-15%。",
+    "tradeoffs": "与 activation_compression_enabled 可以互补——先压缩再 offload。",
+    "codePath": "training_loop.py:activation_cpu_offload → pinned CPU pool → async copy → backward hook"
+  },
+  "relatedConfigs": ["activation_cpu_offload_min_tensor_mb", "activation_cpu_offload_pool_gb", "activation_compression_enabled"]
+}

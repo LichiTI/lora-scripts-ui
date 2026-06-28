@@ -1,0 +1,21 @@
+{
+  "key": "log_with",
+  "title": "日志后端",
+  "category": "训练 / 日志",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "选择实验日志的记录后端。tensorboard 在本地记录训练曲线；wandb 上传到 Weights & Biases 云端。",
+    "effect": "tensorboard 生成本地事件文件，可通过 TensorBoard UI 查看。wandb 提供云端 dashboard、超参搜索和团队协作。",
+    "whenToUse": "tensorboard 是最轻量的选择。wandb 适合需要远程监控或团队协作时。",
+    "avoidWhen": "wandb 需要网络和 API key。不想上传数据时用 tensorboard。"
+  },
+  "advanced": {
+    "principle": "Lulynx 通过 Accelerate 的 tracker 接口集成日志后端。tensorboard 写入 logging_dir 下的事件文件。wandb 通过 wandb_api_key 认证并上传到 wandb.ai。adaptive_step_logging 自动调整日志频率——当 step 日志耗时超过阈值时降低频率。",
+    "intervention": "训练启动时初始化 tracker，每步记录 loss/lr/epoch 等指标。",
+    "expectedImpact": "不影响训练质量。tensorboard_flush_interval_steps 控制写入频率。",
+    "tradeoffs": "layer_monitor_enabled 额外记录每层的梯度/权重统计（用于调试）。wandb_run_name 设置运行名称。",
+    "codePath": "training_loop.py:log_with → Accelerate tracker → per-step logging"
+  },
+  "relatedConfigs": ["logging_dir", "log_prefix", "wandb_api_key", "wandb_run_name", "tensorboard_flush_interval_steps"]
+}

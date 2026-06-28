@@ -1,0 +1,21 @@
+{
+  "key": "so_enable_nan_detection",
+  "title": "SafeGuard (训练安全守护)",
+  "category": "训练 / 安全",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "SafeGuard 实时监控训练健康状态：检测 NaN loss、梯度异常、loss spike、学习率死锁，并在检测到问题时自动恢复（降低 lr、跳过 bad sample 等）。",
+    "effect": "so_enable_nan_detection 每 N 步检查 loss 是否为 NaN；so_enable_loss_spike_detection 检测 loss 突然飙升（>10x 正常值）；so_enable_lr_deadlock_detection 检测 lr 是否已衰减到无效水平。",
+    "whenToUse": "始终推荐开启。是训练安全的最后一道防线。默认就是开启的。",
+    "avoidWhen": "不需要关闭。开销极小（每 N 步做一次简单检查）。"
+  },
+  "advanced": {
+    "principle": "NaN 检测：检查 loss tensor 是否包含 NaN/Inf。Loss spike：维护 loss 的滑动窗口均值和标准差，当前 loss > mean + threshold * std 时判定为 spike。LR 死锁：连续 N 步 lr < threshold 时判定为死锁。自动恢复：lr *= reduction_factor，或跳过当前 batch。so_enable_bad_sample_culling 将连续导致 NaN 的样本移到 quarantine_dir。",
+    "intervention": "在 training_step 的 loss 计算后插入检查逻辑。检测到问题时：(1) 记录事件到 safeguard_events.jsonl；(2) 执行恢复动作；(3) 如果连续失败超过 max_nan_count 则 abort 训练。",
+    "expectedImpact": "防止训练因 NaN/spike 而静默失败。不改善正常训练的质量，但在异常情况下挽救训练。",
+    "tradeoffs": "so_gradient_scan_mode 控制梯度检查的粒度：batched 最快，foreach 最精确，off 禁用。",
+    "codePath": "core/training_components/safe_guard.py:TrainingSafeGuard → per-step health check → auto recovery"
+  },
+  "relatedConfigs": ["so_nan_check_interval", "so_loss_spike_threshold", "so_lr_deadlock_threshold", "so_enable_auto_recovery"]
+}

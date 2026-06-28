@@ -1,0 +1,21 @@
+{
+  "key": "tag_swap_rate",
+  "title": "Tag 交换 & 分组打乱",
+  "category": "Caption / 正则",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["数据层", "Caption 层"],
+  "standard": {
+    "summary": "tag_swap_rate 随机交换相邻 tag 对的位置；tag_group_shuffle 在由分隔符划分的组内打乱 tag。比全局 shuffle_caption 更精细的打乱控制。",
+    "effect": "tag_swap_rate=0.1 表示 10% 的相邻 tag 对会被交换。tag_group_shuffle 保持组间顺序不变，组内随机排列。",
+    "whenToUse": "想保留部分 tag 顺序信息（如重要性排序）时，比全局 shuffle 更温和。",
+    "avoidWhen": "完全不需要保留 tag 顺序时用全局 shuffle_caption 就够了。"
+  },
+  "advanced": {
+    "principle": "tag_swap_rate: 遍历 tag 列表，每对相邻 tag 以 swap_rate 概率交换位置。这是一种局部扰动而非全局打乱。tag_group_shuffle: 用 tag_group_separator（默认 '|||'）将 tag 分成组，每组内部 shuffle，组间顺序保持不变。适合 '身份|||外观|||场景' 这样的结构化 tag。",
+    "intervention": "DataLoader __getitem__ 时对 caption string 做 split/swap/shuffle/join。",
+    "expectedImpact": "轻微的额外正则化。与 shuffle_caption 组合提供更丰富的 caption 变体。",
+    "tradeoffs": "tag_group_separator 需要与数据中的实际分隔符匹配。",
+    "codePath": "dataset/elements.py:tag_augmentation() → swap pairs / group shuffle"
+  },
+  "relatedConfigs": ["shuffle_caption", "tag_group_separator", "keep_tokens"]
+}

@@ -1,0 +1,20 @@
+{
+  "key": "pcie_transfer_format",
+  "title": "PCIe 训练传输格式",
+  "category": "PCIe / 交换",
+  "appliesTo": ["sdxl-lora", "anima-lora", "newbie-lora"],
+  "layers": ["传输层", "冻结权重层"],
+  "standard": {
+    "summary": "把 CPU-pinned 冻结权重以实验性低精度格式传输，再在 GPU 侧还原。",
+    "effect": "目标是减少 PCIe 传输量，缓解低端卡 offload 等待。",
+    "whenToUse": "Streaming/offload 明显被 PCIe 卡住，且 benchmark 显示 FP8/INT8 格式有收益时尝试。",
+    "avoidWhen": "显存足够、PCIe 不是瓶颈、或追求完全保守质量时保持关闭。"
+  },
+  "advanced": {
+    "principle": "冻结权重不参与梯度更新，可以在 CPU 侧预打包为较低精度传输格式，计算前在 GPU 侧解包。",
+    "intervention": "介入 CPU-pinned 冻结 Linear 权重的搬运格式，不应影响可训练 LoRA 权重。",
+    "expectedImpact": "可能降低 PCIe bytes 和等待；收益依赖解压开销、batch 规模、prefetch 覆盖和总线带宽。",
+    "tradeoffs": "实验功能。低精度还原可能带来数值差异，默认不由自动增强开启，需用户显式选择或增强防护授权。"
+  },
+  "relatedConfigs": ["sparse_swap_enabled", "enhanced_protection_mode", "pcie_delta_cache_enabled"]
+}

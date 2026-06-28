@@ -1,0 +1,21 @@
+{
+  "key": "bubble_controller_enabled",
+  "title": "Bubble Controller (运行时自动调优)",
+  "category": "性能 / 自动调优",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["运行时层", "性能层"],
+  "standard": {
+    "summary": "Bubble Controller 是 Lulynx 的运行时自动调优引擎——实时监控 GPU 利用率、数据管道吞吐量和显存使用，自动调整 batch size、worker 数量、传输预取等参数以最大化训练吞吐。",
+    "effect": "bubble_controller_mode 有三种模式：report_only（只报告不干预）、advisor_patch（给出建议补丁）、auto_apply（自动应用最优配置）。",
+    "whenToUse": "想让系统自动找到最优训练配置时。不确定最佳 batch size / worker 数量时。",
+    "avoidWhen": "需要严格可重复的基准测试时（auto_apply 会改变运行参数）。极短训练（<50 步）时调优来不及收敛。"
+  },
+  "advanced": {
+    "principle": "Bubble 分析 GPU compute、数据管道和显存三个维度的瓶颈：(1) 如果 GPU 利用率 < target，增加 batch/worker；(2) 如果数据等待时间 > 阈值，增加 prefetch/worker；(3) 如果显存接近上限，触发 swap/offload。bubble_controller_tune_interval_steps 控制调优频率。bubble_advisor_action_ledger 记录所有建议/应用的操作历史。",
+    "intervention": "训练循环中每 N 步采集指标快照，运行 bubble 分析器，输出/应用调优建议。",
+    "expectedImpact": "自动调优通常可提升训练吞吐量 10-30%。",
+    "tradeoffs": "bubble_closed_loop 跨多次训练迭代学习，效果更稳定但需要更多次运行。",
+    "codePath": "core/bubble_controller/ → GPU util monitor + data wait profiling → adaptive batch/worker/prefetch tuning"
+  },
+  "relatedConfigs": ["bubble_controller_mode", "bubble_controller_target_active_gpu_util", "bubble_controller_warmup_steps", "bubble_controller_tune_interval_steps"]
+}

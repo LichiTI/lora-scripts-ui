@@ -1,0 +1,21 @@
+{
+  "key": "adaln_guidance",
+  "title": "AdaLN Guidance (自适应层归一化引导)",
+  "category": "DiT / 实验性",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["模型层"],
+  "standard": {
+    "summary": "在 DiT 的 Adaptive Layer Normalization 调制信号上添加可学习偏置，实现对条件信号强度的细粒度控制。",
+    "effect": "adaln_guidance_init_scale=0.0 表示初始不改变 AdaLN 行为，训练中逐渐学习合适的偏置。",
+    "whenToUse": "DiT 架构（Anima/Newbie）中想微调条件信号的影响强度时。",
+    "avoidWhen": "非 DiT 架构不需要。"
+  },
+  "advanced": {
+    "principle": "DiT 使用 AdaLN 将时间步和条件信号调制成 scale/shift/gate 三组参数。adaln_guidance 在调制信号上叠加一个可学习偏置向量 Δ = init_scale × learnable_params，使模型可以在不改变主干的情况下微调条件控制强度。这比重新训练 AdaLN 层更轻量。",
+    "intervention": "在 DiT block 的 AdaLN modulation 输出上叠加偏置。",
+    "expectedImpact": "允许更精细的条件控制。参数量很少（每层一个偏置向量）。",
+    "tradeoffs": "adaln_guidance_init_scale 控制初始影响强度。0 表示从零开始学习。",
+    "codePath": "core/lulynx/ → DiT AdaLN modulation + learnable bias"
+  },
+  "relatedConfigs": ["adaln_guidance_init_scale"]
+}

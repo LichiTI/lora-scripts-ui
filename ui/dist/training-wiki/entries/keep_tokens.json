@@ -1,0 +1,21 @@
+{
+  "key": "keep_tokens",
+  "title": "保留前 N 个 Token",
+  "category": "Caption / 正则",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["数据层", "Caption 层"],
+  "standard": {
+    "summary": "shuffle_caption 打乱标签时，保持前 N 个 token 不动。通常用于固定触发词的位置。",
+    "effect": "keep_tokens=1 时第一个 tag（通常是触发词）始终在最前面；keep_tokens=0 时全部打乱。",
+    "whenToUse": "有固定触发词（如 'lulu, red dress, ...'）时设为 1。多触发词时设为对应数量。",
+    "avoidWhen": "没有触发词或所有 tag 地位平等时设为 0。设太大等于关闭了 shuffle。"
+  },
+  "advanced": {
+    "principle": "tokenize 后取前 keep_tokens 个 token 作为固定前缀，剩余 token shuffle 后拼接。keep_tokens_separator 可以指定自定义分隔符（如 '|||'），分隔符前的内容保持不动。",
+    "intervention": "DataLoader __getitem__ 时按 separator split → 固定前缀 + shuffle 后缀 → join。",
+    "expectedImpact": "确保触发词始终在最显著的位置，增强触发词的绑定强度。",
+    "tradeoffs": "与 caption_source_mix_enabled 组合时，trigger-only 模式只保留触发词。",
+    "codePath": "dataset/elements.py:caption_preprocess() → split by separator → keep prefix → shuffle suffix"
+  },
+  "relatedConfigs": ["shuffle_caption", "keep_tokens_separator", "shuffle_caption_tags_only"]
+}

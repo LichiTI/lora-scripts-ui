@@ -1,0 +1,21 @@
+{
+  "key": "seed",
+  "title": "随机种子",
+  "category": "训练 / 控制",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "设置全局随机种子，确保训练的可复现性。相同 seed + 相同配置 = 相同结果。",
+    "effect": "影响数据采样顺序、噪声生成、权重初始化等所有随机操作。默认 42。",
+    "whenToUse": "需要复现实验结果时。对比不同超参数时固定 seed 确保公平。",
+    "avoidWhen": "想增加训练多样性时可以用不同 seed 跑多次取平均。"
+  },
+  "advanced": {
+    "principle": "设置 torch.manual_seed、torch.cuda.manual_seed_all、numpy.random.seed、random.seed。确保所有随机源一致。DataLoader 的 worker 使用 seed + worker_id 作为各自的种子。",
+    "intervention": "训练启动时设置全局种子。",
+    "expectedImpact": "确保完全可复现。不影响训练质量。",
+    "tradeoffs": "某些 CUDA 操作（如 atomicAdd）在不同 GPU 架构上可能不完全确定性。",
+    "codePath": "entry_train.py:torch.manual_seed(seed) → all random sources"
+  },
+  "relatedConfigs": ["sample_seed", "validation_seed"]
+}

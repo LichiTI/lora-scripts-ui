@@ -1,0 +1,20 @@
+{
+  "key": "module_offload_enabled",
+  "title": "模块级 CPU Offload",
+  "category": "显存 / Offload",
+  "appliesTo": ["sdxl-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["内存层", "显存管理层"],
+  "standard": {
+    "summary": "将冻结的 Linear/Conv 模块整体驻留在 CPU，只在 forward 时按需搬到 GPU。",
+    "effect": "可节省大量冻结权重显存，但增加 CPU↔GPU 搬运时间。profile 控制激进程度。",
+    "whenToUse": "极小显存（8GB 以下）运行大模型时的最后手段；low_vram_profile 会自动启用。",
+    "avoidWhen": "16GB 以上显存通常不需要；搬运开销可能使训练慢 3-5 倍。"
+  },
+  "advanced": {
+    "principle": "与 block swap 不同，module offload 将整个 module（包含所有子参数）作为一个搬运单元。module_offload_ratio 控制多少比例的模块被 offload（0-100%）。profile 预设：conservative 只 offload 最大的几个层，aggressive 几乎 offload 所有冻结层。",
+    "intervention": "替换 nn.Module 的 forward，在调用前执行 .to(device) 并在之后执行 .to('cpu')。",
+    "expectedImpact": "冻结权重显存趋近于零；但训练速度随 offload 比例线性下降。",
+    "tradeoffs": "prefetch_enabled 异步预取下一个 module 以重叠搬运和计算；include/exclude_patterns 精细控制哪些层参与 offload。"
+  },
+  "relatedConfigs": ["module_offload_ratio", "module_offload_profile", "swap_granularity", "enable_sequential_cpu_offload"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "training_type",
+  "title": "训练类型",
+  "category": "训练 / 基础",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "training_type 决定训练的整体模式：'lora' 只训练 LoRA 适配器（冻结底模）；'finetune' 训练底模所有参数（全参微调）。",
+    "effect": "LoRA 模式参数少、训练快、文件小；Finetune 模式参数多、质量天花板高但需要更多显存和时间。",
+    "whenToUse": "lora 是绝大多数场景的推荐选择。finetune 仅在追求最高质量且有足够计算资源时使用。",
+    "avoidWhen": "不要在没有足够显存的情况下选择 finetune（FLUX/Anima 全参微调可能需要 80GB+）。"
+  },
+  "advanced": {
+    "principle": "LoRA 模式只创建可训练的 adapter 层（network_dim × in/out），底模权重被冻结不参与梯度计算。Finetune 模式所有参数都参与训练，使用标准的 SGD/AdamW 更新。Anima finetune 支持渐进式解冻（anima_progressive_full_finetune_schedule）。",
+    "intervention": "trainer 根据 training_type 决定构建 LoRA adapter 还是加载全参。",
+    "expectedImpact": "LoRA 文件通常 10-200MB。Finetune 输出完整模型权重（数 GB）。",
+    "tradeoffs": "anima_full_finetune_phase 控制 Anima 全参微调的阶段策略。",
+    "codePath": "trainer.py:training_type dispatch → LoRA adapter creation / full parameter training"
+  },
+  "relatedConfigs": ["network_dim", "network_alpha", "network_module", "anima_full_finetune_phase"]
+}

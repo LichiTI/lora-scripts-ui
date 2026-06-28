@@ -1,0 +1,21 @@
+{
+  "key": "gpu_duty_cycle",
+  "title": "GPU 占空比 + 闭环温控",
+  "category": "训练 / 热管理",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "在训练步骤之间插入 GPU 空闲时间（占空比 < 1.0），或通过闭环温度控制自动调整占空比，精确控制 GPU 温度。",
+    "effect": "gpu_duty_cycle=0.8 表示每步后 GPU 空闲 20% 的时间。gpu_target_temp_c > 0 时启用闭环温控——自动调整占空比使 GPU 温度稳定在目标值。gpu_lock_clocks_mhz 锁定 GPU 核心时钟上限（需要管理员权限）。",
+    "whenToUse": "长时间训练且 GPU 温度过高时。比固定 cooldown 更精细的温度控制。",
+    "avoidWhen": "不需要温控时。占空比 < 1.0 会降低训练速度。"
+  },
+  "advanced": {
+    "principle": "gpu_duty_cycle < 1.0 时，每个训练步骤后插入 sleep((1-duty_cycle) * step_time) 的空闲时间。闭环控制：每步读取 GPU 温度传感器，如果温度 > target_temp_c 则降低占空比，如果温度 < target_temp_c 则增加占空比。gpu_lock_clocks_mhz 通过 nvidia-smi -lgc 限制核心频率上限（减少功耗和发热，但需要管理员权限）。",
+    "intervention": "训练循环中每步后根据占空比/温度插入 sleep。",
+    "expectedImpact": "精确控制 GPU 温度在安全范围内。",
+    "tradeoffs": "占空比 < 1.0 直接降低训练速度。闭环控制比固定占空比更智能但需要 GPU 温度传感器支持。",
+    "codePath": "training_loop.py:gpu_duty_cycle → per-step sleep → closed-loop temperature control"
+  },
+  "relatedConfigs": ["gpu_target_temp_c", "gpu_lock_clocks_mhz", "cooldown_every_n_epochs"]
+}

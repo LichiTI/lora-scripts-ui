@@ -1,0 +1,21 @@
+{
+  "key": "sc_trigger_dropout",
+  "title": "Smart Caption (智能丢弃)",
+  "category": "Caption / 高级",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["数据层", "Caption 层"],
+  "standard": {
+    "summary": "Smart Caption 根据标签的语义角色（触发词、风格词、质量词、内容词、修饰词）施加不同概率的丢弃。比全局 caption_dropout_rate 更精细。",
+    "effect": "sc_trigger_dropout=0 保持触发词不变；sc_style_dropout=0.05 很少丢弃风格词；sc_quality_dropout=0.3 经常丢弃质量标签（如 masterpiece）；sc_content_dropout=0.15 适度丢弃内容词。",
+    "whenToUse": "数据有详细的结构化标注时。想精细控制不同类型标签的丢弃概率时。",
+    "avoidWhen": "标注不区分语义角色时。sc_locked_tags 可以指定永不被丢弃的标签。"
+  },
+  "advanced": {
+    "principle": "将每个 caption 的标签分类为 trigger/style/quality/content/modifier 五种角色，每种角色有独立的丢弃概率。这比全局 dropout 更好——触发词应该始终保留（确保身份绑定），而质量标签经常丢弃（让模型不依赖质量标签生成高质量图像）。",
+    "intervention": "DataLoader __getitem__ 时对分类后的标签按角色分别施加 dropout。",
+    "expectedImpact": "在多概念训练中改善触发词绑定和 prompt 灵活性。",
+    "tradeoffs": "sc_locked_tags 指定不受 dropout 影响的标签列表。",
+    "codePath": "dataset/elements.py:smart_caption_dropout() → per-category dropout"
+  },
+  "relatedConfigs": ["sc_style_dropout", "sc_quality_dropout", "sc_content_dropout", "sc_modifier_dropout", "sc_locked_tags"]
+}

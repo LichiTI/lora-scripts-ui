@@ -1,0 +1,21 @@
+{
+  "key": "advanced_monitoring_enabled",
+  "title": "高级训练监控",
+  "category": "训练 / 监控",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["训练控制层"],
+  "standard": {
+    "summary": "启用高级训练诊断功能：attention 熵监控、activation 漂移检测、Hessian trace 估算、梯度余弦相似度分析、LR finder 等。",
+    "effect": "提供比标准 loss/lr 日志更深入的训练状态洞察。帮助诊断 rank collapse、过拟合、学习率不当等问题。",
+    "whenToUse": "调试训练问题或进行超参数研究时。日常训练不需要（有额外计算开销）。",
+    "avoidWhen": "正常训练时不需要。各诊断功能有独立的开关和间隔控制。"
+  },
+  "advanced": {
+    "principle": "attn_entropy_interval 监控 attention weight 的熵（低熵 = 关注点集中）。act_drift_interval 监控 activation 分布的漂移。hessian_trace_interval 估算 loss Hessian 的 trace（曲率信息）。grad_cosine_enabled 计算连续梯度之间的余弦相似度（低相似度 = 优化不稳定）。lr_finder_enabled 在训练前自动搜索最优学习率。forgetting_probe_enabled 检测灾难性遗忘。manifold_enabled 追踪权重流形变化。",
+    "intervention": "在 training_step 后按各自间隔执行诊断计算并写入日志。",
+    "expectedImpact": "不直接影响训练质量。提供问题诊断和超参数调优的数据支持。",
+    "tradeoffs": "各诊断有独立的计算开销。Hessian trace 开销最大。",
+    "codePath": "training_loop.py:per-step diagnostics → attention entropy / activation drift / Hessian trace / gradient cosine"
+  },
+  "relatedConfigs": ["attn_entropy_interval", "act_drift_interval", "hessian_trace_interval", "grad_cosine_enabled", "lr_finder_enabled", "forgetting_probe_enabled"]
+}

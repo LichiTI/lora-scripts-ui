@@ -1,0 +1,21 @@
+{
+  "key": "flexrank_lora_enabled",
+  "title": "FlexRank (弹性秩)",
+  "category": "LoRA / 变体",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "FlexRank 在训练时每步随机采样一个活跃 rank（在指定范围内），训练出的 LoRA 可以在任意 rank 下使用而不需要重新训练。",
+    "effect": "一个 checkpoint 可以在 rank=8 到 rank=64 之间自由切换。低 rank 推理快但质量略低，高 rank 质量高但推理慢。",
+    "whenToUse": "需要在不同硬件/速度需求下灵活部署时。不确定最优 rank 时。",
+    "avoidWhen": "追求单一 rank 下的最优质量时（固定 rank 训练通常更好）。"
+  },
+  "advanced": {
+    "principle": "每步从 [flexrank_lora_rank_range_min, network_dim] 中随机采样一个 active_rank，只激活前 active_rank 个 LoRA 通道参与 forward/backward。训练完成后，checkpoint 中的任何前 k 行/列切片都是可用的 rank-k LoRA。",
+    "intervention": "LoRA forward 时按 active_rank 切片 A/B 矩阵。backward 时只更新活跃通道的梯度。",
+    "expectedImpact": "多 rank 兼容的便利性代价约 5-10% 质量（相比单一最优 rank 训练）。",
+    "tradeoffs": "flexrank_lora_rank_range_min 控制最小可用 rank。",
+    "codePath": "networks/flexrank_lora.py: random rank sampling per step → sliced forward/backward"
+  },
+  "relatedConfigs": ["flexrank_lora_rank_range_min", "network_dim"]
+}

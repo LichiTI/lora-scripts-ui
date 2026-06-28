@@ -1,0 +1,21 @@
+{
+  "key": "rs_lora_enabled",
+  "title": "RS-LoRA (Rank-Stabilized)",
+  "category": "LoRA / 变体",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "RS-LoRA 将 LoRA 的缩放因子从 α/r 改为 α/√r，使得不同 rank 下 LoRA 的有效学习率保持一致。解决高 rank 训练不稳定的问题。",
+    "effect": "高 rank（>64）训练更稳定，不需要手动降低学习率。低 rank（<32）时效果与标准 LoRA 接近。",
+    "whenToUse": "使用高 rank（64-256）训练时推荐。想在不同 rank 之间做公平对比实验时。",
+    "avoidWhen": "低 rank（8-32）训练时不需要——标准缩放已经够好。"
+  },
+  "advanced": {
+    "principle": "标准 LoRA scaling = α/r。当 rank 增大时 scaling 减小，等效学习率降低。RS-LoRA scaling = α/√r，rank 增大时 scaling 降低更慢，保持更大的有效学习率。这使得 rank=128 和 rank=32 在相同 lr 下有相似的更新幅度。",
+    "intervention": "修改 LoRA forward 中的 scaling 因子：scaling = alpha / sqrt(rank) 替代 alpha / rank。",
+    "expectedImpact": "高 rank 训练的收敛速度提升，最终质量改善约 2-5%。",
+    "tradeoffs": "与 LoRA+ 策略兼容——两者作用在不同层面。",
+    "codePath": "networks/lora.py: scaling = alpha / math.sqrt(rank) when rs_lora_enabled"
+  },
+  "relatedConfigs": ["network_dim", "network_alpha", "lora_plus_enabled", "learning_rate"]
+}

@@ -1,0 +1,26 @@
+{
+  "key": "noise_offset",
+  "title": "噪声偏移",
+  "category": "正则 / 噪声",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune"],
+  "layers": ["数据层", "正则层"],
+  "standard": {
+    "summary": "在标准高斯扩散噪声上叠加一个常数偏移量，让模型学会处理比训练数据更亮或更暗的图像。是改善生成图像明暗范围最常用的正则化手段之一。",
+    "effect": "典型值 0.0358（论文推荐值）到 0.1。开启后模型对纯白/纯黑/高对比度场景的生成能力显著提升。adaptive_noise_scale 会根据 batch 内每张图片的平均亮度动态调整偏移强度——亮图加正偏移、暗图加负偏移。",
+    "recommendedValues": {
+      "conservative": "0.0358（论文原始推荐值，安全起步）",
+      "standard": "0.05-0.08（大多数场景的甜区）",
+      "strong": "0.1（训练数据明暗分布极端时）"
+    },
+    "whenToUse": "训练数据包含大量明亮户外场景或暗黑室内场景时。生成的图像在高光区域（天空、灯光）或阴影区域出现色块/模糊时。SD1.5 和 SDXL LoRA 训练中非常推荐开启。",
+    "avoidWhen": "数据本身明暗分布均匀且生成质量已经满意时不需要。设太大（> 0.15）会干扰正常的噪声学习过程，导致生成图像整体偏灰或对比度降低。FLUX/Flow-matching 架构通常不需要 noise_offset（它们的噪声调度不同）。"
+  },
+  "advanced": {
+    "principle": "标准扩散训练：noisy = √α * x_0 + √(1-α) * ε，其中 ε ~ N(0,1)。noise_offset 在 ε 上加一个常数：ε' = ε + offset，等价于把训练噪声分布从 N(0,1) 平移到 N(offset, 1)。这迫使模型学习从偏移噪声中去噪，扩展了对非标准亮度输入的泛化能力。adaptive_noise_scale 更进一步：对每张图计算 mean_brightness，然后 offset = adaptive_scale * (brightness - 0.5)，让偏移方向与图像亮度相关。",
+    "intervention": "training_loop.py 的 _add_noise() 方法中：if noise_offset > 0: noise = noise + noise_offset。adaptive 模式下在 per-sample 基础上调整。multires_noise_iterations 在多个分辨率层（通过 F.interpolate 缩放）分别叠加噪声偏移，让模型在不同空间尺度上都学到亮度泛化。",
+    "expectedImpact": "对明暗泛化改善显著——特别是在训练数据偏向某一亮度范围时。对正常亮度范围的生成质量影响可忽略（< 0.3% FID 差异）。perlin_noise_offset 使用 Perlin 噪声代替常数偏移，产生空间相关的亮度变化，适合纹理丰富的场景但计算开销更大。",
+    "tradeoffs": "noise_offset_random_strength=True 时，每步在 [0, noise_offset] 之间随机采样偏移强度，增加训练多样性但降低可复现性。spectral_noise_blend 在频率域混合低频噪声（通过高斯模糊），与 noise_offset 互补——noise_offset 影响全局亮度，spectral 影响低频结构。",
+    "codePath": "training_loop.py:_add_noise() → noise += noise_offset; adaptive: noise += scale * (brightness - 0.5)"
+  },
+  "relatedConfigs": ["adaptive_noise_scale", "noise_offset_random_strength", "multires_noise_iterations", "multires_noise_discount", "perlin_noise_offset_enabled", "spectral_noise_blend", "min_snr_gamma"]
+}

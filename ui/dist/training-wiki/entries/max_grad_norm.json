@@ -1,0 +1,20 @@
+{
+  "key": "max_grad_norm",
+  "title": "梯度裁剪",
+  "category": "优化器 / 裁剪",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora", "finetune", "flux-lora"],
+  "layers": ["优化器层"],
+  "standard": {
+    "summary": "限制梯度的最大范数，防止个别样本的异常梯度破坏整个更新方向。",
+    "effect": "设为 1.0 是标准做法；设 0 禁用裁剪；设较大值（如 10）相当于几乎不裁剪。",
+    "whenToUse": "几乎所有场景都建议保持默认 1.0；loss spike 频繁或 OOM 后恢复时可适当降低。",
+    "avoidWhen": "不要设成 0（等于不裁剪），除非你明确知道梯度范数始终健康。"
+  },
+  "advanced": {
+    "principle": "torch.nn.utils.clip_grad_norm_ 将所有参数的梯度视为一个向量，当总范数超过阈值时按比例缩放。AGC（Adaptive Gradient Clipping）则按参数范数的百分比裁剪，对不同大小的层自适应。",
+    "intervention": "在 optimizer.step() 之前介入梯度张量，按范数比例缩放。",
+    "expectedImpact": "防止梯度爆炸导致 NaN；对正常训练的收敛曲线影响很小。",
+    "tradeoffs": "过小的裁剪阈值会限制学习能力，导致收敛缓慢；gradient_guard_strategy 提供更精细的 AGC 替代方案。"
+  },
+  "relatedConfigs": ["gradient_guard_strategy", "gradient_guard_agc_clip_factor", "learning_rate"]
+}

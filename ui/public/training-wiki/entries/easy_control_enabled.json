@@ -1,0 +1,21 @@
+{
+  "key": "easy_control_enabled",
+  "title": "Easy Control (简易图像控制)",
+  "category": "训练 / 适配器",
+  "appliesTo": ["sdxl-lora", "sd-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "Easy Control 是最简单的图像条件训练方案——直接将控制图像（如边缘图、深度图）作为额外通道拼接到输入图像上。",
+    "effect": "easy_control_scale 控制条件图像的强度。easy_control_channels 控制条件图像的通道数（默认 3）。control_image_dir 指定条件图像目录。control_suffix 指定条件图像的文件名后缀。",
+    "whenToUse": "想快速实现简单的图像条件控制时。不需要额外模型（如 ControlNet）。",
+    "avoidWhen": "需要精确控制时。简单拼接方式的控制力有限。"
+  },
+  "advanced": {
+    "principle": "将条件图像（如 Canny 边缘图）缩放到与训练图像相同分辨率，然后作为额外通道拼接到输入图像上。UNet 的第一个卷积层会自动扩展以接收额外通道。easy_control_channels=3 时输入从 4 通道扩展到 7 通道。这种方式不需要额外的 ControlNet 模型，但控制力弱于专门的 ControlNet。",
+    "intervention": "DataLoader 中读取条件图像 → 缩放到训练分辨率 → 拼接到输入图像通道上。",
+    "expectedImpact": "实现基本的图像条件控制。文件增量约等于输入通道的扩展。",
+    "tradeoffs": "ip_adapter_enabled 提供更丰富的图像条件控制。",
+    "codePath": "dataset/elements.py:easy_control → read control image → concat to input channels"
+  },
+  "relatedConfigs": ["control_image_dir", "easy_control_scale", "easy_control_channels", "control_suffix"]
+}

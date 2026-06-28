@@ -1,0 +1,20 @@
+{
+  "key": "caption_dropout_rate",
+  "title": "Caption 丢弃",
+  "category": "Caption / 正则",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["数据层", "文本条件层"],
+  "standard": {
+    "summary": "训练时随机丢掉整句 caption 或部分 tag。",
+    "effect": "能降低模型对固定文字的依赖，提升触发词和视觉特征的鲁棒性。",
+    "whenToUse": "caption 过密、tag 重复、模型过度依赖文本而视觉泛化差时可以小幅开启。",
+    "avoidWhen": "数据量很小、caption 本身已经很弱，或已经缓存固定文本编码器输出时谨慎。"
+  },
+  "advanced": {
+    "principle": "Caption dropout 是条件扰动正则化。它让同一图像在不同文本条件下参与训练。",
+    "intervention": "介入 batch 采样前的 caption 生成，不直接修改图像 latent。",
+    "expectedImpact": "降低文本过拟合；过高会让模型学不到关键条件绑定。",
+    "tradeoffs": "与 cache_text_encoder_outputs 冲突或需要多变体缓存；比例应从低值开始。"
+  },
+  "relatedConfigs": ["caption_tag_dropout_rate", "caption_dropout_every_n_epochs", "cache_text_encoder_outputs"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "pcgrad_enabled",
+  "title": "PCGrad (梯度冲突解决)",
+  "category": "优化器 / 高级",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["优化器层"],
+  "standard": {
+    "summary": "PCGrad（Projecting Conflicting Gradients）检测并解决多任务/多概念训练中的梯度冲突——当两个概念的梯度方向相反时，投影掉冲突分量。",
+    "effect": "减少概念之间的互相干扰。pcgrad_conflict_threshold 控制什么程度的负余弦相似度被判定为冲突。",
+    "whenToUse": "多概念训练中概念互相干扰严重时（学了 A 忘了 B）。",
+    "avoidWhen": "单概念训练时不需要。计算开销较大（需要计算梯度间的余弦相似度矩阵）。"
+  },
+  "advanced": {
+    "principle": "对每个 LoRA 层的梯度，计算其与其他层梯度的余弦相似度。如果 cos(g_i, g_j) < threshold（冲突），将 g_i 投影到 g_j 的法平面上：g_i' = g_i - (g_i·g_j / ||g_j||²) * g_j。这消除了冲突方向的分量。pcgrad_reduction='mean' 对所有冲突投影取平均。",
+    "intervention": "在 optimizer.step() 前对梯度做 PCGrad 投影。",
+    "expectedImpact": "多概念训练中减少概念干扰约 10-20%。单概念训练无效果。",
+    "tradeoffs": "计算开销随 LoRA 层数平方增长。大模型上可能需要限制投影范围。",
+    "codePath": "training_loop.py:PCGrad → gradient conflict detection → projection → optimizer.step()"
+  },
+  "relatedConfigs": ["pcgrad_conflict_threshold", "pcgrad_reduction"]
+}

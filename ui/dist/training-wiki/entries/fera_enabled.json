@@ -1,0 +1,21 @@
+{
+  "key": "fera_enabled",
+  "title": "FeRA (特征调制适配)",
+  "category": "LoRA / 实验性",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "FeRA 通过门控机制控制 LoRA 特征的注入强度，初始门控值设为 0（不注入），训练中逐渐学习合适的注入量。",
+    "effect": "fera_gate_init=0.0 表示初始时不注入任何特征，门控值在训练中可学习。避免初期过度干扰预训练表示。",
+    "whenToUse": "想更平滑地引入 LoRA 特征时。减少训练初期的不稳定性。",
+    "avoidWhen": "增加少量参数和计算开销。实验性特性。"
+  },
+  "advanced": {
+    "principle": "在 LoRA 输出上添加可学习门控 g：output = (1-g) · base_output + g · lora_output。g 初始化为 fera_gate_init（通常 0），训练中 g 逐渐增大。这比标准 LoRA 的固定缩放更可控——模型自己决定每层需要多少 LoRA 贡献。",
+    "intervention": "LoRA forward 输出乘以可学习门控标量后叠加到基模型输出。",
+    "expectedImpact": "训练初期更稳定，减少因 LoRA 初始化不当导致的 loss spike。",
+    "tradeoffs": "每层增加一个可训练标量参数。",
+    "codePath": "core/lulynx/ → FeRA gated LoRA output"
+  },
+  "relatedConfigs": ["fera_gate_init"]
+}

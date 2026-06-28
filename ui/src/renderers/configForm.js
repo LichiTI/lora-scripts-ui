@@ -282,9 +282,13 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
     const builtinPickerIcon = (pickerMode === 'folder' || pickerMode === 'output-folder') ? '#icon-folder' : '#icon-file';
     const conflictWith = getFieldConflict(field);
     const disabledAttr = conflictWith ? ' disabled' : '';
+    const fieldKeyArg = escapeHtml(JSON.stringify(String(field.key || '')));
     const renderHeader = () => `
       <div class="field-header-row">
-        <label>${escapeHtml(label)}</label>
+        <label>
+          <span>${escapeHtml(label)}</span>
+          <button class="field-help-btn" type="button" title="查看参数说明" aria-label="查看参数说明" onclick="event.preventDefault(); event.stopPropagation(); openTrainingOptionHelp(${fieldKeyArg})">?</button>
+        </label>
         <div class="field-inline-actions" data-field-key="${field.key}">
           <button class="field-menu-toggle" type="button" title="参数更多操作" data-field-menu-key="${field.key}">···</button>
           ${showBuiltinPicker ? `<button class="picker-mode-icon-btn" type="button" title="内置文件选择器（项目目录浏览器）" onclick="openNativePicker('${field.key}', '${pickerMode}')"><svg class="icon"><use href="${builtinPickerIcon}"></use></svg></button>` : ''}
@@ -866,15 +870,24 @@ export function createConfigFormRenderer({ state, canUseBuiltinPicker, isFieldVi
       `;
     }
 
+    // 普通 section：可折叠（默认展开），状态持久化到 localStorage
+    const collapsedSections = state._collapsedSections;
+    const isSectionCollapsed = collapsedSections && collapsedSections.has(section.id);
+    const openAttr = isSectionCollapsed ? '' : ' open';
     return `
-      <section class="form-section${waterfallWideClass}" id="${escapeHtml(section.id)}">
-        <header class="section-header">
-          <h3>${escapeHtml(section.title)}</h3>
-          <span class="section-meta">${realFieldCount} 项参数</span>
-        </header>
+      <details class="form-section section-collapsible${waterfallWideClass}" id="${escapeHtml(section.id)}" data-section-collapsible="true"${openAttr}>
+        <summary class="section-header section-collapsible-header">
+          <span class="section-collapsible-title">
+            <h3>${escapeHtml(section.title)}</h3>
+          </span>
+          <span class="section-meta-wrap">
+            <span class="section-meta">${realFieldCount} 项参数</span>
+            <span class="collapsible-caret" aria-hidden="true">⌄</span>
+          </span>
+        </summary>
         <div class="section-summary">${escapeHtml(sectionDescription)}</div>
         <div class="section-content">${contentWithHelpers}</div>
-      </section>
+      </details>
     `;
   }
 

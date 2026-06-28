@@ -1,0 +1,21 @@
+{
+  "key": "glora_rank_dropout",
+  "title": "GLoRA / GLoKr (广义 LoRA)",
+  "category": "LoRA / LyCORIS",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "GLoRA（Generalized LoRA）使用 ΔW = W·A + B 的更新形式（而非标准 LoRA 的 A·B）。GLoKr 是 Kronecker 参数化的广义适配器。两者都通过 LyCORIS 框架使用。",
+    "effect": "GLoRA 的 ΔW = W·A + B 比标准 LoRA 的 A·B 表达力更强——它不仅修改低秩方向，还通过 W·A 项对原始权重做线性变换。GLoKr 用 Kronecker 积参数化广义更新。",
+    "whenToUse": "追求比标准 LoRA 更强表达力时。lycoris_algo='glora' 或 'glokr'。",
+    "avoidWhen": "推理兼容性不确定时。文件大小可能比标准 LoRA 大。"
+  },
+  "advanced": {
+    "principle": "GLoRA: ΔW = W_base·A + B，其中 A 是与 base 权重交互的变换矩阵，B 是标准低秩偏移。glora_rank_dropout 对 ΔW 每行做 dropout。glora_module_dropout 整层跳过。glora_no_materialize_forward 快速路径——链式矩阵乘法不显式构造 A,B。glora_use_tucker 对 Conv2d 使用 Tucker B 路径。GLoKr: Kronecker 参数化的广义适配器。glokr_factor 控制 Kronecker 因子。glokr_no_materialize_forward 实验性不具化前向路径。",
+    "intervention": "LyCORIS 框架中作为 glora/glokr 算法分支注入。",
+    "expectedImpact": "表达力比标准 LoRA 更强。质量提升因任务而异。",
+    "tradeoffs": "glora_export_mode/glokr_export_mode 控制导出格式（native/lora_compatible）。",
+    "codePath": "lycoris/ → GLoRA/GLoKr algorithm → ΔW = W·A + B / Kronecker parameterization"
+  },
+  "relatedConfigs": ["lycoris_algo", "glora_module_dropout", "glora_no_materialize_forward", "glokr_factor", "glokr_rank_dropout"]
+}

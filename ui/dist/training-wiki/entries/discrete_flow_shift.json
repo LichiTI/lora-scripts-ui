@@ -1,0 +1,21 @@
+{
+  "key": "discrete_flow_shift",
+  "title": "Flow Shift (流偏移)",
+  "category": "DiT / Flow",
+  "appliesTo": ["flux-lora", "finetune"],
+  "layers": ["噪声调度层"],
+  "standard": {
+    "summary": "FLUX/SD3 Flow Matching 模型的时间步偏移参数。控制噪声调度的分布形状——哪些 timestep 被更多地采样。",
+    "effect": "默认值 3.0。增大 shift 让模型更多关注中等噪声的 timestep（中间细节），减小则更多关注高噪声（全局结构）。",
+    "whenToUse": "FLUX 训练默认 3.0 通常就够用。如果发现中间细节不够好可适当增大。",
+    "avoidWhen": "SD1.5/SDXL 不使用此参数。设极端值（<1 或 >10）可能导致训练不稳定。"
+  },
+  "advanced": {
+    "principle": "Flow Matching 的 timestep t 通常从均匀分布采样。discrete_flow_shift 对 t 做 logit-normal 变换：t' = σ(shift * logit(t) + mean)。shift > 1 使分布集中在中间，shift < 1 使分布更均匀。FLUX.1 论文推荐 shift=3.0。",
+    "intervention": "training_step 中对采样的 timestep 施加 shift 变换。",
+    "expectedImpact": "影响模型对不同噪声级别的关注程度。shift=3 通常是最优的。",
+    "tradeoffs": "flow_logit_mean 和 flow_logit_std 进一步控制 logit-normal 分布的形状。",
+    "codePath": "training_loop.py:discrete_flow_shift → logit-normal timestep sampling"
+  },
+  "relatedConfigs": ["flow_logit_mean", "flow_logit_std", "guidance_scale", "flow_model"]
+}

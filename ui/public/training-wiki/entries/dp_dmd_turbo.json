@@ -1,0 +1,21 @@
+{
+  "key": "dp_dmd_turbo",
+  "title": "DP-DMD / Turbo",
+  "category": "训练 / 蒸馏",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["DiT", "LoRA Adapter"],
+  "standard": {
+    "summary": "DP-DMD / Turbo 是 Anima/Newbie few-step 学生路线，包含 CFG-baked teacher target、consistency loss、fake critic 和 diversity anchor。",
+    "effect": "目标是在更少推理步数下保留质量，但当前 Lulynx 只完成 default-off primitive 和 loop plan。",
+    "whenToUse": "后续有代表性数据、teacher/student sampler contract 和质量 A/B 时。",
+    "avoidWhen": "想直接复用当前 SDXL Turbo/LCM LoRA 入口；两者不是同一条路线。"
+  },
+  "advanced": {
+    "principle": "用 teacher 生成 few-step target，再通过一致性、critic margin 和多样性约束训练学生 LoRA。",
+    "intervention": "Future distillation route → DiT student adapter → checkpoint metadata。",
+    "expectedImpact": "理论上降低推理步数；训练成本取决于 teacher 生成和 A/B 质量门槛。",
+    "tradeoffs": "未接 trainer 前不能作为产品训练按钮出现。",
+    "codePath": "backend/core/lulynx_trainer/dp_dmd_turbo.py"
+  },
+  "relatedConfigs": ["dp_dmd_enabled", "student_steps", "teacher_steps", "guidance_scale"]
+}

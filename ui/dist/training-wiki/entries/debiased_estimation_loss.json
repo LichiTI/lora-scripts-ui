@@ -1,0 +1,21 @@
+{
+  "key": "debiased_estimation_loss",
+  "title": "去偏估计 Loss",
+  "category": "正则 / Loss",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["Loss 层"],
+  "standard": {
+    "summary": "通过 1/(1-α_t) 加权来去除标准 diffusion loss 中的偏差，让模型对所有 timestep 的学习更加均衡。是 min_snr_gamma 的替代方案。",
+    "effect": "在大 timestep（高噪声）端比 min_snr_gamma 更激进地提升权重。适合需要强去噪能力的场景。",
+    "whenToUse": "min_snr_gamma 效果不够时尝试。学术研究或需要严格去偏时。",
+    "avoidWhen": "与 min_snr_gamma 不应同时使用。数据极少时可能不稳定。"
+  },
+  "advanced": {
+    "principle": "标准 MSE loss 的期望值 E[||ε - ε_θ||²] 在不同 timestep 下是有偏的。debiased estimation 通过乘以 1/(1-α_t) 来修正这个偏差，使得各 timestep 的 loss 期望值更一致。数学上等价于 score matching 的去偏估计。",
+    "intervention": "training_loop.py: debiased_weights = 1/(1 - alpha_t)；loss *= debiased_weights。",
+    "expectedImpact": "对高噪声 timestep 的学习改善更激进。整体效果与 min_snr_gamma 类似但分布不同。",
+    "tradeoffs": "在大 timestep 端权重可能过大导致不稳定，需要观察 loss 曲线。",
+    "codePath": "training_loop.py:debiased_weights = 1/(1 - alpha_t + 1e-8)"
+  },
+  "relatedConfigs": ["min_snr_gamma", "adaptive_loss_weighting_enabled", "loss_type"]
+}

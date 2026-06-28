@@ -1,0 +1,21 @@
+{
+  "key": "spd_inference",
+  "title": "SPD Inference",
+  "category": "推理 / 多分辨率",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["Sampler", "Latent"],
+  "standard": {
+    "summary": "SPD 是多分辨率推理路线：从低分辨率 latent 逐级推进到目标分辨率。当前是 default-off schedule/resize primitive。",
+    "effect": "不同阶段使用不同 latent 尺寸和 step 预算，理论上能降低部分计算或改善大图稳定性。",
+    "whenToUse": "后续做高分辨率 Anima/Newbie 推理 A/B 或 trajectory LoRA 研究时。",
+    "avoidWhen": "当前需要可直接开启的 sampler；真实 denoise-loop 集成还未完成。"
+  },
+  "advanced": {
+    "principle": "构建多级 latent schedule，在阶段边界 resize latent 并记录 metadata。",
+    "intervention": "Future sampler loop → latent resize schedule → optional trajectory LoRA。",
+    "expectedImpact": "完整接入后可能降低大图推理成本；当前不改变运行时行为。",
+    "tradeoffs": "trajectory LoRA 被阻断到 SPD route 和 metadata 稳定之后。",
+    "codePath": "backend/core/lulynx_trainer/spd_inference.py"
+  },
+  "relatedConfigs": ["spd_enabled", "spd_levels", "spd_base_resolution", "spd_target_resolution"]
+}

@@ -1,0 +1,21 @@
+{
+  "key": "sra2_haste_enabled",
+  "title": "SRA2 + HASTE 对齐 Loss",
+  "category": "Loss / 辅助",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["Loss 层"],
+  "standard": {
+    "summary": "在 DiT 训练中额外添加 VAE 自表示对齐 loss——将 DiT 中间层特征与 VAE 编码的 GT latent 做余弦对齐，通过 HASTE 调度策略控制权重衰减。",
+    "effect": "sra2_haste_loss_type 控制对齐方式（cosine/l2/l1）。sra2_haste_base_weight 控制基础权重。HASTE 调度在指定步数范围内调整权重。",
+    "whenToUse": "DiT 训练中想让模型中间表示更好地对齐 VAE latent 空间时。",
+    "avoidWhen": "额外计算开销。与 cudagraph/offload 可能冲突。"
+  },
+  "advanced": {
+    "principle": "SRA2 在 DiT 的指定层捕获隐藏状态（sra2_haste_capture_layers），与 VAE 编码的 GT latent 做对齐。HASTE 调度：从 start_step 到 stop_step，权重从 base_weight 线性衰减到 min_weight。plateau_patience 控制早停——如果 loss 改善不足则提前停止。sra2_haste_normalize_targets 对目标做归一化。sra2_haste_stop_grad_target 阻止梯度流到 VAE 侧。",
+    "intervention": "DiT forward 中捕获中间层特征 → 计算对齐 loss → HASTE 调度权重 → 加到总 loss。",
+    "expectedImpact": "理论上提升 latent 空间的表示质量。实际效果需 A/B 验证。",
+    "tradeoffs": "decay_start_step/decay_end_step 控制衰减窗口。",
+    "codePath": "core/lulynx_trainer/sra2_haste.py → VAE self-representation alignment + HASTE schedule"
+  },
+  "relatedConfigs": ["sra2_haste_capture_layers", "sra2_haste_loss_type", "sra2_haste_base_weight", "sra2_haste_start_step", "sra2_haste_stop_step"]
+}

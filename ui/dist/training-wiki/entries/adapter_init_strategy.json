@@ -1,0 +1,21 @@
+{
+  "key": "adapter_init_strategy",
+  "title": "适配器初始化策略",
+  "category": "LoRA / 初始化",
+  "appliesTo": ["sdxl-lora", "sd-lora", "anima-lora", "newbie-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "控制 LoRA 权重的初始化方式。default 使用 Kaiming 随机初始化；PiSSA 用 SVD 分解底模权重来初始化；OLoRA 用正交初始化；LoftQ 用量化感知初始化。",
+    "effect": "好的初始化可以加速收敛并提升最终质量。PiSSA 通过 SVD 捕获底模的主要方向，通常比随机初始化收敛更快。",
+    "whenToUse": "default 适合大多数场景。PiSSA 在 finetune 和大数据集上有优势。OLoRA 在多概念训练中减少概念干扰。",
+    "avoidWhen": "PiSSA 初始化需要计算 SVD，大模型上可能耗时数分钟。LoftQ 需要量化相关依赖。"
+  },
+  "advanced": {
+    "principle": "PiSSA: 对底模权重 W 做 SVD 分解 W ≈ U·S·V^T，取前 r 个奇异值初始化 A = V[:r]·√S[:r]，B = √S[:r]·U[:r]^T。这使得 LoRA 初始状态就捕获了底模最重要的方向。pissa_svd_algo 控制 SVD 算法（rsvd 随机 SVD 更快）。OLoRA 使用 QR 分解生成正交初始化。LoftQ 在量化底模上做 LoRA 初始化。",
+    "intervention": "在 LoRA 注入阶段替换默认的 nn.init.kaiming_uniform_ 为 SVD/QR/量化感知初始化。",
+    "expectedImpact": "PiSSA 在前 100 步的 loss 比 default 低约 10-20%，最终质量改善约 2-5%。",
+    "tradeoffs": "pissa_cache_mode 控制是否在 checkpoint 中保存 PiSSA 状态。adapter_init_export_mode 控制导出时的格式。",
+    "codePath": "core/lulynx/pissa_injector.py → SVD decomposition → LoRA A/B initialization"
+  },
+  "relatedConfigs": ["pissa_init_iters", "pissa_svd_algo", "pissa_oversample", "loftq_bits"]
+}

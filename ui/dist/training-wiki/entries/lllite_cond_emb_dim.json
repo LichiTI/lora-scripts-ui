@@ -1,0 +1,21 @@
+{
+  "key": "lllite_cond_emb_dim",
+  "title": "ControlNet-LLLite (轻量控制)",
+  "category": "训练 / 适配器",
+  "appliesTo": ["sdxl-lora", "sd-lora"],
+  "layers": ["适配器层"],
+  "standard": {
+    "summary": "ControlNet-LLLite 是 ControlNet 的轻量替代——在 UNet 上注入小型适配器来接收条件图像，参数量远少于完整 ControlNet。",
+    "effect": "lllite_cond_emb_dim 控制条件图像的嵌入维度（默认 32）。lllite_mlp_dim 控制适配器的瓶颈维度（默认 64）。lllite_dropout 控制适配器内的 dropout。",
+    "whenToUse": "想用轻量方案训练 ControlNet 类控制模型时。参数量只有完整 ControlNet 的 1-5%。",
+    "avoidWhen": "需要精确控制时（轻量方案控制力弱于完整 ControlNet）。"
+  },
+  "advanced": {
+    "principle": "LLLite 在 UNet 的多个层注入小型适配器，每个适配器接收条件图像的 embedding 并通过 MLP 注入到 UNet 的中间层。lllite_skip_input_blocks/skip_output_blocks 控制是否跳过 input/output block 的注入（减少参数量）。条件图像通过 CLIP image encoder 或自定义 encoder 编码后注入。",
+    "intervention": "UNet forward 时在注入点将条件 embedding 通过 MLP 变换后叠加到特征图上。",
+    "expectedImpact": "文件大小约 10-50MB（vs 完整 ControlNet 的 1.4GB）。",
+    "tradeoffs": "控制精度不如完整 ControlNet。",
+    "codePath": "core/lulynx/ → ControlNet-LLLite adapter → UNet layer injection"
+  },
+  "relatedConfigs": ["lllite_mlp_dim", "lllite_dropout", "lllite_skip_input_blocks", "lllite_skip_output_blocks", "controlnet_model"]
+}

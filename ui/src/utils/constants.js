@@ -2,7 +2,7 @@
 // 这些常量在 main.js 与未来拆出的 actions/renderers 中都会用到，
 // 抽取到这里是为了让 main.js 的顶部装配代码更清爽，并避免循环依赖。
 
-import { UI_TABS } from '../sdxlSchema.js';
+import { UI_TABS } from '../trainingTypeRegistry.js';
 
 export const TOPBAR_TABS = UI_TABS.map((tab) => tab.key);
 

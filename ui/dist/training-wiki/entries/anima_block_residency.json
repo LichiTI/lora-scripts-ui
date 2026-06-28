@@ -1,0 +1,20 @@
+{
+  "key": "anima_block_residency",
+  "title": "Anima / Newbie Streaming Offload",
+  "category": "DiT / 显存驻留",
+  "appliesTo": ["anima-lora", "newbie-lora", "flux-lora"],
+  "layers": ["DiT 主干层", "显存驻留层", "PCIe 传输层"],
+  "standard": {
+    "summary": "控制冻结 DiT block 权重放在 GPU、流式交换，或固定在 CPU pinned 内存。",
+    "effect": "越偏 CPU 越省显存，但越依赖 PCIe 和预取策略。",
+    "whenToUse": "Anima/Newbie 高分辨率、长 token 或 16G 显存需要压峰值时使用 streaming_offload。",
+    "avoidWhen": "高端卡显存足够时 resident 通常更快；低端卡 PCIe 很弱时 block_cpu_pinned 可能产生训练空泡。"
+  },
+  "advanced": {
+    "principle": "冻结 DiT 权重不更新，可以改变驻留位置。Streaming Offload 尝试让热路径常驻、冷路径按 block 预取。",
+    "intervention": "介入冻结主干权重的设备放置和前向前搬运，不改变 LoRA 可训练参数。",
+    "expectedImpact": "显著降低 base 权重 VRAM 占用；真实吞吐由 PCIe、prefetch depth、checkpointing 和 batch 共同决定。",
+    "tradeoffs": "需要和 DiT block checkpointing、sparse swap、PCIe transfer format 一起短测，不同机器差异很大。"
+  },
+  "relatedConfigs": ["newbie_block_residency", "anima_block_prefetch", "sparse_swap_enabled", "pcie_transfer_format"]
+}

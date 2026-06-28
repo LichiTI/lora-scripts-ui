@@ -1,0 +1,21 @@
+{
+  "key": "tgate_probe",
+  "title": "T-GATE Probe",
+  "category": "推理 / Attention",
+  "appliesTo": ["anima-lora", "newbie-lora"],
+  "layers": ["Cross Attention"],
+  "standard": {
+    "summary": "T-GATE 方向是在推理后段跳过深层 text cross-attention。当前 Lulynx 只做 observe-only 计数。",
+    "effect": "tgate_start_step 和 tgate_min_block 只影响 would-skip 统计，不改变 attention 输出。",
+    "whenToUse": "需要判断后续是否值得做 attention skip A/B 时。",
+    "avoidWhen": "期待当前开关直接省时；真实 skip 路径尚未打开。"
+  },
+  "advanced": {
+    "principle": "记录 self/cross-attention 位置和满足条件的候选 block。",
+    "intervention": "GenerationRequest → sampler context → Anima attention telemetry。",
+    "expectedImpact": "当前无可宣称推理性能收益；后续若跳过深层 cross-attention 才可能降低 token 计算。",
+    "tradeoffs": "不能和 Spectrum 一样被当作已完成的加速开关。",
+    "codePath": "backend/core/lulynx_trainer/tgate.py"
+  },
+  "relatedConfigs": ["tgate_probe", "tgate_start_step", "tgate_min_block"]
+}

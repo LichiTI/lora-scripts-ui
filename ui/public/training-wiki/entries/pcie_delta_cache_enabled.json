@@ -1,0 +1,20 @@
+{
+  "key": "pcie_delta_cache_enabled",
+  "title": "PCIe Delta / Cache",
+  "category": "PCIe / 缓存",
+  "appliesTo": ["sdxl-lora", "anima-lora", "newbie-lora"],
+  "layers": ["传输层", "GPU 缓存层"],
+  "standard": {
+    "summary": "分析哪些交换层适合缓存或复用，减少重复传输。",
+    "effect": "observe 只给建议，cache_v0 会在预算内缓存部分解码副本。",
+    "whenToUse": "prefetch 覆盖差、PCIe 等待明显、同一冻结层频繁重复上 GPU 时尝试。",
+    "avoidWhen": "显存已经很紧、prefetch 已经完整覆盖，或没有明显 PCIe 等待时不要开启 cache_v0。"
+  },
+  "advanced": {
+    "principle": "冻结权重在训练中不变，部分层的 GPU 解码结果可以跨 step 复用；候选分析先估算收益和显存预算。",
+    "intervention": "observe 只读运行记录；cache_v0 介入 GPU 侧缓存，不改变训练目标。",
+    "expectedImpact": "可能减少重复传输和解码；收益取决于缓存命中、预算大小和当前 offload 图。",
+    "tradeoffs": "缓存会占用额外 VRAM。自动智能感知默认只建议，不自动分配缓存。"
+  },
+  "relatedConfigs": ["pcie_delta_cache_mode", "pcie_delta_cache_budget_mb", "vram_smart_sensing_delta_cache_enabled"]
+}
