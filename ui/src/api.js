@@ -262,14 +262,6 @@ export const api = {
     return request(`/api/system/webui_errors?${params.join('&')}`);
   },
 
-  getFirstReleaseReadiness() {
-    return request('/api/system/first_release_readiness');
-  },
-
-  refreshFirstReleaseReadiness() {
-    return postJson('/api/system/first_release_readiness/refresh', {});
-  },
-
   runTraining(config) {
     return postJson('/api/run', {
       allow_attention_fallback: true,

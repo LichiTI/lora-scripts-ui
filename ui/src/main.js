@@ -86,7 +86,7 @@ import { setupOptimizerToggle } from './actions/optimizerToggle.js';
 
 const state = createInitialAppState({ createDefaultConfig });
 installGlobalErrorReporter();
-const { renderAbout, loadAboutReleaseReadiness, refreshAboutReleaseReadiness } = createAboutRenderer({ api, showToast, reportWebuiError });
+const { renderAbout } = createAboutRenderer({ api, showToast, reportWebuiError });
 
 // renderers 工厂装配（Stage 2 增量迁移，随模块到位逐步展开）
 const renderBuiltinPickerModal = createBuiltinPickerRenderer(state);
@@ -153,8 +153,6 @@ bindWindowActions({
   refreshWebuiErrorLogs,
   startTensorBoardFromLogs,
   stopTensorBoardFromLogs,
-  loadAboutReleaseReadiness,
-  refreshAboutReleaseReadiness,
 });
 
 // wizard renderer（updateConfigValue 是 window 箭头函数，运行时延迟取）
